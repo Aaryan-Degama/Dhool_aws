@@ -17,8 +17,9 @@ lower rail. Everything else is graphite and quiet.
 - States: `fault` darkens whole columns (the share that dropped) with a dashed red rim; `dust` adds a
   khaki film and speckles; `haze` puts a cloud over it and drains the colour; `trips` blinks the rail
   light; `no_data` and `unclear` show only the outlines on the frame.
-- The array stands on a tiled terrace with a parapet; beyond it is a city skyline (flat silhouettes, some
-  with rooftop water tanks, windows lit at night and in storms). Their colours follow the sky.
+- The array stands on a tiled terrace with a shaded parapet; beyond it is a city skyline in three depths
+  (stepped tops, masts, rooftop water tanks, windows lit at night and in storms) that fades into haze
+  toward the horizon. Their colours follow the sky, and the far edge of the glass reflects it.
 - The camera is at about eye height on the terrace (13° down), so the horizon and the city are in view.
 
 ## Colour
@@ -40,20 +41,25 @@ Surfaces use a 22px radius; things you press or type into use 14px.
 ## The sky (`web/src/sky.js`, the "The sky" section of `styles.css`)
 The whole app sits under the weather over the roof. Until a home is loaded the phone's clock picks day or
 night; then Open-Meteo's current conditions for the home's location decide (coordinates rounded to about
-a kilometre). `?sky=rain` (or any name below) in the address forces one, for demos and screenshots.
+a kilometre), and the sky is checked again every ten minutes. `?sky=rain` (or any name below) in the
+address forces one, and `&dark=1` gives its night version, for demos and screenshots.
 
 | Sky | When | What is drawn |
 |---|---|---|
 | `day` | Clear or partly cloudy, daytime | Bright blue gradient, the sun |
-| `cloud` | Overcast or fog, daytime | Grey-blue gradient, a soft cloud deck |
+| `cloud` | Overcast or fog | Grey-blue gradient, a soft cloud deck; a dark version at night |
 | `rain` | Rain or drizzle, daytime | Grey-teal gradient, cloud, falling rain |
 | `storm` | Thunder, heavy rain, or any rain after dark | Dark slate gradient, faster rain, lit windows |
-| `snow` | Snow | Pale grey-blue gradient, drifting snow, a white terrace |
-| `sand` | Dust in the air at 200 µg/m³ or more | Ochre gradient, haze, sand blowing sideways |
+| `snow` | Snow | Pale grey-blue gradient, drifting snow, a white terrace; a dark version at night |
+| `sand` | A sandstorm: gusts of 40 km/h or more, visibility under 5 km, and dust of 150 µg/m³ or more, all three | Ochre gradient, haze, fine grains blowing sideways; a dark version at night |
 | `night` | Dry, after dark | Muted indigo gradient, stars, the moon, lit windows |
 
-No people and no landscape illustration: the only scene is the roof model. Rain, snow and sand fall both
-behind the page and in front of the roof scene. Surfaces turn to dark glass tinted by the sky
+Dust in the air alone is not a sandstorm: Delhi's air read 300 to 380 µg/m³ of dust on a calm, clear
+night, which wrongly triggered the first version of the rule.
+
+No people and no landscape illustration: the only scene is the roof model. Everything drawn has to be
+physically possible. Rain and snow fall both behind the page and in front of the roof scene; blown sand
+stays in the air and thins out before the terrace floor rather than streaking across it. Surfaces turn to dark glass tinted by the sky
 (`--glass`), and `--wash` and `--fault` are lightened so text keeps its contrast. Text never sits
 directly on the sky except large headings: everything small is on a surface. Nothing moves under
 reduced motion. The graphite tokens above are the fallback when no sky is set.

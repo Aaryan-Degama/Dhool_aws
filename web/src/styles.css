@@ -88,9 +88,14 @@ p { margin: 0; }
   --wash: #9dd8ff;        /* lighter than on graphite, to stay readable on glass */
   --fault: #ff8a78;
 }
-[data-sky] .card { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13); }
+[data-sky] .card {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 24px 40px -28px rgba(0, 0, 0, 0.6);
+}
 
 [data-sky="day"] {
+  --sky-top: #1b62c4; --haze: #a9d0f5; --reflect: #4477b3;
   --sky: linear-gradient(180deg, #1b62c4 0, #3f8fe6 34%, #6fb2f1 58%, #2c6cb4 100%);
   --glass: 9, 34, 78; --paper: #2c6cb4;
   --ground-far: #b3b0a6; --ground: #9a968b; --tile: rgba(60, 56, 48, 0.18); --wall: #c9c5ba; --wall-top: #e6e3da;
@@ -100,36 +105,42 @@ p { margin: 0; }
   background: radial-gradient(circle at 78% 7.1rem, #fff 0 1.15rem, rgba(255, 255, 255, 0.6) 1.5rem, rgba(255, 255, 255, 0.2) 4rem, transparent 10rem);
 }
 [data-sky="cloud"] {
+  --sky-top: #4a6784; --haze: #9db0c2; --reflect: #3a5370;
   --sky: linear-gradient(180deg, #4a6784 0, #7b95ae 45%, #8fa6bb 62%, #4f6d89 100%);
   --glass: 20, 34, 52; --paper: #4f6d89;
   --ground-far: #8d9298; --ground: #777c82; --tile: rgba(20, 24, 30, 0.2); --wall: #9ba1a8; --wall-top: #b9bfc6;
   --city-far: #8399ad; --city-near: #6b8196;
 }
 [data-sky="rain"] {
+  --sky-top: #4b6773; --haze: #8aa0a7; --reflect: #33505c;
   --sky: linear-gradient(180deg, #4b6773 0, #6d8891 45%, #7e979d 62%, #46616a 100%);
   --glass: 16, 32, 40; --paper: #46616a;
   --ground-far: #66757a; --ground: #4f5e63; --tile: rgba(10, 18, 22, 0.24); --wall: #74848a; --wall-top: #93a3a8;
   --city-far: #6f8890; --city-near: #5a737b;
 }
 [data-sky="storm"] {
+  --sky-top: #232d42; --haze: #4d5b76; --reflect: #26344c;
   --sky: linear-gradient(180deg, #232d42 0, #3d4b66 46%, #4a5873 62%, #252f45 100%);
   --glass: 10, 16, 30; --paper: #252f45;
   --ground-far: #343e52; --ground: #272f40; --tile: rgba(0, 0, 0, 0.3); --wall: #3d4860; --wall-top: #56617a;
   --city-far: #40506a; --city-near: #2f3c54; --windows: 0.85;
 }
 [data-sky="snow"] {
+  --sky-top: #5a7391; --haze: #b7c6d6; --reflect: #4a6485;
   --sky: linear-gradient(180deg, #5a7391 0, #8ea4bc 46%, #a9bccd 62%, #5f7797 100%);
   --glass: 22, 36, 58; --paper: #5f7797;
   --ground-far: #e3e9f0; --ground: #cfd8e2; --tile: rgba(90, 110, 135, 0.14); --wall: #d5dde6; --wall-top: #f3f6f9;
   --city-far: #a3b5c8; --city-near: #8a9fb5;
 }
 [data-sky="sand"] {
+  --sky-top: #7a5a2e; --haze: #c9a066; --reflect: #5a4a35;
   --sky: linear-gradient(180deg, #7a5a2e 0, #b0854a 46%, #c39a5c 62%, #6e4f28 100%);
   --glass: 44, 29, 12; --paper: #6e4f28;
   --ground-far: #a98350; --ground: #8e6b3d; --tile: rgba(50, 32, 10, 0.2); --wall: #b28a55; --wall-top: #cda671;
   --city-far: #b28c56; --city-near: #9c7745;
 }
 [data-sky="night"] {
+  --sky-top: #10122b; --haze: #2e2f5e; --reflect: #232a55;
   --sky: linear-gradient(180deg, #10122b 0, #1a1c40 34%, #2a2b57 60%, #171938 100%);
   --glass: 20, 22, 52; --paper: #171938;
   --ground-far: #22254a; --ground: #181a38; --tile: rgba(0, 0, 0, 0.28); --wall: #2a2d58; --wall-top: #41457a;
@@ -153,12 +164,38 @@ p { margin: 0; }
 [data-sky="storm"] #sky i:first-child { opacity: 0.55; }
 [data-sky="sand"] #sky i:first-child { background: linear-gradient(180deg, rgba(226, 184, 112, 0.18), rgba(226, 184, 112, 0.42) 60%, rgba(120, 84, 36, 0.3)); }
 
+/* After dark, overcast, snow and sand each keep their weather and lose the daylight. */
+[data-sky="cloud"][data-dark] {
+  --sky-top: #14162c; --haze: #32354f; --reflect: #232a45;
+  --sky: linear-gradient(180deg, #14162c 0, #24273f 40%, #32354f 60%, #191b31 100%);
+  --glass: 18, 20, 40; --paper: #191b31;
+  --ground-far: #25283f; --ground: #1a1c30; --tile: rgba(0, 0, 0, 0.28); --wall: #2d3049; --wall-top: #444866;
+  --city-far: #272a45; --city-near: #171930; --windows: 0.9;
+}
+[data-sky="snow"][data-dark] {
+  --sky-top: #1a2238; --haze: #46536f; --reflect: #2c3a58;
+  --sky: linear-gradient(180deg, #1a2238 0, #333f5c 44%, #46536f 60%, #1f2941 100%);
+  --glass: 16, 22, 40; --paper: #1f2941;
+  --ground-far: #9aa6bd; --ground: #7c89a3; --tile: rgba(30, 40, 60, 0.18); --wall: #8793ab; --wall-top: #b3bdd0;
+  --city-far: #3b4864; --city-near: #2a3550; --windows: 0.9;
+}
+[data-sky="sand"][data-dark] {
+  --sky-top: #241b10; --haze: #5c4628; --reflect: #3a3024;
+  --sky: linear-gradient(180deg, #241b10 0, #4a3820 46%, #5c4628 60%, #2a2012 100%);
+  --glass: 26, 18, 8; --paper: #2a2012;
+  --ground-far: #54412a; --ground: #3d2f1d; --tile: rgba(0, 0, 0, 0.26); --wall: #5a4630; --wall-top: #7a6243;
+  --city-far: #4a3a25; --city-near: #35291a; --windows: 0.7;
+}
+[data-sky="sand"][data-dark] #sky i:first-child { opacity: 0.45; }
+/* Blown sand hangs in the air: it thins out before the terrace floor instead of streaking across it. */
+[data-sky="sand"] .hero::after { -webkit-mask-image: linear-gradient(#000 38%, transparent 62%); mask-image: linear-gradient(#000 38%, transparent 62%); }
+
 /* What falls: in the sky behind the page, and again in front of the roof scene so it rains on the
    panels too. Each layer is taller (or wider) than its box by one full repeat and slides by exactly that
    much, so the loop has no seam. */
 [data-sky="rain"], [data-sky="storm"] { --fall: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='300'%3E%3Cpath d='M215 245l-3 22M184 296l-3 22M16 213l-3 22M120 49l-3 22M174 157l-3 22M73 131l-3 22M112 10l-3 22M95 221l-3 22M134 245l-3 22M33 260l-3 22M61 104l-3 22M91 297l-3 22M192 271l-3 22M115 249l-3 22M166 134l-3 22M157 289l-3 22M153 35l-3 22M49 218l-3 22' stroke='%23fff' stroke-opacity='.42' stroke-width='1.1' stroke-linecap='round' fill='none'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='330' height='450'%3E%3Cpath d='M123 44l-5 30M225 284l-5 30M2 251l-5 30M216 120l-5 30M75 55l-5 30M249 347l-5 30M149 378l-5 30M303 239l-5 30M201 261l-5 30M309 108l-5 30M216 39l-5 30M136 37l-5 30' stroke='%23fff' stroke-opacity='.28' stroke-width='1.1' stroke-linecap='round' fill='none'/%3E%3C/svg%3E"); }
 [data-sky="snow"] { --fall: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='300' fill='%23fff' fill-opacity='.9'%3E%3Ccircle cx='41' cy='147' r='1.3'/%3E%3Ccircle cx='127' cy='143' r='1.2'/%3E%3Ccircle cx='72' cy='40' r='1.9'/%3E%3Ccircle cx='153' cy='173' r='1.6'/%3E%3Ccircle cx='182' cy='126' r='1.7'/%3E%3Ccircle cx='42' cy='187' r='2.0'/%3E%3Ccircle cx='213' cy='36' r='1.7'/%3E%3Ccircle cx='173' cy='80' r='1.9'/%3E%3Ccircle cx='186' cy='152' r='2.2'/%3E%3Ccircle cx='47' cy='101' r='1.1'/%3E%3Ccircle cx='77' cy='184' r='1.4'/%3E%3Ccircle cx='121' cy='136' r='2.2'/%3E%3Ccircle cx='210' cy='253' r='1.5'/%3E%3Ccircle cx='16' cy='201' r='1.3'/%3E%3Ccircle cx='25' cy='214' r='1.1'/%3E%3Ccircle cx='175' cy='137' r='1.9'/%3E%3Ccircle cx='142' cy='224' r='1.1'/%3E%3Ccircle cx='132' cy='24' r='1.4'/%3E%3Ccircle cx='197' cy='270' r='1.3'/%3E%3Ccircle cx='114' cy='196' r='1.1'/%3E%3Ccircle cx='12' cy='251' r='1.0'/%3E%3Ccircle cx='112' cy='109' r='1.1'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='330' height='450' fill='%23fff' fill-opacity='.6'%3E%3Ccircle cx='146' cy='145' r='0.7'/%3E%3Ccircle cx='133' cy='352' r='0.9'/%3E%3Ccircle cx='192' cy='239' r='1.1'/%3E%3Ccircle cx='223' cy='429' r='1.0'/%3E%3Ccircle cx='294' cy='136' r='1.5'/%3E%3Ccircle cx='96' cy='231' r='1.0'/%3E%3Ccircle cx='179' cy='296' r='1.4'/%3E%3Ccircle cx='117' cy='284' r='0.9'/%3E%3Ccircle cx='158' cy='26' r='1.4'/%3E%3Ccircle cx='79' cy='187' r='1.1'/%3E%3Ccircle cx='277' cy='226' r='0.7'/%3E%3Ccircle cx='176' cy='95' r='1.3'/%3E%3Ccircle cx='147' cy='110' r='0.7'/%3E%3Ccircle cx='124' cy='439' r='1.1'/%3E%3Ccircle cx='309' cy='156' r='1.1'/%3E%3Ccircle cx='100' cy='389' r='1.5'/%3E%3C/svg%3E"); }
-[data-sky="sand"] { --fall: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Cpath d='M28 196h45M185 26h22M176 18h52M295 113h20M227 168h42M318 14h50M113 48h19M182 142h21M99 38h50M218 17h20M247 163h15M268 146h19M222 55h29M37 68h41M278 3h20M180 18h37M329 181h37M165 32h23M225 160h23M243 179h26M347 170h36M49 63h19M261 32h25M132 98h51M93 111h20M9 111h38M359 135h53M376 116h44M327 86h20M322 63h25' stroke='%23f3d9a4' stroke-opacity='.5' stroke-width='1' stroke-linecap='round' fill='none'/%3E%3C/svg%3E"); }
+[data-sky="sand"] { --fall: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='220'%3E%3Cpath d='M28 136l8 2M295 133l9 2M113 148l4 1M218 217l9 2M222 95l7 2M180 58l9 2M225 180l3 1M49 103l6 2M93 171l8 2M376 196l8 2M352 165l4 1M129 130l9 2M282 69l8 2M396 98l3 1M311 20l3 1M37 193l7 2M323 113l5 2M76 89l3 1M5 60l3 1M235 192l9 2' stroke='%23f6e2b8' stroke-opacity='.38' stroke-width='.9' stroke-linecap='round' fill='none'/%3E%3Cg fill='%23f6e2b8' fill-opacity='.42'%3E%3Ccircle cx='185' cy='206' r='0.7'/%3E%3Ccircle cx='176' cy='218' r='0.5'/%3E%3Ccircle cx='227' cy='108' r='0.5'/%3E%3Ccircle cx='318' cy='134' r='0.9'/%3E%3Ccircle cx='182' cy='2' r='1.0'/%3E%3Ccircle cx='99' cy='78' r='0.5'/%3E%3Ccircle cx='247' cy='83' r='0.6'/%3E%3Ccircle cx='268' cy='66' r='1.0'/%3E%3Ccircle cx='37' cy='28' r='1.0'/%3E%3Ccircle cx='278' cy='23' r='0.5'/%3E%3Ccircle cx='329' cy='141' r='1.0'/%3E%3Ccircle cx='165' cy='32' r='0.8'/%3E%3Ccircle cx='243' cy='79' r='0.9'/%3E%3Ccircle cx='347' cy='30' r='0.9'/%3E%3Ccircle cx='261' cy='32' r='0.8'/%3E%3Ccircle cx='132' cy='138' r='0.8'/%3E%3Ccircle cx='9' cy='71' r='0.5'/%3E%3Ccircle cx='359' cy='155' r='0.8'/%3E%3Ccircle cx='327' cy='26' r='0.9'/%3E%3Ccircle cx='322' cy='23' r='0.8'/%3E%3Ccircle cx='234' cy='34' r='1.0'/%3E%3Ccircle cx='17' cy='67' r='0.6'/%3E%3Ccircle cx='237' cy='52' r='0.7'/%3E%3Ccircle cx='138' cy='187' r='0.5'/%3E%3Ccircle cx='30' cy='206' r='0.8'/%3E%3Ccircle cx='46' cy='31' r='0.9'/%3E%3Ccircle cx='240' cy='21' r='0.5'/%3E%3Ccircle cx='385' cy='0' r='0.9'/%3E%3Ccircle cx='201' cy='207' r='0.7'/%3E%3Ccircle cx='328' cy='94' r='0.8'/%3E%3Ccircle cx='190' cy='143' r='0.5'/%3E%3Ccircle cx='383' cy='178' r='0.5'/%3E%3Ccircle cx='222' cy='193' r='0.8'/%3E%3Ccircle cx='241' cy='211' r='0.5'/%3E%3Ccircle cx='356' cy='26' r='0.7'/%3E%3Ccircle cx='363' cy='92' r='0.6'/%3E%3Ccircle cx='235' cy='53' r='0.7'/%3E%3Ccircle cx='123' cy='149' r='0.7'/%3E%3Ccircle cx='176' cy='113' r='0.6'/%3E%3Ccircle cx='236' cy='151' r='1.0'/%3E%3C/g%3E%3C/svg%3E"); }
 .hero::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
 #sky i:last-child, .hero::after { background: var(--fall, none); }
 [data-sky="rain"] #sky i:last-child, [data-sky="rain"] .hero::after, [data-sky="storm"] #sky i:last-child, [data-sky="storm"] .hero::after,
@@ -218,11 +255,16 @@ button:disabled { opacity: 0.55; cursor: progress; }
 /* The terrace the array stands on, its parapet, and the city beyond. Colours come from the sky above. */
 .pm-ground-far { stop-color: var(--ground-far, #2a2e36); }
 .pm-ground-near { stop-color: var(--ground, #1c1f25); }
-.pm-tiles { fill: none; stroke: var(--tile, rgba(255, 255, 255, 0.05)); stroke-width: 0.7; }
-.pm-wall { fill: var(--wall, #2f343d); }
+.pm-tiles { fill: none; stroke: var(--tile, rgba(255, 255, 255, 0.05)); stroke-width: 0.5; }
+.pm-wall-hi { stop-color: var(--wall, #2f343d); }
+.pm-wall-lo { stop-color: color-mix(in srgb, var(--wall, #2f343d) 70%, #000); }
+.pm-wall-foot { stroke: #000; stroke-opacity: 0.22; stroke-width: 2.5; }
+.pm-haze { stop-color: var(--haze, #14171c); }
+.pm-reflect { stop-color: var(--reflect, #27405f); }  /* the sky, seen in the far edge of the glass */
 .pm-wall-top { stroke: var(--wall-top, #474d58); stroke-width: 2.2; }
+.pm-city .back { fill: color-mix(in srgb, var(--city-far, #20242b) 55%, var(--haze, #14171c)); }
 .pm-city .far { fill: var(--city-far, #20242b); }
-.pm-city .near rect { fill: var(--city-near, #171a20); }
+.pm-city .near { fill: var(--city-near, #171a20); }
 .pm-windows { fill: #ffd98a; opacity: var(--windows, 0); }
 .pm-shadow { fill: #000; opacity: 0.42; }
 .pm-frame path { fill: none; stroke: #6f7986; stroke-width: 2; stroke-linecap: round; }

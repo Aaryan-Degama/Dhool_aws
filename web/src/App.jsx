@@ -431,7 +431,14 @@ function Home({ house, onSignOut }) {
   useEffect(() => { load(); return () => clearInterval(timer.current); }, [house.house_id]);
   // The sky behind the app is the weather over this roof. If it cannot be fetched, the clock's sky stays.
   useEffect(() => {
-    api(`/houses/${house.house_id}`).then((h) => skyOver(h.lat, h.lon)).then(setSky).catch(() => {});
+    let every, gone = false;
+    api(`/houses/${house.house_id}`).then((h) => {
+      if (gone) return;
+      const look = () => skyOver(h.lat, h.lon).then(setSky).catch(() => {});
+      look();
+      every = setInterval(look, 10 * 60 * 1000);  // the weather moves on while the app stays open
+    }).catch(() => {});
+    return () => { gone = true; clearInterval(every); };
   }, [house.house_id]);
   const go = (id) => { setTab(id); window.scrollTo(0, 0); };
 

@@ -61,14 +61,14 @@ const SKYLINE = (() => {
     const out = [];
     for (let x = -100; x < VIEW_W + 100;) {
       const w = wMin + next() * (wMax - wMin);
-      out.push({ x, w, h: hMin + next() * (hMax - hMin), tank: next() < 0.4 });
+      out.push({ x, w, h: hMin + next() * (hMax - hMin), tank: next() < 0.35, crown: next() < 0.3, mast: next() < 0.14 });
       x += w + next() * 4;
     }
     return out;
   };
-  const far = row(12, 30, 8, 26), near = row(18, 42, 14, 44);
+  const back = row(10, 26, 4, 15), far = row(12, 30, 9, 27), near = row(18, 42, 14, 44);
   const windows = near.flatMap((b) => Array.from({ length: Math.floor((b.w * b.h) / 70) }, () => [b.x + 3 + next() * (b.w - 7), 3 + next() * (b.h - 6)]));
-  return { far, near, windows };
+  return { back, far, near, windows };
 })();
 
 const DUST = (() => {  // the same speckles every time: a tiny seeded generator, not Math.random
@@ -181,8 +181,12 @@ export function PanelModel({ verdict }) {
           <stop offset="0" className="pm-ground-far" /><stop offset="0.72" className="pm-ground-near" /><stop offset="1" className="pm-ground-near" stopOpacity="0" />
         </linearGradient>
         <clipPath id={`${id}floor`}><polygon points={floor} /></clipPath>
+        <linearGradient id={`${id}haze`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" className="pm-haze" stopOpacity="0" /><stop offset="0.3" className="pm-haze" stopOpacity="0.5" /><stop offset="0.6" className="pm-haze" stopOpacity="0.82" /><stop offset="1" className="pm-haze" stopOpacity="0.9" />
+        </linearGradient>
+        <linearGradient id={`${id}wall`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" className="pm-wall-hi" /><stop offset="1" className="pm-wall-lo" /></linearGradient>
         <linearGradient id={`${id}glass`} gradientUnits="userSpaceOnUse" x1={topX} y1={topY} x2={lowX} y2={lowY}>
-          <stop offset="0" stopColor="#27405f" /><stop offset="0.45" stopColor="#101d30" /><stop offset="1" stopColor="#080f1a" />
+          <stop offset="0" className="pm-reflect" /><stop offset="0.45" stopColor="#101d30" /><stop offset="1" stopColor="#080f1a" />
         </linearGradient>
         <linearGradient id={`${id}sheen`} gradientUnits="userSpaceOnUse" x1={topX} y1={topY} x2={lowX} y2={lowY}>
           <stop offset="0" stopColor="#fff" stopOpacity="0.3" /><stop offset="1" stopColor="#fff" stopOpacity="0.03" />
@@ -196,18 +200,29 @@ export function PanelModel({ verdict }) {
       </defs>
 
       <g className="pm-city" transform={`translate(${drift.toFixed(1)} 0)`}>
-        {SKYLINE.far.map((b, i) => <rect key={i} className="far" x={b.x.toFixed(1)} y={(FIT.horizon - b.h).toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} />)}
-        {SKYLINE.near.map((b, i) => (
-          <g key={i} className="near">
-            <rect x={b.x.toFixed(1)} y={(FIT.horizon - b.h).toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} />
-            {b.tank && <rect x={(b.x + b.w * 0.25).toFixed(1)} y={(FIT.horizon - b.h - 4.5).toFixed(1)} width="6.5" height="4.5" rx="1.6" />}
+        {["back", "far", "near"].map((depth) => (
+          <g key={depth} className={depth}>
+            {SKYLINE[depth].map((b, i) => {
+              const top = FIT.horizon - b.h;
+              return (
+                <g key={i}>
+                  <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} />
+                  {b.crown && <rect x={(b.x + b.w * 0.2).toFixed(1)} y={(top - 4).toFixed(1)} width={(b.w * 0.6).toFixed(1)} height="4" />}
+                  {depth === "near" && b.tank && !b.crown && <rect x={(b.x + b.w * 0.22).toFixed(1)} y={(top - 4.5).toFixed(1)} width="6.5" height="4.5" rx="1.6" />}
+                  {depth !== "back" && b.mast && <rect x={(b.x + b.w * 0.7).toFixed(1)} y={(top - 13).toFixed(1)} width="0.9" height="13" />}
+                </g>
+              );
+            })}
           </g>
         ))}
         <g className="pm-windows">{SKYLINE.windows.map(([x, up], i) => <rect key={i} x={x.toFixed(1)} y={(FIT.horizon - up).toFixed(1)} width="1.7" height="2.2" />)}</g>
+        {/* The air thickens toward the horizon, so the feet of the buildings fade into it. */}
+        <rect x="-110" y={FIT.horizon - 46} width={VIEW_W + 220} height="170" fill={`url(#${id}haze)`} />
       </g>
-      <polygon className="pm-wall" points={flat([...wallTop, wallBase[1], wallBase[0]])} />
+      <polygon points={flat([...wallTop, wallBase[1], wallBase[0]])} fill={`url(#${id}wall)`} />
       <path className="pm-wall-top" d={`M${flat([wallTop[0]])}L${flat([wallTop[1]])}`} />
       <polygon points={floor} fill={`url(#${id}ground)`} />
+      <path className="pm-wall-foot" d={`M${flat([wallBase[0]])}L${flat([wallBase[1]])}`} />
       <path className="pm-tiles" d={tiles} clipPath={`url(#${id}floor)`} />
       <polygon className="pm-shadow" filter={`url(#${id}blur)`}
                points={poly([[-WIDE / 2, 0, ZF], [WIDE / 2, 0, ZF], [WIDE / 2, 0, -ZF], [-WIDE / 2, 0, -ZF]])} />

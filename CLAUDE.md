@@ -47,7 +47,7 @@ _Deploy commands are planned; confirm each one when that code exists._
 - `backend/requirements-analysis.txt` holds the heavy pvlib dependencies for the analysis container. Do not add a `backend/requirements.txt`: SAM would pack those into the small API Lambda zip.
 - Run one function locally: `sam local invoke <FunctionName>`
 - Frontend: `npm run dev` / `npm run build` in `web/`; `/#preview` shows every verdict state without signing in. Amplify Hosting builds `main` using `amplify.yml`.
-- Web test (the weather-to-sky rule): `npm test` in `web/`. Add `?sky=day|cloud|rain|storm|snow|sand|night` to the address to force a sky.
+- Web test (the weather-to-sky rule): `npm test` in `web/`. Add `?sky=day|cloud|rain|storm|snow|sand|night` to the address to force a sky, and `&dark=1` for its night version.
 - Design decisions live in `DESIGN.md`; read it before changing the UI.
 - Android emulator (AVD `dhool`, Android 15): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 
