@@ -4,7 +4,7 @@
   "description": "Is your rooftop solar actually working?",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0A0D12",
-  "theme_color": "#0A0D12",
+  "background_color": "#0B0C0F",
+  "theme_color": "#1B1E24",
   "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
 }

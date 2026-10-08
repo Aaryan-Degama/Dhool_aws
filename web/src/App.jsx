@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, confirmSignUp, plants, signedIn, signIn, signOut, signUp } from "./api.js";
 import { TARIFF_NOTE } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
-import { day, Forecast, Panel, WhyChart } from "./visuals.jsx";
+import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, WhyChart } from "./visuals.jsx";
 
 // What the homeowner should do, in their words. The API's verdict and cause pick the line.
 const HEADLINE = {
@@ -16,6 +16,7 @@ const HEADLINE = {
   "OK:ok": "Your solar is working",
 };
 const SURE = { high: "Dhool is sure about this.", medium: "Dhool is fairly sure about this.", low: "Dhool is not sure yet." };
+const SURE_SHORT = { high: "Dhool is sure", medium: "Fairly sure", low: "Not sure yet" };
 
 function useAction() {
   const [state, setState] = useState({ busy: false, error: "" });
@@ -64,7 +65,8 @@ function Auth({ onDone }) {
 
   return (
     <main className="page auth">
-      <Panel verdict={{ cause: "dust", loss_pct: 12 }} />
+      <p className="brand">Dhool</p>
+      <div className="hero"><PanelModel verdict={{ cause: "ok" }} /></div>
       <h1>Is your solar actually working?</h1>
       <p className="lede">
         Your inverter app shows a number. Dhool tells you what your roof should have made, and what to do
@@ -125,9 +127,10 @@ function Setup({ onDone }) {
 
   return (
     <main className="page">
+      <p className="brand">Dhool</p>
       <h1>Add your home</h1>
       <p className="lede">Dhool needs to know where your roof is and how big the system is. That is all.</p>
-      <form onSubmit={create}>
+      <form onSubmit={create} className="card">
         <Field label="Name for this home" required maxLength={60} placeholder="Sharma house" value={form.name} onChange={set("name")} />
         <label className="field">
           <span>System size</span>
@@ -146,8 +149,8 @@ function Setup({ onDone }) {
         <button className="primary" disabled={state.busy}>{state.busy ? "Saving…" : "Add home"}</button>
       </form>
 
-      <h2>Someone at home already uses Dhool?</h2>
-      <form onSubmit={join}>
+      <form onSubmit={join} className="card">
+        <h2>Someone at home already uses Dhool?</h2>
         <Field label="Family code" required maxLength={6} autoCapitalize="characters" className="code-input"
                value={form.code} onChange={set("code")} hint="Ask them for the six-letter code from their Dhool app." />
         <button className="secondary" disabled={state.busy}>Join their home</button>
@@ -167,39 +170,128 @@ function vendorMessage(house, v) {
   ].join("\n");
 }
 
-export function VerdictView({ house, verdict: v }) {
-  const acting = v.verdict !== "OK" && v.cause !== "no_data";
-  return (
-    <article className={`verdict v-${v.verdict.toLowerCase()} c-${v.cause}`}>
-      <Panel verdict={v} />
-      <h1>{HEADLINE[`${v.verdict}:${v.cause}`] || v.verdict}</h1>
-      <p className="reason">{v.reason}</p>
+const acting = (v) => v.verdict !== "OK" && v.cause !== "no_data";
+const tone = (v) => `v-${v.verdict.toLowerCase()} c-${v.cause}`;
 
-      <dl className="figures">
+/** One line of evidence for the "Why" tile, taken from what the analysis found. */
+function whyLine(v) {
+  const e = v.evidence || {};
+  if (e.step_date) return `Fell ${Math.round(e.drop_pct)}% on ${day(e.step_date)}`;
+  if (e.dip_days) return `${e.dip_days.length} sharp dips this month`;
+  if (e.pm25) return `Air at PM2.5 ${e.pm25}`;
+  if (e.rate_pct_per_day) return `${e.rate_pct_per_day}% a day for ${e.days_since_clean} days`;
+  return v.cause === "no_data" ? "Not enough days yet" : "The last 90 days";
+}
+
+/** The first screen: the roof as a model, the weather around it, and what to do. */
+export function RoofTab({ house, verdict: v, go }) {
+  const known = v.cause !== "no_data";
+  const running = Math.max(0, Math.round(100 - v.loss_pct));
+  const week = v.forecast || [];
+  const today = week[0];
+  const rain = week.find((d) => d.rain_mm >= 5);
+  const totals = weekTotals(v);
+  const lost = !known ? "Needs two weeks of readings"
+    : acting(v) && v.loss_rs_per_week > 0 ? `About ₹${v.loss_rs_per_week} a week lost`
+    : "Nothing to fix";
+
+  return (
+    <article className={`roof ${tone(v)}`}>
+      <header className="top">
+        <div>
+          <p className="brand">Dhool</p>
+          <p className="home-name">{house.name}</p>
+        </div>
+        {known && (
+          <p className="running" aria-label={`Running at ${running}% of this roof's normal`}>
+            <Icon name="bolt" /> {running}%
+          </p>
+        )}
+      </header>
+
+      <div className="hero"><PanelModel verdict={v} /></div>
+
+      <dl className="strip card">
+        <div>
+          <Icon name={today ? skyOf(today, week) : "sun"} />
+          <dt>Today</dt><dd>{today ? `${today.temp_max}°` : "–"}</dd>
+        </div>
+        <div>
+          <Icon name="rain" />
+          <dt>Next rain</dt><dd>{!week.length ? "–" : rain ? weekday(rain.date) : "None"}</dd>
+        </div>
+        <div>
+          <Icon name="gauge" />
+          <dt>Units possible</dt><dd>{today ? today.possible_kwh : "–"}</dd>
+        </div>
+        <div>
+          <Icon name="week" />
+          <dt>Last reading</dt><dd>{day(v.as_of)}</dd>
+        </div>
+      </dl>
+
+      <section className="card verdict-card">
+        <div className="vc-top">
+          <Icon name="bolt" />
+          <h1>{HEADLINE[`${v.verdict}:${v.cause}`] || v.verdict}</h1>
+          {known && <span className="pct">{running}%</span>}
+        </div>
+        <div className="glow-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={known ? running : 0}
+             aria-label="Output compared with this roof's normal">
+          <i style={{ width: `${known ? Math.min(100, running) : 0}%` }} />
+        </div>
+        <div className="vc-sub"><strong>{lost}</strong><span>{SURE_SHORT[v.confidence]}</span></div>
+        <p className="reason">{v.reason}</p>
+        {v.verdict === "INSPECT" && (
+          <a className="primary" href={`https://wa.me/?text=${encodeURIComponent(vendorMessage(house, v))}`}
+             target="_blank" rel="noreferrer">Message your vendor on WhatsApp</a>
+        )}
+        {v.verdict === "CLEAN" && (
+          <p className="note">Wash early in the morning or after sunset, with plain water and a soft cloth. Never on hot panels.</p>
+        )}
+      </section>
+
+      <div className="tiles">
+        <button className="card tile" onClick={() => go("week")}>
+          <span className="badge"><Icon name="week" /></span>
+          <strong>Next 7 days</strong>
+          <span>{totals ? `${totals[0]} of ${totals[1]} units likely` : "No forecast yet"}</span>
+        </button>
+        <button className="card tile" onClick={() => go("why")}>
+          <span className="badge"><Icon name="why" /></span>
+          <strong>Why</strong>
+          <span>{whyLine(v)}</span>
+        </button>
+      </div>
+    </article>
+  );
+}
+
+export function WeekTab({ verdict: v }) {
+  return (
+    <article className={`tab ${tone(v)}`}>
+      <h1>The next 7 days</h1>
+      <Forecast verdict={v} />
+    </article>
+  );
+}
+
+export function WhyTab({ verdict: v }) {
+  return (
+    <article className={`tab ${tone(v)}`}>
+      <h1>Why Dhool says this</h1>
+      <p className="lede">{v.reason}</p>
+      <dl className="figures card">
         <div><dt>Should have made</dt><dd>{v.expected_kwh}<span> units</span></dd></div>
         <div><dt>Made</dt><dd>{v.actual_kwh}<span> units</span></dd></div>
       </dl>
-      {acting && v.loss_rs_per_week > 0 && (
+      {acting(v) && v.loss_rs_per_week > 0 && (
         <p className="loss">
           About <strong>₹{v.loss_rs_per_week} a week</strong> is being lost ({v.loss_kwh_per_day} units a day, {TARIFF_NOTE}).
         </p>
       )}
+      <div className="card"><WhyChart verdict={v} /></div>
       <p className="sure">{SURE[v.confidence]} Reading from {day(v.as_of)}.</p>
-
-      {v.verdict === "INSPECT" && (
-        <a className="primary" href={`https://wa.me/?text=${encodeURIComponent(vendorMessage(house, v))}`}
-           target="_blank" rel="noreferrer">Message your vendor on WhatsApp</a>
-      )}
-      {v.verdict === "CLEAN" && (
-        <p className="note">Wash early in the morning or after sunset, with plain water and a soft cloth. Never on hot panels.</p>
-      )}
-
-      <Forecast verdict={v} />
-
-      <details open={acting}>
-        <summary>Why Dhool says this</summary>
-        <WhyChart verdict={v} />
-      </details>
     </article>
   );
 }
@@ -218,7 +310,7 @@ function AddData({ house, onSent }) {
   return (
     <section className="add-data">
       <h1>How should Dhool get your readings?</h1>
-      <form onSubmit={(e) => { e.preventDefault(); run(async () => { await api(`/houses/${house.house_id}/inverter`, { plant_id: plant }); onSent(); }); }}>
+      <form className="card" onSubmit={(e) => { e.preventDefault(); run(async () => { await api(`/houses/${house.house_id}/inverter`, { plant_id: plant }); onSent(); }); }}>
         <h2>Connect your inverter</h2>
         <p className="note">Dhool reads every day on its own. This demo connects to simulated homes, not a real inverter brand.</p>
         <label className="field">
@@ -229,7 +321,7 @@ function AddData({ house, onSent }) {
         </label>
         <button className="primary" disabled={state.busy || !plant}>Connect</button>
       </form>
-      <form onSubmit={(e) => { e.preventDefault(); run(async () => { await api(`/houses/${house.house_id}/readings`, { date: reading.date, kwh: Number(reading.kwh) }); onSent(); }); }}>
+      <form className="card" onSubmit={(e) => { e.preventDefault(); run(async () => { await api(`/houses/${house.house_id}/readings`, { date: reading.date, kwh: Number(reading.kwh) }); onSent(); }); }}>
         <h2>Or type today's number</h2>
         <div className="row">
           <Field label="Date" type="date" max={today} required value={reading.date} onChange={(e) => setReading({ ...reading, date: e.target.value })} />
@@ -247,7 +339,7 @@ function Invite({ house }) {
   const [state, run] = useAction();
   if (house.role !== "owner") return null;
   return (
-    <section className="invite">
+    <section className="card invite">
       <h2>Share with your family</h2>
       {code ? (
         <>
@@ -267,21 +359,38 @@ function Invite({ house }) {
   );
 }
 
+const TABS = [["roof", "Roof"], ["week", "Forecast"], ["why", "Why"], ["setup", "Setup"]];
+
+function Nav({ tab, go }) {
+  return (
+    <nav className="nav" aria-label="Sections">
+      <div>
+        {TABS.map(([id, label]) => (
+          <button key={id} aria-current={tab === id ? "page" : undefined} onClick={() => go(id)}>
+            <Icon name={id} />{label}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function Home({ house, onSignOut }) {
   const [verdict, setVerdict] = useState(undefined); // undefined = loading, null-verdict = none yet
   const [waiting, setWaiting] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [tab, setTab] = useState("roof");
   const [error, setError] = useState("");
   const timer = useRef();
 
   const load = () => api(`/houses/${house.house_id}/verdict`).then(setVerdict).catch((e) => setError(e.message));
   useEffect(() => { load(); return () => clearInterval(timer.current); }, [house.house_id]);
+  const go = (id) => { setTab(id); window.scrollTo(0, 0); };
 
   // New data was sent: the analysis runs in the background, so check until a fresh verdict lands.
   const awaitVerdict = () => {
     const before = verdict?.computed_at;
     let tries = 0;
-    setAdding(false);
+    go("roof");
     setWaiting(true);
     clearInterval(timer.current);
     timer.current = setInterval(async () => {
@@ -295,31 +404,35 @@ function Home({ house, onSignOut }) {
   };
 
   const has = verdict?.verdict;
+  const setup = (
+    <>
+      <AddData house={house} onSent={awaitVerdict} />
+      <Invite house={house} />
+      <button className="secondary" onClick={onSignOut}>Sign out</button>
+    </>
+  );
   return (
-    <main className="page">
-      <header className="bar">
-        <span className="wordmark">Dhool</span>
-        <span className="house">{house.name}</span>
-        <button className="link" onClick={onSignOut}>Sign out</button>
-      </header>
+    <main className={`page ${has && !waiting ? "has-nav" : ""}`}>
       <ErrorLine error={error} />
       {waiting ? (
         <section className="working" aria-live="polite">
-          <Panel verdict={{ cause: "no_data" }} />
+          <p className="brand">Dhool</p>
+          <div className="hero"><PanelModel verdict={{ cause: "no_data" }} /></div>
           <h1>Working it out</h1>
           <p className="lede">Checking the sun, clouds and rain over your roof for each day. This takes about 20 seconds.</p>
         </section>
       ) : verdict === undefined ? (
         <p className="lede" aria-live="polite">Loading your home…</p>
-      ) : has && !adding ? (
+      ) : !has ? (
         <>
-          <VerdictView house={house} verdict={verdict} />
-          <button className="link" onClick={() => setAdding(true)}>Add a reading or change the inverter</button>
+          <header className="top"><div><p className="brand">Dhool</p><p className="home-name">{house.name}</p></div></header>
+          {setup}
         </>
-      ) : (
-        <AddData house={house} onSent={awaitVerdict} />
-      )}
-      <Invite house={house} />
+      ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} />
+        : tab === "week" ? <WeekTab verdict={verdict} />
+        : tab === "why" ? <WhyTab verdict={verdict} />
+        : <article className="tab">{setup}</article>}
+      {has && !waiting && <Nav tab={tab} go={go} />}
     </main>
   );
 }
@@ -328,7 +441,10 @@ function Preview() {
   const house = { name: "Sharma house" };
   return (
     <main className="page preview">
-      {FIXTURES.map((v) => <VerdictView key={v.cause + v.verdict} house={house} verdict={v} />)}
+      {FIXTURES.map((v) => <RoofTab key={v.cause + v.verdict} house={house} verdict={v} go={() => {}} />)}
+      <WeekTab verdict={FIXTURES[0]} />
+      <WhyTab verdict={FIXTURES[0]} />
+      <Nav tab="roof" go={() => {}} />
     </main>
   );
 }
