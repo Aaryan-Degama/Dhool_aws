@@ -3,6 +3,7 @@ import json
 
 import pandas as pd
 import pvlib
+import pytest
 
 from dhool import config
 from dhool.analyse import analyse
@@ -54,4 +55,8 @@ def test_analyse_turns_readings_into_a_verdict_and_a_chart():
     assert len(result["series"]) == 60 and result["series"][-1]["date"] == "2026-04-29"
     assert result["series"][9] == {"date": "2026-03-10", "expected": result["series"][9]["expected"],
                                    "actual": None, "rain_mm": 0.0}
+    week = result["forecast"]
+    assert [d["date"] for d in week] == [f"2026-0{m}-{d:02d}" for m, d in [(4, 30)] + [(5, d) for d in range(1, 7)]]
+    assert all(d["likely_kwh"] == pytest.approx(d["possible_kwh"] * 0.93 * 0.67, abs=0.2) for d in week)
+    assert week[0]["temp_max"] == 28 and week[0]["rain_mm"] == 0.0
     json.dumps(result)  # must be storable as JSON

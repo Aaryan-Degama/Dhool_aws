@@ -1,0 +1,153 @@
+/* Dhool design tokens. Colours come from the roof: panel glass, electric current, dust, wash water. */
+:root {
+  color-scheme: dark;
+  --paper: #0a0d12;       /* night graphite page */
+  --card: #131821;
+  --ink: #eef2f7;         /* text */
+  --panel: #0c1a2e;       /* panel frame */
+  --cell: #1b3f6e;        /* a cell's face */
+  --current: #ffc21a;     /* electricity: busbars, the main action */
+  --on-current: #0a0d12;
+  --dhool: #b9a27f;       /* dust */
+  --dhool-ink: #d8c39a;   /* dust, light enough to read on dark */
+  --wash: #4db3f0;        /* water: CLEAN, rain */
+  --fault: #ff6b57;       /* INSPECT */
+  --good: #4ade80;        /* OK */
+  --muted: #93a1b5;
+  --line: #232b36;
+  --tone: var(--ink);     /* the verdict's colour, set per verdict below */
+
+  --step--1: 0.875rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.3125rem;
+  --step-2: clamp(2.4rem, 11.5vw, 3.5rem);
+  --space: 1rem;
+  --radius: 14px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--step-0)/1.5 "Anek Devanagari", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+}
+.page {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: var(--space) var(--space) calc(3rem + env(safe-area-inset-bottom));
+  display: grid;
+  gap: var(--space);
+}
+h1 { font-size: var(--step-2); font-weight: 800; font-stretch: 112%; line-height: 0.98; letter-spacing: -0.015em; margin: 0.25rem 0 0; text-wrap: balance; }
+h2 { font-size: var(--step-1); font-weight: 700; line-height: 1.2; margin: 1.5rem 0 0; }
+p { margin: 0; }
+.lede, .reason { font-size: var(--step-1); line-height: 1.35; max-width: 34ch; }
+.note, .sure, small { font-size: var(--step--1); color: var(--muted); }
+.error { color: var(--fault); font-weight: 600; }
+
+/* Forms */
+form { display: grid; gap: 0.875rem; }
+.field { display: grid; gap: 0.25rem; min-width: 0; }
+.field > span { font-size: var(--step--1); font-weight: 600; font-stretch: 92%; }
+input, select {
+  font: inherit; color: inherit; width: 100%; min-height: 3rem; padding: 0.5rem 0.75rem;
+  background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius);
+}
+.code-input, .code { text-transform: uppercase; letter-spacing: 0.3em; font-weight: 700; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+button, a.primary, a.secondary {
+  font: inherit; font-weight: 700; min-height: 3.25rem; padding: 0.625rem 1rem; border-radius: var(--radius);
+  border: 0; cursor: pointer; text-align: center; text-decoration: none; display: grid; place-items: center;
+}
+.primary { background: var(--current); color: var(--on-current); }
+.secondary { background: transparent; color: var(--ink); border: 1.5px solid #3a4656; }
+.link { background: none; color: var(--wash); min-height: 2.75rem; padding: 0.25rem 0; text-decoration: underline; justify-self: start; font-weight: 600; }
+button:disabled { opacity: 0.55; cursor: progress; }
+:focus-visible { outline: 3px solid var(--wash); outline-offset: 2px; }
+.primary:active, .secondary:active { transform: translateY(1px); }
+
+/* Header */
+.bar { display: flex; align-items: baseline; gap: 0.75rem; }
+.wordmark { font-weight: 800; font-stretch: 125%; font-size: var(--step-1); }
+.house { color: var(--muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The panel: the one loud thing on the screen */
+.panel { width: 100%; height: auto; display: block; }
+.panel-frame { fill: var(--panel); stroke: #24405f; stroke-width: 1.5; }
+.cell rect { fill: var(--cell); }
+.cell .busbar { stroke: var(--current); stroke-width: 2; fill: none; }
+.cell.dead rect { fill: #08111e; stroke: var(--fault); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.cell.empty rect { fill: none; stroke: #47689a; stroke-width: 1.5; }
+.dust-film { fill: var(--dhool); opacity: 0.55; }
+.dust [fill^="url"] { color: var(--dhool); }
+#dust circle { fill: #e2d3b5; }
+.haze { fill: #dfe3e8; opacity: 0.55; }
+
+/* Current reaches the panel string by string when a verdict arrives. */
+@media (prefers-reduced-motion: no-preference) {
+  .cell .busbar { animation: energise 0.5s both; animation-delay: calc(var(--col) * 90ms); }
+  .panel-trips .busbar { animation: trip 2.4s 0.6s 2 both; }
+  .dust, .haze { animation: settle 0.9s 0.6s both; }
+}
+@keyframes energise { from { opacity: 0; } }
+@keyframes settle { from { opacity: 0; } }
+@keyframes trip { 0%, 30%, 60%, 100% { opacity: 1; } 15%, 45% { opacity: 0.1; } }
+.panel-trips .cell rect { stroke: var(--fault); stroke-width: 1; stroke-dasharray: 4 3; }
+
+/* Verdict */
+.verdict { display: grid; gap: var(--space); }
+.v-inspect { --tone: var(--fault); }
+.v-clean { --tone: var(--wash); }
+.v-ok { --tone: var(--good); }
+.v-wait { --tone: var(--dhool-ink); }
+.verdict h1 { color: var(--tone); }
+.figures { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 0; padding: 0.875rem 0; border-block: 1.5px solid var(--line); }
+.figures dt { font-size: var(--step--1); color: var(--muted); font-stretch: 92%; }
+.figures dd { margin: 0; font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.figures dd span { font-size: var(--step-0); font-weight: 500; color: var(--muted); }
+.loss strong { color: var(--tone); }
+details { border-top: 1.5px solid var(--line); padding-top: 0.5rem; }
+summary { font-weight: 700; min-height: 2.75rem; display: flex; align-items: center; cursor: pointer; }
+
+/* Why chart */
+.why { margin: 0; }
+.why svg { width: 100%; height: auto; display: block; overflow: visible; }
+.expected-area { fill: #14243a; }
+.expected-line { fill: none; stroke: #4f6e99; stroke-width: 1.25; stroke-dasharray: 4 3; }
+.actual-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.actual-dot { fill: var(--ink); }
+.rain { fill: var(--wash); }
+.step line { stroke: var(--fault); stroke-width: 1.5; stroke-dasharray: 3 3; }
+.step text { fill: var(--fault); font-size: 11px; font-weight: 700; }
+.axis { fill: var(--muted); font-size: 11px; }
+figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5rem; font-size: var(--step--1); color: var(--muted); }
+.key::before { content: ""; display: inline-block; width: 1rem; height: 0.625rem; margin-right: 0.375rem; vertical-align: baseline; }
+.key-expected::before { background: #14243a; border-top: 1.5px dashed #4f6e99; }
+.key-actual::before { height: 0; border-top: 2.5px solid var(--ink); vertical-align: middle; }
+.key-rain::before { width: 0.25rem; background: var(--wash); border-radius: 2px; }
+
+.invite { border-top: 1.5px solid var(--line); display: grid; gap: 0.75rem; }
+.code { font-size: 2rem; margin: 0; }
+.add-data { display: grid; gap: 0.5rem; }
+.preview .verdict { padding-bottom: 3rem; border-bottom: 6px solid var(--line); }
+
+/* Figures sit on a raised card, like a car app's status tiles. */
+.figures { background: var(--card); border: 0; border-radius: var(--radius); padding: 1rem; }
+
+/* The coming week */
+.forecast { display: grid; gap: 0.5rem; }
+.forecast h2 { margin-top: 0.5rem; }
+.forecast ol { list-style: none; margin: 0; padding: 0.25rem 1rem; background: var(--card); border-radius: var(--radius); }
+.forecast li { display: grid; grid-template-columns: 2.75rem 1.5rem 2.5rem 1fr 3rem; align-items: center; gap: 0.5rem; min-height: 2.75rem; }
+.forecast li + li { border-top: 1px solid var(--line); }
+.forecast .temp { color: var(--muted); }
+.forecast .units { text-align: right; font-weight: 700; }
+.sky { width: 1.375rem; height: 1.375rem; fill: none; stroke: var(--muted); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.sky-sun { stroke: var(--current); }
+.sky-rain .drops { stroke: var(--wash); }
+.bar { height: 0.5rem; border-radius: 1rem; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 1rem; background: #2f4c74; }       /* what the roof could make */
+.bar b { display: block; height: 100%; border-radius: 1rem; background: var(--current); } /* what it likely will */

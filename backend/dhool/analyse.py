@@ -6,6 +6,7 @@ from .expected import expected_daily_kwh
 from .verdict import verdict
 
 CHART_DAYS = 90
+FORECAST_DAYS = 7  # the weather frame ends with this many forecast days
 
 
 def _days(readings):
@@ -45,5 +46,15 @@ def analyse(meta, readings, weather, pm25=None, fleet=None):
          "actual": None if pd.isna(row.actual) else round(row.actual, 2),
          "rain_mm": round(float(rain.get(day, 0.0)), 1)}
         for day, row in chart.iterrows()
+    ]
+    # The coming week: what a clean, healthy roof could make in the forecast weather, and what this roof
+    # is likely to make if nothing changes (the same physics, scaled by how it has run this past week).
+    running_at = (daily["actual"] / daily["expected"]).dropna().tail(7).median()
+    temp_max = weather["temp_air"].resample("D").max()
+    result["forecast"] = [
+        {"date": str(day.date()), "possible_kwh": round(float(kwh), 1),
+         "likely_kwh": round(float(kwh * running_at), 1) if pd.notna(running_at) else None,
+         "rain_mm": round(float(rain[day]), 1), "temp_max": round(float(temp_max[day]))}
+        for day, kwh in expected.tail(FORECAST_DAYS).items()
     ]
     return result

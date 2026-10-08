@@ -46,7 +46,8 @@ _Deploy commands are planned; confirm each one when that code exists._
 - Live endpoints, pool IDs and demo account password: `.env` (gitignored, never commit)
 - `backend/requirements-analysis.txt` holds the heavy pvlib dependencies for the analysis container. Do not add a `backend/requirements.txt`: SAM would pack those into the small API Lambda zip.
 - Run one function locally: `sam local invoke <FunctionName>`
-- Frontend: `npm run dev` / `npm run build` in `web/` (Amplify Hosting deploys `main`)
+- Frontend: `npm run dev` / `npm run build` in `web/`; `/#preview` shows every verdict state without signing in. Amplify Hosting builds `main` using `amplify.yml`.
+- Design decisions live in `DESIGN.md`; read it before changing the UI.
 
 ## Conventions
 - **Definition of done:** pure logic in `backend/dhool/` → tests pass → deployed → verified on the live URL → commit → push.
