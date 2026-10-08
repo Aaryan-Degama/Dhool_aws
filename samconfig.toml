@@ -1,0 +1,9 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "dhool-aws"
+region = "ap-south-1"
+resolve_s3 = true
+resolve_image_repos = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false

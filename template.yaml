@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Dhool backend. Cognito sign-in, HTTP API, one DynamoDB table, pvlib analysis, mock inverter API.
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_SRP_AUTH, ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+
+  # One table: HOUSE#<id> (META, MEMBER#<sub>, READING#<date>, VERDICT#<date>),
+  # USER#<sub> -> HOUSE#<id>, INVITE#<code> (expires through TTL).
+  Table:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ['*']  # ponytail: tighten to the Amplify domain once it exists
+        AllowHeaders: [authorization, content-type]
+        AllowMethods: [GET, POST]
+      Auth:
+        DefaultAuthorizer: Cognito
+        Authorizers:
+          Cognito:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience: [!Ref UserPoolClient]
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers.api.handler
+      Runtime: python3.12
+      Timeout: 25
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE: !Ref Table
+          ANALYSIS_FUNCTION: !Ref AnalysisFunction
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Table
+        - LambdaInvokePolicy:
+            FunctionName: !Ref AnalysisFunction
+      Events:
+        ConnectInverter: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/inverter'}}
+        GetVerdict: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/verdict'}}
+        Me: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /me}}
+        CreateHouse: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: /houses}}
+        Join: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: /join}}
+        GetHouse: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}'}}
+        CreateInvite: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/invites'}}
+        AddReading: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/readings'}}
+        ListReadings: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/readings'}}
+
+  # pvlib physics + verdict rules. A container image because pvlib and pandas exceed the zip limit.
+  # Runs on demand when new data arrives, and every night for every house.
+  AnalysisFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: backend
+    Properties:
+      PackageType: Image
+      Timeout: 120
+      MemorySize: 1024
+      Environment:
+        Variables:
+          TABLE: !Ref Table
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref Table
+      Events:
+        Nightly:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 20 * * ? *)  # 02:00 IST
+
+  # Stands in for an inverter brand's cloud API and serves the simulated neighbourhood.
+  # Public on purpose: simulated data only, and a real brand's API sits outside our sign-in too.
+  MockInverterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers.mock_inverter.handler
+      Runtime: python3.12
+      Timeout: 10
+      MemorySize: 512
+      Events:
+        Plants: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/plants, Auth: {Authorizer: NONE}}}
+        Daily: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/mock/plants/{plantId}/daily', Auth: {Authorizer: NONE}}}
+        Fleet: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/fleet/daily, Auth: {Authorizer: NONE}}}
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
