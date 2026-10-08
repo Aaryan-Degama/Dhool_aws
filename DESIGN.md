@@ -5,7 +5,7 @@ Tesla app). Tokens live in `web/src/styles.css`; change them there, not in compo
 
 ## Idea
 The roof is the product shot. The one loud element is **the roof model**: a rooftop array drawn in
-perspective, standing in a pool of light, which shows the cause instead of naming it. A dead string goes
+perspective, standing on a terrace with the city behind it, which shows the cause instead of naming it. A dead string goes
 dark, dust lies on the glass, haze veils it, a healthy array is lit with a strip of current along its
 lower rail. Everything else is graphite and quiet.
 
@@ -17,7 +17,9 @@ lower rail. Everything else is graphite and quiet.
 - States: `fault` darkens whole columns (the share that dropped) with a dashed red rim; `dust` adds a
   khaki film and speckles; `haze` puts a cloud over it and drains the colour; `trips` blinks the rail
   light; `no_data` and `unclear` show only the outlines on the frame.
-- The light on the floor under the array takes the verdict's colour.
+- The array stands on a tiled terrace with a parapet; beyond it is a city skyline (flat silhouettes, some
+  with rooftop water tanks, windows lit at night and in storms). Their colours follow the sky.
+- The camera is at about eye height on the terrace (13° down), so the horizon and the city are in view.
 
 ## Colour
 | Token | Hex | Used for |
@@ -32,12 +34,29 @@ lower rail. Everything else is graphite and quiet.
 | `--fault` | `#FF6B57` | INSPECT, errors |
 | `--good` | `#4ADE80` | OK |
 
-**After dark** (7 pm to 6 am on the phone's clock, or `?sky=night` / `?sky=day` in the address to force
-it) the page becomes a clear night sky: a deep blue gradient with stars, and the surfaces turn to dark
-glass. The tokens are overridden under `[data-sky="night"]`; the verdict colours and the yellow stay.
-
 A verdict is never colour alone: the headline says what to do and the model shows why.
 Surfaces use a 22px radius; things you press or type into use 14px.
+
+## The sky (`web/src/sky.js`, the "The sky" section of `styles.css`)
+The whole app sits under the weather over the roof. Until a home is loaded the phone's clock picks day or
+night; then Open-Meteo's current conditions for the home's location decide (coordinates rounded to about
+a kilometre). `?sky=rain` (or any name below) in the address forces one, for demos and screenshots.
+
+| Sky | When | What is drawn |
+|---|---|---|
+| `day` | Clear or partly cloudy, daytime | Bright blue gradient, the sun |
+| `cloud` | Overcast or fog, daytime | Grey-blue gradient, a soft cloud deck |
+| `rain` | Rain or drizzle, daytime | Grey-teal gradient, cloud, falling rain |
+| `storm` | Thunder, heavy rain, or any rain after dark | Dark slate gradient, faster rain, lit windows |
+| `snow` | Snow | Pale grey-blue gradient, drifting snow, a white terrace |
+| `sand` | Dust in the air at 200 µg/m³ or more | Ochre gradient, haze, sand blowing sideways |
+| `night` | Dry, after dark | Muted indigo gradient, stars, the moon, lit windows |
+
+No people and no landscape illustration: the only scene is the roof model. Rain, snow and sand fall both
+behind the page and in front of the roof scene. Surfaces turn to dark glass tinted by the sky
+(`--glass`), and `--wash` and `--fault` are lightened so text keeps its contrast. Text never sits
+directly on the sky except large headings: everything small is on a surface. Nothing moves under
+reduced motion. The graphite tokens above are the fallback when no sky is set.
 
 ## Type
 One family, **Anek Devanagari** (SIL OFL, Google Fonts): it covers Hindi and English and has a width axis.

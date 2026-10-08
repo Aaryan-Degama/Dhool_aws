@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, confirmSignUp, signedIn, signIn, signOut, signUp } from "./api.js";
 import { API_URL, TARIFF_NOTE } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
+import { setSky, skyOver } from "./sky.js";
 import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, WhyChart } from "./visuals.jsx";
 
 // What the homeowner should do, in their words. The API's verdict and cause pick the line.
@@ -72,7 +73,7 @@ function Auth({ onDone }) {
         Your inverter app shows a number. Dhool tells you what your roof should have made, and what to do
         when it falls short.
       </p>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} className="card">
         {mode === "code" ? (
           <Field label="Code from your email" inputMode="numeric" autoComplete="one-time-code" required
                  value={form.code} onChange={set("code")} hint={`Sent to ${form.email}`} />
@@ -88,12 +89,12 @@ function Auth({ onDone }) {
         <button className="primary" disabled={state.busy}>
           {state.busy ? "One moment…" : mode === "in" ? "Sign in" : mode === "up" ? "Create account" : "Confirm and sign in"}
         </button>
+        {mode !== "code" && (
+          <button type="button" className="link" onClick={() => setMode(mode === "in" ? "up" : "in")}>
+            {mode === "in" ? "New here? Create an account" : "Already have an account? Sign in"}
+          </button>
+        )}
       </form>
-      {mode !== "code" && (
-        <button className="link" onClick={() => setMode(mode === "in" ? "up" : "in")}>
-          {mode === "in" ? "New here? Create an account" : "Already have an account? Sign in"}
-        </button>
-      )}
     </main>
   );
 }
@@ -281,17 +282,21 @@ export function WhyTab({ verdict: v }) {
     <article className={`tab ${tone(v)}`}>
       <h1>Why Dhool says this</h1>
       <p className="lede">{v.reason}</p>
-      <dl className="figures card">
-        <div><dt>Should have made</dt><dd>{v.expected_kwh}<span> units</span></dd></div>
-        <div><dt>Made</dt><dd>{v.actual_kwh}<span> units</span></dd></div>
-      </dl>
-      {acting(v) && v.loss_rs_per_week > 0 && (
-        <p className="loss">
-          About <strong>₹{v.loss_rs_per_week} a week</strong> is being lost ({v.loss_kwh_per_day} units a day, {TARIFF_NOTE}).
-        </p>
-      )}
-      <div className="card"><WhyChart verdict={v} /></div>
-      <p className="sure">{SURE[v.confidence]} Reading from {day(v.as_of)}.</p>
+      <div className="card stack">
+        <dl className="figures">
+          <div><dt>Should have made</dt><dd>{v.expected_kwh}<span> units</span></dd></div>
+          <div><dt>Made</dt><dd>{v.actual_kwh}<span> units</span></dd></div>
+        </dl>
+        {acting(v) && v.loss_rs_per_week > 0 && (
+          <p className="loss">
+            About <strong>₹{v.loss_rs_per_week} a week</strong> is being lost ({v.loss_kwh_per_day} units a day, {TARIFF_NOTE}).
+          </p>
+        )}
+      </div>
+      <div className="card stack">
+        <WhyChart verdict={v} />
+        <p className="sure">{SURE[v.confidence]} Reading from {day(v.as_of)}.</p>
+      </div>
     </article>
   );
 }
@@ -424,6 +429,10 @@ function Home({ house, onSignOut }) {
 
   const load = () => api(`/houses/${house.house_id}/verdict`).then(setVerdict).catch((e) => setError(e.message));
   useEffect(() => { load(); return () => clearInterval(timer.current); }, [house.house_id]);
+  // The sky behind the app is the weather over this roof. If it cannot be fetched, the clock's sky stays.
+  useEffect(() => {
+    api(`/houses/${house.house_id}`).then((h) => skyOver(h.lat, h.lon)).then(setSky).catch(() => {});
+  }, [house.house_id]);
   const go = (id) => { setTab(id); window.scrollTo(0, 0); };
 
   // New data was sent: the analysis runs in the background, so check until a fresh verdict lands.

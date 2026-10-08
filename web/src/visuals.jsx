@@ -10,12 +10,14 @@ const TH = 0.07, H0 = 0.6;                // frame thickness, height of the lowe
 const RIM = 0.035;                        // the aluminium rim around each module's glass
 const CELL_COLS = 6, CELL_ROWS = 12;      // half-cut cells on one module
 const TILT = (24 * Math.PI) / 180;        // slope of the array
-const PITCH = (26 * Math.PI) / 180;       // how far down the camera looks
+const PITCH = (13 * Math.PI) / 180;       // how far down the camera looks: about eye height on the terrace
+const WALL_Z = -4, WALL_H = 0.85;         // the parapet at the far edge of the terrace
 const DIST = 12;                          // camera distance: smaller is more dramatic perspective
 const WIDE = COLS * MW + (COLS - 1) * GAP;
 const LONG = ROWS * ML + (ROWS - 1) * GAP;
 const ZF = (LONG * Math.cos(TILT)) / 2;   // the lower edge sits this far toward the viewer
 const VIEW_W = 360;
+const SKYLINE_ROOM = 92;                  // sky kept above the horizon: the city's tallest building, then the sun or moon
 const YAW_REST = -24, YAW_MIN = -44, YAW_MAX = -6;
 
 /** A point on the glass: u across the array, v up the slope, lift along the surface normal. */
@@ -29,7 +31,7 @@ function raw([x, y, z], yaw) {
   const c = Math.cos(yaw), s = Math.sin(yaw);
   const x1 = x * c + z * s, z1 = -x * s + z * c;
   const y2 = y * Math.cos(PITCH) - z1 * Math.sin(PITCH), z2 = y * Math.sin(PITCH) + z1 * Math.cos(PITCH);
-  const k = DIST / (DIST - z2);
+  const k = DIST / Math.max(0.6, DIST - z2);  // never divide by a point behind the camera
   return [x1 * k, -y2 * k];
 }
 
@@ -44,10 +46,30 @@ const FIT = (() => {
   const [x0, x1] = box([YAW_MIN, YAW_REST, YAW_MAX]);
   const k = (VIEW_W - 28) / (x1 - x0);
   // Framed on the resting angle; at other angles a corner may dip past the frame, which is left visible.
-  const [rx0, rx1, ry0, ry1] = box([YAW_REST]);
-  return { k, ox: VIEW_W / 2 - (k * (rx0 + rx1)) / 2, oy: 12 - k * ry0, height: Math.ceil(12 + k * (ry1 - ry0) + 26) };
+  const [rx0, rx1, , ry1] = box([YAW_REST]);
+  // The horizon sits where level ground vanishes; leave room above it for the city.
+  const oy = SKYLINE_ROOM + k * DIST * Math.tan(PITCH);
+  return { k, ox: VIEW_W / 2 - (k * (rx0 + rx1)) / 2, oy, horizon: SKYLINE_ROOM, height: Math.ceil(oy + k * ry1 + 46) };
 })();
 const VIEW_H = FIT.height;
+
+// The city beyond the parapet: two rows of flat silhouettes, some with a water tank on the roof.
+const SKYLINE = (() => {
+  let seed = 11;
+  const next = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const row = (wMin, wMax, hMin, hMax) => {
+    const out = [];
+    for (let x = -100; x < VIEW_W + 100;) {
+      const w = wMin + next() * (wMax - wMin);
+      out.push({ x, w, h: hMin + next() * (hMax - hMin), tank: next() < 0.4 });
+      x += w + next() * 4;
+    }
+    return out;
+  };
+  const far = row(12, 30, 8, 26), near = row(18, 42, 14, 44);
+  const windows = near.flatMap((b) => Array.from({ length: Math.floor((b.w * b.h) / 70) }, () => [b.x + 3 + next() * (b.w - 7), 3 + next() * (b.h - 6)]));
+  return { far, near, windows };
+})();
 
 const DUST = (() => {  // the same speckles every time: a tiny seeded generator, not Math.random
   let seed = 7;
@@ -132,7 +154,19 @@ export function PanelModel({ verdict }) {
     const front = surf(x, 0.15, -TH), rear = surf(x, LONG - 0.15, -TH);
     return { x, front, rear, frontFoot: [x, 0, front[2]], rearFoot: [x, 0, rear[2]] };
   });
-  const [gx, gy] = at([0, 0, 0]);
+  // A level line on the terrace or its parapet, carried out past both edges of the picture.
+  const across = (y, z) => {
+    const [ax, ay] = at([-6, y, z]), [bx, by] = at([6, y, z]);
+    const yAt = (x) => ay + ((by - ay) * (x - ax)) / (bx - ax);
+    return [[-80, yAt(-80)], [VIEW_W + 80, yAt(VIEW_W + 80)]];
+  };
+  const flat = (points) => points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const wallBase = across(0, WALL_Z), wallTop = across(WALL_H, WALL_Z);
+  const floor = flat([...wallBase, [VIEW_W + 80, VIEW_H], [-80, VIEW_H]]);
+  let tiles = "";
+  for (let z = WALL_Z + 1; z < 4; z += 1) { const [a, b] = across(0, z); tiles += `M${flat([a])}L${flat([b])}`; }
+  for (let x = -12; x <= 12; x += 1.5) tiles += `M${xy([x, 0, WALL_Z])}L${xy([x, 0, 3.4])}`;
+  const drift = (yaw - YAW_REST) * 2.2;  // the far city slides a little as the model turns
   const [topX, topY] = at(surf(0, LONG)), [lowX, lowY] = at(surf(0, 0));
   const sweep = -WIDE / 2 + WIDE * (0.2 + (yaw - YAW_REST) / 70);  // the reflection slides as the model turns
   const band = (a, w) => poly([surf(a, 0), surf(a + w, 0), surf(a + w + 1.5, LONG), surf(a + 1.5, LONG)]);
@@ -143,7 +177,10 @@ export function PanelModel({ verdict }) {
          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       <defs>
         <radialGradient id={`${id}fog`}><stop offset="0.3" stopColor="#cdd4dd" stopOpacity="0.52" /><stop offset="1" stopColor="#cdd4dd" stopOpacity="0" /></radialGradient>
-        <radialGradient id={`${id}floor`}><stop offset="0" className="pm-glow" stopOpacity="0.3" /><stop offset="1" className="pm-glow" stopOpacity="0" /></radialGradient>
+        <linearGradient id={`${id}ground`} gradientUnits="userSpaceOnUse" x1="0" y1={wallBase[0][1]} x2="0" y2={VIEW_H}>
+          <stop offset="0" className="pm-ground-far" /><stop offset="0.72" className="pm-ground-near" /><stop offset="1" className="pm-ground-near" stopOpacity="0" />
+        </linearGradient>
+        <clipPath id={`${id}floor`}><polygon points={floor} /></clipPath>
         <linearGradient id={`${id}glass`} gradientUnits="userSpaceOnUse" x1={topX} y1={topY} x2={lowX} y2={lowY}>
           <stop offset="0" stopColor="#27405f" /><stop offset="0.45" stopColor="#101d30" /><stop offset="1" stopColor="#080f1a" />
         </linearGradient>
@@ -158,7 +195,20 @@ export function PanelModel({ verdict }) {
         <clipPath id={`${id}live`}>{live.map((m) => <polygon key={m.i} points={quad(m, RIM)} />)}</clipPath>
       </defs>
 
-      <ellipse cx={gx} cy={gy + 6} rx={VIEW_W * 0.52} ry="46" fill={`url(#${id}floor)`} />
+      <g className="pm-city" transform={`translate(${drift.toFixed(1)} 0)`}>
+        {SKYLINE.far.map((b, i) => <rect key={i} className="far" x={b.x.toFixed(1)} y={(FIT.horizon - b.h).toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} />)}
+        {SKYLINE.near.map((b, i) => (
+          <g key={i} className="near">
+            <rect x={b.x.toFixed(1)} y={(FIT.horizon - b.h).toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} />
+            {b.tank && <rect x={(b.x + b.w * 0.25).toFixed(1)} y={(FIT.horizon - b.h - 4.5).toFixed(1)} width="6.5" height="4.5" rx="1.6" />}
+          </g>
+        ))}
+        <g className="pm-windows">{SKYLINE.windows.map(([x, up], i) => <rect key={i} x={x.toFixed(1)} y={(FIT.horizon - up).toFixed(1)} width="1.7" height="2.2" />)}</g>
+      </g>
+      <polygon className="pm-wall" points={flat([...wallTop, wallBase[1], wallBase[0]])} />
+      <path className="pm-wall-top" d={`M${flat([wallTop[0]])}L${flat([wallTop[1]])}`} />
+      <polygon points={floor} fill={`url(#${id}ground)`} />
+      <path className="pm-tiles" d={tiles} clipPath={`url(#${id}floor)`} />
       <polygon className="pm-shadow" filter={`url(#${id}blur)`}
                points={poly([[-WIDE / 2, 0, ZF], [WIDE / 2, 0, ZF], [WIDE / 2, 0, -ZF], [-WIDE / 2, 0, -ZF]])} />
 
@@ -292,7 +342,8 @@ export function Forecast({ verdict }) {
         About {likely} units likely
         {possible - likely >= 2 ? `, out of ${possible} this roof could make in this weather if it were clean and healthy.` : "."}
       </p>
-      <ol className="card">
+      <div className="card stack">
+      <ol>
         {week.map((d) => {
           const sky = skyOf(d, week);
           const units = d.likely_kwh ?? d.possible_kwh;
@@ -310,6 +361,7 @@ export function Forecast({ verdict }) {
         })}
       </ol>
       <p className="key-row"><span className="key key-likely">Likely</span><span className="key key-possible">Possible if clean and healthy</span></p>
+      </div>
     </section>
   );
 }
