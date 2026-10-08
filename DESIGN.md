@@ -32,6 +32,10 @@ lower rail. Everything else is graphite and quiet.
 | `--fault` | `#FF6B57` | INSPECT, errors |
 | `--good` | `#4ADE80` | OK |
 
+**After dark** (7 pm to 6 am on the phone's clock, or `?sky=night` / `?sky=day` in the address to force
+it) the page becomes a clear night sky: a deep blue gradient with stars, and the surfaces turn to dark
+glass. The tokens are overridden under `[data-sky="night"]`; the verdict colours and the yellow stay.
+
 A verdict is never colour alone: the headline says what to do and the model shows why.
 Surfaces use a 22px radius; things you press or type into use 14px.
 
