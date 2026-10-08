@@ -28,9 +28,9 @@ def table():
 def run_house(house_id):
     meta = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"})["Item"]
     fleet = None
-    if meta.get("plant_id"):  # connected inverter: pull from the brand's cloud (here, the mock)
-        readings = connectors.mock_readings(meta["inverter_url"], meta["plant_id"])
-        fleet = connectors.mock_fleet(meta["inverter_url"])
+    if meta.get("plant_id"):  # connected inverter: pull from the brand's cloud (here, the demo one)
+        readings = connectors.inverter_readings(meta["inverter_url"], meta["inverter_key"], meta["plant_id"])
+        fleet = connectors.inverter_fleet(meta["inverter_url"])
         fleet.pop(meta["plant_id"], None)
     else:  # screenshots and typed-in readings
         items = table().query(

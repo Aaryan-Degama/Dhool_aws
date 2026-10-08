@@ -1,35 +1,71 @@
-"""The mock inverter API and the analysis step that turns readings into a verdict. No network."""
+"""The demo inverter cloud, the dummy screenshot reader, and the analysis step. No network."""
 import json
+import struct
+import zlib
 
+import boto3
 import pandas as pd
 import pvlib
+from moto import mock_aws
 import pytest
 
 from dhool import config
 from dhool.analyse import analyse
 from dhool.expected import expected_daily_kwh
-from handlers import mock_inverter
+from handlers import mock_inverter, vision_dummy
 
 META = {"kw": 3, "lat": config.SIM_LAT, "lon": config.SIM_LON, "tilt": 20, "azimuth": 180}
 
 
-def mock(route, plant_id=None, query=None):
-    event = {"routeKey": route, "pathParameters": {"plantId": plant_id}, "queryStringParameters": query}
+def mock(route, plant_id=None, query=None, key=None):
+    event = {"routeKey": route, "pathParameters": {"plantId": plant_id}, "queryStringParameters": query,
+             "headers": {"authorization": f"Bearer {key}"} if key else {}}
     response = mock_inverter.handler(event, None)
-    return response["statusCode"], json.loads(response["body"])
+    return response["statusCode"], response["body"]
 
 
-def test_mock_api_reports_like_an_inverter_and_never_leaks_what_was_planted():
-    status, plants = mock("GET /mock/plants")
-    assert status == 200 and len(plants) == 30
+def test_inverter_api_shows_one_plant_per_key_and_never_leaks_what_was_planted():
+    key = mock_inverter.api_key("home-00")
+    assert mock("GET /mock/v1/plants")[0] == 401
+    assert mock("GET /mock/v1/plants", key="inv_" + "0" * 24)[0] == 401
+    status, body = mock("GET /mock/v1/plants", key=key)
+    plants = json.loads(body)
+    assert status == 200 and [p["id"] for p in plants] == ["home-00"]
     assert set(plants[0]) == {"id", "kw", "lat", "lon", "tilt", "azimuth"}
-    status, daily = mock("GET /mock/plants/{plantId}/daily", "home-00", {"from": "2026-04-01", "to": "2026-04-03"})
-    assert [d["date"] for d in daily] == ["2026-04-01", "2026-04-02", "2026-04-03"]
-    assert set(daily[0]) == {"date", "kwh"}
-    assert mock("GET /mock/plants/{plantId}/daily", "home-99")[0] == 404
-    fleet = mock("GET /mock/fleet/daily")[1]
-    assert set(fleet["home-05"]) == {"kw", "readings"}
-    assert not any(word in json.dumps(fleet) + json.dumps(plants) for word in ("fault", "soiling", "problem", "cause"))
+    status, body = mock("GET /mock/v1/plants/{plantId}/daily", "home-00", {"from": "2026-04-01", "to": "2026-04-03"}, key)
+    daily = json.loads(body)
+    assert [d["date"] for d in daily] == ["2026-04-01", "2026-04-02", "2026-04-03"] and set(daily[0]) == {"date", "kwh"}
+    assert mock("GET /mock/v1/plants/{plantId}/daily", "home-05", key=key)[0] == 403  # someone else's plant
+    fleet = json.loads(mock("GET /mock/fleet/daily")[1])
+    assert len(fleet) == 30 and set(fleet["home-05"]) == {"kw", "readings"}
+    page = mock("GET /mock/app", query={"plant": "home-05"})[1]
+    assert mock_inverter.api_key("home-05") in page and "__DATA__" not in page
+    assert not any(word in json.dumps(fleet) + body + page for word in ("fault", "soiling", "problem", "cause"))
+
+
+def png_with(text=None):
+    """The smallest PNG (header chunk and end chunk), optionally carrying the demo app's text chunk."""
+    def chunk(kind, body):
+        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+    header = chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+    extra = chunk(b"tEXt", b"dhool-demo\x00" + text.encode()) if text is not None else b""
+    return b"\x89PNG\r\n\x1a\n" + header + extra + chunk(b"IEND", b"")
+
+
+def test_dummy_reader_reads_demo_images_and_refuses_everything_else(monkeypatch):
+    for name, value in {"AWS_DEFAULT_REGION": "ap-south-1", "AWS_ACCESS_KEY_ID": "t", "AWS_SECRET_ACCESS_KEY": "t", "UPLOADS": "uploads-test"}.items():
+        monkeypatch.setenv(name, value)
+    payload = {"app": "Inverter Cloud (demo)", "plant": "home-05", "readings": [{"date": "2026-09-25", "kwh": 12.4}]}
+    with mock_aws():
+        s3 = boto3.client("s3")
+        s3.create_bucket(Bucket="uploads-test", CreateBucketConfiguration={"LocationConstraint": "ap-south-1"})
+        for key, body in {"demo.png": png_with(json.dumps(payload)), "plain.png": png_with(), "photo.jpg": b"\xff\xd8\xff\xe0 not a png",
+                          "broken.png": png_with("{not json")}.items():
+            s3.put_object(Bucket="uploads-test", Key=key, Body=body)
+        assert vision_dummy.handler({"key": "demo.png"}, None) == {
+            "ok": True, "reader": "dummy", "app": "Inverter Cloud (demo)", "readings": payload["readings"]}
+        for other in ("plain.png", "photo.jpg", "broken.png"):
+            assert vision_dummy.handler({"key": other}, None) == {"ok": False, "reader": "dummy"}
 
 
 def clear_weather(days):

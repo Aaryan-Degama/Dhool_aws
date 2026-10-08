@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Dhool backend. Cognito sign-in, HTTP API, one DynamoDB table, pvlib analysis, mock inverter API.
+Description: Dhool backend. Cognito sign-in, HTTP API, DynamoDB, screenshot uploads, pvlib analysis, demo inverter cloud and dummy screenshot reader.
 
 Resources:
   UserPool:
@@ -63,12 +63,20 @@ Resources:
         Variables:
           TABLE: !Ref Table
           ANALYSIS_FUNCTION: !Ref AnalysisFunction
+          VISION_FUNCTION: !Ref VisionFunction
+          UPLOADS: !Ref Uploads
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref Table
         - LambdaInvokePolicy:
             FunctionName: !Ref AnalysisFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref VisionFunction
+        - S3WritePolicy:   # only to sign upload slots; the API never reads the images itself
+            BucketName: !Ref Uploads
       Events:
+        StartUpload: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/screenshots'}}
+        ReadScreenshot: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/screenshots/read'}}
         ConnectInverter: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/inverter'}}
         GetVerdict: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/verdict'}}
         Me: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /me}}
@@ -102,8 +110,38 @@ Resources:
           Properties:
             Schedule: cron(30 20 * * ? *)  # 02:00 IST
 
-  # Stands in for an inverter brand's cloud API and serves the simulated neighbourhood.
-  # Public on purpose: simulated data only, and a real brand's API sits outside our sign-in too.
+  # Screenshots, one folder per house. Private; uploads come through short-lived signed slots and are
+  # deleted after 30 days.
+  Uploads:
+    Type: AWS::S3::Bucket
+    Properties:
+      LifecycleConfiguration:
+        Rules:
+          - {Id: expire-screenshots, Status: Enabled, ExpirationInDays: 30}
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['*']  # ponytail: tighten to the web app's domain once it exists
+            AllowedMethods: [POST]
+            AllowedHeaders: ['*']
+
+  # Reads an uploaded screenshot. Today: the dummy reader. The real vision model goes here, same contract.
+  VisionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: handlers.vision_dummy.handler
+      Runtime: python3.12
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          UPLOADS: !Ref Uploads
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref Uploads
+
+  # Stands in for an inverter brand: an owner's app page, a keyed API and a fleet feed, all serving the
+  # simulated neighbourhood. Outside our sign-in on purpose, as a real brand's service would be.
   MockInverterFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -113,8 +151,9 @@ Resources:
       Timeout: 10
       MemorySize: 512
       Events:
-        Plants: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/plants, Auth: {Authorizer: NONE}}}
-        Daily: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/mock/plants/{plantId}/daily', Auth: {Authorizer: NONE}}}
+        App: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/app, Auth: {Authorizer: NONE}}}
+        Plants: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/v1/plants, Auth: {Authorizer: NONE}}}
+        Daily: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/mock/v1/plants/{plantId}/daily', Auth: {Authorizer: NONE}}}
         Fleet: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/fleet/daily, Auth: {Authorizer: NONE}}}
 
 Outputs:

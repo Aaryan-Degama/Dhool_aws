@@ -28,7 +28,7 @@ _Code lives in the `Dhool_aws` repo._
 ```
 template.yaml              SAM: user pool, HTTP API + JWT authorizer, table, bucket, functions, nightly schedule
 backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, connectors, authz, config)
-backend/handlers/          thin I/O wrappers: api, mock_inverter, nightly, agent (Strands tools)
+backend/handlers/          thin I/O wrappers: api, analysis (pvlib container, nightly), mock_inverter (demo inverter cloud), vision_dummy (stand-in screenshot reader)
 backend/tests/             pytest
 web/                       React + Vite PWA, deployed by Amplify Hosting from `main`
 .github/workflows/ci.yml   pytest + sam validate on every push

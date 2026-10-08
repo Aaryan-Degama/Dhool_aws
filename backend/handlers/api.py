@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from dhool import authz, config, connectors
@@ -22,6 +23,9 @@ from dhool import authz, config, connectors
 INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I/L
 INVITE_TTL_S = 7 * 24 * 3600
 MAX_KWH_PER_KW = 12  # no roof makes more than this per installed kW in a day
+MAX_READINGS = 120   # in one request: a screenshot's history chart, not a bulk import
+MAX_UPLOAD_BYTES = 5_000_000
+IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
 _table = None
 
@@ -150,21 +154,84 @@ def join(sub, event):
     return 200, {"house_id": house_id}
 
 
-def add_reading(sub, event):
-    house_id = event["pathParameters"]["houseId"]
-    authorize(sub, house_id, "write")
-    data = _body(event)
+def _reading(item, limit):
+    """One {"date", "kwh"} checked against the calendar and the size of the roof."""
+    if not isinstance(item, dict):
+        raise HttpError(400, "Each reading needs a date and kwh")
     try:
-        date = datetime.date.fromisoformat(data.get("date", ""))
+        date = datetime.date.fromisoformat(item.get("date", ""))
     except (TypeError, ValueError):
         raise HttpError(400, "date must be YYYY-MM-DD")
     if date > datetime.datetime.now(ZoneInfo(config.TZ)).date():
         raise HttpError(400, "date cannot be in the future")
-    kwh = _number(data, "kwh", 0, _house_meta(house_id)["kw"] * MAX_KWH_PER_KW)
-    table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"READING#{date}", "kwh": kwh,
-                           "source": "manual", "by": sub, "at": int(time.time())})
+    return date, _number(item, "kwh", 0, limit)
+
+
+def add_reading(sub, event):
+    """One typed reading {"date", "kwh"}, or several confirmed from a screenshot {"readings": [...], "source": "screenshot"}."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    data = _body(event)
+    items = data["readings"] if "readings" in data else [data]
+    source = data.get("source", "manual")
+    if not isinstance(items, list) or not 1 <= len(items) <= MAX_READINGS:
+        raise HttpError(400, f"Send between 1 and {MAX_READINGS} readings")
+    if source not in ("manual", "screenshot"):
+        raise HttpError(400, "source must be manual or screenshot")
+    limit = _house_meta(house_id)["kw"] * MAX_KWH_PER_KW
+    rows = [_reading(item, limit) for item in items]
+    with table().batch_writer(overwrite_by_pkeys=["pk", "sk"]) as batch:
+        for date, kwh in rows:
+            batch.put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"READING#{date}", "kwh": kwh,
+                                 "source": source, "by": sub, "at": int(time.time())})
     _start_analysis(house_id)
-    return 201, {"date": str(date), "kwh": kwh}
+    return 201, {"saved": len(rows)}
+
+
+def start_upload(sub, event):
+    """A short-lived, size-limited upload slot for one screenshot, inside this house's folder."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    content_type = _body(event).get("content_type")
+    if content_type not in IMAGE_TYPES:
+        raise HttpError(400, "The screenshot must be a PNG, JPEG or WebP image")
+    key = f"houses/{house_id}/{uuid.uuid4().hex}.{IMAGE_TYPES[content_type]}"
+    region = os.environ["AWS_REGION"]
+    s3 = boto3.client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
+                      config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
+    post = s3.generate_presigned_post(
+        os.environ["UPLOADS"], key, Fields={"Content-Type": content_type},
+        Conditions=[{"Content-Type": content_type}, ["content-length-range", 1, MAX_UPLOAD_BYTES]], ExpiresIn=300)
+    return 201, {"key": key, "url": post["url"], "fields": post["fields"]}
+
+
+def _read_image(key):
+    """Ask the vision service what the screenshot says. Today that is the dummy reader (handlers/vision_dummy.py)."""
+    response = boto3.client("lambda").invoke(FunctionName=os.environ["VISION_FUNCTION"], Payload=json.dumps({"key": key}))
+    result = json.loads(response["Payload"].read())
+    return result if isinstance(result, dict) and not response.get("FunctionError") else {}
+
+
+def read_screenshot(sub, event):
+    """What the reader found in an uploaded screenshot, for the homeowner to confirm. Nothing is saved here."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    key = _body(event).get("key")
+    if not isinstance(key, str) or not key.startswith(f"houses/{house_id}/"):
+        raise HttpError(400, "Upload the screenshot first")
+    result = _read_image(key)
+    limit = _house_meta(house_id)["kw"] * MAX_KWH_PER_KW
+    readings = {}
+    for item in (result.get("readings") or [])[:MAX_READINGS] if result.get("ok") else []:
+        try:  # whatever read the picture is not trusted: drop anything that cannot be true for this roof
+            date, kwh = _reading(item, limit)
+        except HttpError:
+            continue
+        readings[str(date)] = kwh
+    if not readings:
+        return 200, {"ok": False}
+    return 200, {"ok": True, "app": str(result.get("app", ""))[:60],
+                 "readings": [{"date": d, "kwh": readings[d]} for d in sorted(readings)]}
 
 
 def _start_analysis(house_id):
@@ -176,17 +243,20 @@ def _start_analysis(house_id):
 def connect_inverter(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
-    plant_id = _body(event).get("plant_id")
-    # The mock inverter cloud lives on this same API. A real brand would have its own fixed URL here.
+    api_key = _body(event).get("api_key")
+    # The demo inverter cloud lives on this same API. A real brand would have its own fixed URL here.
     inverter_url = f"https://{event['requestContext']['domainName']}/mock"
-    plant = connectors.mock_plant(inverter_url, plant_id) if isinstance(plant_id, str) else None
+    plant = connectors.inverter_plant(inverter_url, api_key)
     if plant is None:
-        raise HttpError(404, "No such plant on the inverter account")
+        raise HttpError(404, "That API key did not work. Copy it again from your inverter app.")
+    plant_id = plant["id"]
     # The inverter knows the system better than a typed form does, so its details replace the house's.
+    # ponytail: the brand's key sits in the house item, readable only by this API's role and never sent to
+    # clients. Move it to Secrets Manager before connecting a real brand.
     table().update_item(
         Key={"pk": f"HOUSE#{house_id}", "sk": "META"},
-        UpdateExpression="SET plant_id = :p, inverter_url = :url, kw = :kw, lat = :lat, lon = :lon, tilt = :tilt, azimuth = :az",
-        ExpressionAttributeValues={":p": plant_id, ":url": inverter_url, ":kw": Decimal(str(plant["kw"])),
+        UpdateExpression="SET plant_id = :p, inverter_url = :url, inverter_key = :key, kw = :kw, lat = :lat, lon = :lon, tilt = :tilt, azimuth = :az",
+        ExpressionAttributeValues={":p": plant_id, ":url": inverter_url, ":key": api_key, ":kw": Decimal(str(plant["kw"])),
                                    ":lat": Decimal(str(plant["lat"])), ":lon": Decimal(str(plant["lon"])),
                                    ":tilt": Decimal(str(plant["tilt"])), ":az": Decimal(str(plant["azimuth"]))})
     _start_analysis(house_id)
@@ -222,6 +292,8 @@ ROUTES = {
     "POST /houses/{houseId}/readings": add_reading,
     "GET /houses/{houseId}/readings": list_readings,
     "POST /houses/{houseId}/inverter": connect_inverter,
+    "POST /houses/{houseId}/screenshots": start_upload,
+    "POST /houses/{houseId}/screenshots/read": read_screenshot,
     "GET /houses/{houseId}/verdict": get_verdict,
 }
 

@@ -62,6 +62,3 @@ export async function api(path, body, retried = false) {
   if (!response.ok) throw new Error(data.error || data.message || "Something went wrong. Try again.");
   return data;
 }
-
-// The mock inverter cloud is public, like a brand's own API would be outside our sign-in.
-export const plants = () => fetch(`${API_URL}/mock/plants`).then((r) => r.json());

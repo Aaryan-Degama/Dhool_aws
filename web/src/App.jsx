@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api, confirmSignUp, plants, signedIn, signIn, signOut, signUp } from "./api.js";
-import { TARIFF_NOTE } from "./config.js";
+import { api, confirmSignUp, signedIn, signIn, signOut, signUp } from "./api.js";
+import { API_URL, TARIFF_NOTE } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
 import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, WhyChart } from "./visuals.jsx";
 
@@ -297,31 +297,71 @@ export function WhyTab({ verdict: v }) {
 }
 
 function AddData({ house, onSent }) {
-  const [list, setList] = useState(null);
-  const [plant, setPlant] = useState("");
   const today = new Date().toLocaleDateString("en-CA");
+  const base = `/houses/${house.house_id}`;
+  const [key, setKey] = useState("");
   const [reading, setReading] = useState({ date: today, kwh: "" });
+  const [shot, setShot] = useState(null); // null, { readings, app } once read, or { failed: true }
   const [state, run] = useAction();
+  const send = (path, body) => (e) => { e?.preventDefault(); run(async () => { await api(base + path, body()); onSent(); }); };
 
-  useEffect(() => {
-    plants().then((p) => { setList(p); setPlant(p[0]?.id || ""); }).catch(() => setList([]));
-  }, []);
+  const upload = (file) => run(async () => {
+    setShot(null);
+    const slot = await api(`${base}/screenshots`, { content_type: file.type });
+    const form = new FormData();
+    Object.entries(slot.fields).forEach(([name, value]) => form.append(name, value));
+    form.append("file", file);
+    const sent = await fetch(slot.url, { method: "POST", body: form });
+    if (!sent.ok) throw new Error("The upload did not go through. Check the image is under 5 MB, then try again.");
+    const result = await api(`${base}/screenshots/read`, { key: slot.key });
+    setShot(result.ok ? result : { failed: true });
+  });
+  const demoApp = <a href={`${API_URL}/mock/app`} target="_blank" rel="noreferrer">demo inverter app</a>;
 
   return (
     <section className="add-data">
       <h1>How should Dhool get your readings?</h1>
-      <form className="card" onSubmit={(e) => { e.preventDefault(); run(async () => { await api(`/houses/${house.house_id}/inverter`, { plant_id: plant }); onSent(); }); }}>
+
+      <div className="card stack">
+        <h2>Upload a screenshot</h2>
+        <p className="note">
+          A screenshot of your inverter app's daily generation screen. This demo can read images saved from
+          the {demoApp}; for any other screenshot, type the number in below.
+        </p>
+        {shot?.readings ? (
+          <>
+            <p>Dhool read {shot.readings.length} days from {shot.app || "your screenshot"}. Check them before saving.</p>
+            <ul className="read-list" aria-label="Readings found in the screenshot">
+              {[...shot.readings].reverse().map((r) => <li key={r.date}><span>{day(r.date)}</span><strong>{r.kwh} units</strong></li>)}
+            </ul>
+            <button className="primary" disabled={state.busy}
+                    onClick={send("/readings", () => ({ readings: shot.readings, source: "screenshot" }))}>
+              These are right. Save them
+            </button>
+            <button className="link" onClick={() => setShot(null)}>Not right? Choose another image</button>
+          </>
+        ) : (
+          <label className="secondary file">
+            {state.busy ? "Reading…" : "Choose a screenshot"}
+            <input type="file" accept="image/png,image/jpeg,image/webp" disabled={state.busy}
+                   onChange={(e) => { const file = e.target.files[0]; e.target.value = ""; if (file) upload(file); }} />
+          </label>
+        )}
+        {shot?.failed && <p className="error" role="alert">Dhool could not read that image. Type the number in below.</p>}
+      </div>
+
+      <form className="card" onSubmit={send("/inverter", () => ({ api_key: key.trim() }))}>
         <h2>Connect your inverter</h2>
-        <p className="note">Dhool reads every day on its own. This demo connects to simulated homes, not a real inverter brand.</p>
-        <label className="field">
-          <span>Inverter account</span>
-          <select value={plant} onChange={(e) => setPlant(e.target.value)} disabled={!list?.length}>
-            {(list || []).map((p) => <option key={p.id} value={p.id}>{p.id} ({p.kw} kW)</option>)}
-          </select>
-        </label>
-        <button className="primary" disabled={state.busy || !plant}>Connect</button>
+        <p className="note">
+          Dhool then reads every day on its own. Copy your API key from the {demoApp}. It holds simulated
+          homes, not a real inverter brand.
+        </p>
+        <Field label="API key from your inverter app" required autoComplete="off" autoCapitalize="none" spellCheck={false}
+               value={key} onChange={(e) => setKey(e.target.value)} />
+        <button className="primary" disabled={state.busy}>Connect</button>
       </form>
-      <form className="card" onSubmit={(e) => { e.preventDefault(); run(async () => { await api(`/houses/${house.house_id}/readings`, { date: reading.date, kwh: Number(reading.kwh) }); onSent(); }); }}>
+
+      <form className="card" onSubmit={send("/readings", () => ({ date: reading.date, kwh: Number(reading.kwh) }))}>
         <h2>Or type today's number</h2>
         <div className="row">
           <Field label="Date" type="date" max={today} required value={reading.date} onChange={(e) => setReading({ ...reading, date: e.target.value })} />

@@ -1,4 +1,4 @@
 -r requirements-analysis.txt
 pytest
 boto3
-moto[dynamodb]
+moto[dynamodb,s3]

@@ -149,12 +149,56 @@ def test_new_reading_starts_an_analysis_and_verdict_is_shared(house, table):
     assert call(STRANGER, "GET /houses/{houseId}/verdict", house_id=house)[0] == 403
 
 
-def test_connecting_an_inverter_takes_the_plants_details(house, monkeypatch):
+def test_connecting_an_inverter_needs_a_working_key_and_keeps_it_server_side(house, table, monkeypatch):
     plant = {"id": "home-00", "kw": 2.0, "lat": 28.6, "lon": 77.2, "tilt": 18.5, "azimuth": 171.0}
-    monkeypatch.setattr(api.connectors, "mock_plant", lambda url, pid: plant if pid == "home-00" else None)
-    assert call(STRANGER, "POST /houses/{houseId}/inverter", {"plant_id": "home-00"}, house)[0] == 403
-    assert call(FATHER, "POST /houses/{houseId}/inverter", {"plant_id": "nope"}, house)[0] == 404
-    assert call(FATHER, "POST /houses/{houseId}/inverter", {"plant_id": "home-00"}, house)[0] == 200
+    monkeypatch.setattr(api.connectors, "_get", lambda url, key=None: [plant] if key == "inv_goodkey123" else [])
+    assert call(STRANGER, "POST /houses/{houseId}/inverter", {"api_key": "inv_goodkey123"}, house)[0] == 403
+    assert call(FATHER, "POST /houses/{houseId}/inverter", {"api_key": "inv_wrongkey99"}, house)[0] == 404
+    assert call(FATHER, "POST /houses/{houseId}/inverter", {"api_key": "bad key\r\nX-Evil: 1"}, house)[0] == 404
+    assert call(FATHER, "POST /houses/{houseId}/inverter", {}, house)[0] == 404
+    assert call(FATHER, "POST /houses/{houseId}/inverter", {"api_key": "inv_goodkey123"}, house) == (
+        200, {"house_id": house, "plant_id": "home-00"})
     body = call(FATHER, "GET /houses/{houseId}", house_id=house)[1]
     assert (body["kw"], body["tilt"]) == (2, 18.5)
+    assert "inv_goodkey123" not in json.dumps(body)  # the key is never sent back to a browser
+    assert table.get_item(Key={"pk": f"HOUSE#{house}", "sk": "META"})["Item"]["inverter_key"] == "inv_goodkey123"
     assert ANALYSED == [house]
+
+
+def test_readings_confirmed_from_a_screenshot_are_saved_together(house):
+    readings = [{"date": "2026-09-28", "kwh": 11.9}, {"date": "2026-09-29", "kwh": 12.1}, {"date": "2026-09-29", "kwh": 12.4}]
+    assert call(FATHER, "POST /houses/{houseId}/readings", {"readings": readings, "source": "screenshot"}, house) == (201, {"saved": 3})
+    saved = call(FATHER, "GET /houses/{houseId}/readings", house_id=house)[1]["readings"]
+    assert [(r["date"], r["kwh"], r["source"]) for r in saved] == [("2026-09-28", 11.9, "screenshot"), ("2026-09-29", 12.4, "screenshot")]
+    assert ANALYSED == [house]
+    for bad in ({"readings": []}, {"readings": "x"}, {"readings": [{"date": "2026-09-28", "kwh": 999}]},
+                {"readings": readings, "source": "inverter"}, {"readings": [{"date": "2026-09-28", "kwh": 1}] * 121}):
+        assert call(FATHER, "POST /houses/{houseId}/readings", bad, house)[0] == 400
+
+
+def test_upload_slot_is_scoped_to_the_house_and_limited(house, monkeypatch):
+    monkeypatch.setenv("AWS_REGION", "ap-south-1")
+    monkeypatch.setenv("UPLOADS", "dhool-uploads-test")
+    assert call(STRANGER, "POST /houses/{houseId}/screenshots", {"content_type": "image/png"}, house)[0] == 403
+    assert call(FATHER, "POST /houses/{houseId}/screenshots", {"content_type": "application/pdf"}, house)[0] == 400
+    status, slot = call(FATHER, "POST /houses/{houseId}/screenshots", {"content_type": "image/png"}, house)
+    assert status == 201 and slot["key"].startswith(f"houses/{house}/") and slot["key"].endswith(".png")
+    assert slot["url"] == "https://dhool-uploads-test.s3.ap-south-1.amazonaws.com/"
+    assert slot["fields"]["key"] == slot["key"] and slot["fields"]["Content-Type"] == "image/png"
+
+
+def test_reading_a_screenshot_drops_what_cannot_be_true_and_saves_nothing(house, monkeypatch):
+    seen = []
+    result = {"ok": True, "app": "Inverter Cloud (demo)", "readings": [
+        {"date": "2026-09-29", "kwh": 12.4}, {"date": "2026-09-28", "kwh": 11.9},
+        {"date": "2026-09-27", "kwh": 500}, {"date": "not a date", "kwh": 3}, "junk", {"date": "2999-01-01", "kwh": 3}]}
+    monkeypatch.setattr(api, "_read_image", lambda key: seen.append(key) or result)
+    assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": "houses/someone-else/x.png"}, house)[0] == 400
+    assert call(STRANGER, "POST /houses/{houseId}/screenshots/read", {"key": f"houses/{house}/x.png"}, house)[0] == 403
+    assert seen == []
+    assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": f"houses/{house}/x.png"}, house) == (200, {
+        "ok": True, "app": "Inverter Cloud (demo)",
+        "readings": [{"date": "2026-09-28", "kwh": 11.9}, {"date": "2026-09-29", "kwh": 12.4}]})
+    assert call(FATHER, "GET /houses/{houseId}/readings", house_id=house)[1]["readings"] == []
+    monkeypatch.setattr(api, "_read_image", lambda key: {"ok": False})
+    assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": f"houses/{house}/x.png"}, house) == (200, {"ok": False})
