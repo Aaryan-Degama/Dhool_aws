@@ -148,6 +148,6 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
 .sky { width: 1.375rem; height: 1.375rem; fill: none; stroke: var(--muted); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
 .sky-sun { stroke: var(--current); }
 .sky-rain .drops { stroke: var(--wash); }
-.bar { height: 0.5rem; border-radius: 1rem; background: var(--line); overflow: hidden; }
-.bar i { display: block; height: 100%; border-radius: 1rem; background: #2f4c74; }       /* what the roof could make */
-.bar b { display: block; height: 100%; border-radius: 1rem; background: var(--current); } /* what it likely will */
+.meter { height: 0.5rem; border-radius: 1rem; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 1rem; background: #2f4c74; }       /* what the roof could make */
+.meter b { display: block; height: 100%; border-radius: 1rem; background: var(--current); } /* what it likely will */

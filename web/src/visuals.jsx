@@ -126,7 +126,7 @@ export function Forecast({ verdict }) {
               <span>{new Date(d.date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short" })}</span>
               <svg className={`sky sky-${sky}`} viewBox="0 0 24 24" role="img" aria-label={SKY_NAME[sky]}>{SKY[sky]}</svg>
               <span className="temp">{d.temp_max}°</span>
-              <span className="bar" aria-hidden="true">
+              <span className="meter" aria-hidden="true">
                 <i style={{ width: `${(100 * d.possible_kwh) / best}%` }}><b style={{ width: `${(100 * units) / d.possible_kwh}%` }} /></i>
               </span>
               <span className="units">{units}</span>
