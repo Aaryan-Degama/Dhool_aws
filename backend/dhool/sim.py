@@ -17,7 +17,8 @@ from .expected import expected_daily_kwh, fetch_pm25, fetch_weather_with_forecas
 PLANTED = {0: "string_fault", 1: "string_fault", 2: "shading", 3: "inverter_trips"}
 
 
-def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT, lon=config.SIM_LON, dusty=0):
+def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT, lon=config.SIM_LON, dusty=0,
+             weather_noise=0.0):
     """Returns {home_id: {"meta": {...}, "daily": DataFrame[expected, actual, soiling, cause]}}.
 
     hidden=True is the test neighbourhood the rules are never tuned on: every setting the rules could have
@@ -31,9 +32,14 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
     weather is one hourly frame for the whole neighbourhood, or a function (lat, lon) -> frame that gives each
     home its own. The demo data needs the second: the analysis fetches weather at each home's own spot, and a
     shower of 4.6 mm at one grid point and 5.2 mm at the next is the difference between a washed roof and not.
+
+    weather_noise=0.15 makes the weather data wrong about the sun over each roof by about 15% a day, as gridded
+    weather is over a real one: what the roof made is scaled by a random factor each day, and nothing else
+    changes (expected output, the dust, the true cause). At 0 every home is exactly what it was without it.
     """
     rng = np.random.default_rng(seed)
     wild = np.random.default_rng([seed, 1])  # the hidden set's own draws, so the default homes never change
+    cloud = np.random.default_rng([seed, 2])  # the weather error's own draws, for the same reason
     haze_per_100 = wild.uniform(0.06, 0.14) if hidden else 0.10
     local = weather if callable(weather) else lambda lat, lon: weather
     days = local(lat, lon)["rain"].resample("D").sum().index
@@ -97,6 +103,11 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
             noise = wild.normal(1.0, wild.uniform(0.01, 0.05), len(days))
             missing = wild.random(len(days)) < wild.uniform(0, 0.15)  # days the inverter never reported
         actual = expected.to_numpy() * baseline * (1 - soiling) * haze * hardware * noise
+        if weather_noise:
+            # ponytail: drawn afresh for every roof and every day. Real weather error is partly shared by
+            # roofs a street apart and runs for days at a time; model that (one area-wide draw plus a smaller
+            # one per roof, with some carry-over between days) if the neighbour comparison is ever scored on it.
+            actual = actual * cloud.lognormal(0.0, weather_noise, len(days))
         actual[missing] = np.nan
 
         cause = np.select([hardware < 1, haze < 0.95, soiling > 0.05], ["fault", "haze", "dust"], "ok")

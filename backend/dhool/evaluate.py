@@ -3,6 +3,12 @@
     python -m dhool.evaluate [seed]     the development neighbourhood (Delhi, the last 12 months)
     python -m dhool.evaluate hidden     the hidden test set
 
+Each run prints four scores. The first is the best case: every home is compared with 29 neighbours, and the
+weather data is exactly right about the sun over each roof. The other three take those away, one at a time
+and then both: "alone" gives the rules no neighbours (what a home sending screenshots or typed numbers gets),
+and "weather error" scales what each roof made by a random factor each day (see sim.simulate, weather_noise),
+because gridded weather is never right about one roof. Quote the first number only with the others beside it.
+
 The hidden test set is three other cities' real weather for a fixed past year, with every simulator setting
 drawn afresh and wider than the rules were built against, and readings missing (see sim.simulate, hidden=True).
 The rules were frozen before it was first run, and it is not used to tune them. If the rules change, run it
@@ -23,6 +29,14 @@ CLASSES = ["CLEAN", "INSPECT", "WAIT", "OK"]
 HIDDEN_SEED = 20261003
 HIDDEN_YEAR = ("2024-10-01", "2025-09-30")
 HIDDEN_CITIES = {"Jaipur": (26.91, 75.79), "Lucknow": (26.85, 80.95), "Ahmedabad": (23.02, 72.57)}
+WEATHER_NOISE = 0.15  # how far off the weather data is taken to be about one roof's sun, day to day
+# The four scores of a run: title, weather error or not, alone or not. The first is the score as it always was.
+VARIANTS = [
+    ("with neighbours, no weather error", False, False),
+    ("alone (no neighbours)", False, True),
+    (f"with weather error (about {WEATHER_NOISE:.0%} a day)", True, False),
+    ("alone, with weather error", True, True),
+]
 
 
 def truth(home, i, rain):
@@ -46,15 +60,16 @@ def truth(home, i, rain):
     return "OK"
 
 
-def evaluate(homes, rain, pm25, start=60, every=7):
-    """Returns Counter of (truth, verdict) pairs over every home, checked every `every` days."""
+def evaluate(homes, rain, pm25, start=60, every=7, alone=False):
+    """Returns Counter of (truth, verdict) pairs over every home, checked every `every` days.
+    alone=True gives the rules no neighbours to compare with."""
     ratios = pd.DataFrame({hid: h["daily"]["actual"] / h["daily"]["expected"] for hid, h in homes.items()})
     confusion = Counter()
     for hid, home in homes.items():
-        others = ratios.drop(columns=hid)
+        others = None if alone else ratios.drop(columns=hid)
         for i in range(start, len(rain) - 7, every):
             got = verdict(home["daily"].iloc[:i + 1], rain.iloc[:i + 1], list(rain.iloc[i + 1:i + 8]),
-                          pm25.iloc[:i + 1], others.iloc[:i + 1])
+                          pm25.iloc[:i + 1], others if alone else others.iloc[:i + 1])
             confusion[truth(home, i, rain), got["verdict"]] += 1
     return confusion
 
@@ -93,25 +108,35 @@ def report(confusion):
 
 
 def run(name, lat, lon, start, end, seed, hidden):
+    """Prints the four scores for one neighbourhood. Returns their confusions, in VARIANTS order, and the
+    wash checks (on the homes without weather error, as before)."""
     weather = fetch_weather(lat, lon, start, end)
     pm25 = fetch_pm25(lat, lon, start, end)
     rain = weather["rain"].resample("D").sum()
-    homes = simulate(weather, pm25, seed=seed, hidden=hidden, lat=lat, lon=lon)
-    confusion = evaluate(homes, rain, pm25.reindex(rain.index).fillna(0.0))
-    print(f"\n{name}: {len(homes)} homes, {start} to {end}, seed {seed}")
-    print(report(confusion))
-    return confusion, wash_checks(homes)
+    # The same homes twice: the weather error has its own random draws, so nothing else about them differs.
+    homes = {noisy: simulate(weather, pm25, seed=seed, hidden=hidden, lat=lat, lon=lon,
+                             weather_noise=WEATHER_NOISE if noisy else 0.0) for noisy in (False, True)}
+    # The first block is headed as it always was, so old numbers can be laid beside new ones.
+    print(f"\n{name}: {len(homes[False])} homes, {start} to {end}, seed {seed}")
+    confusions = []
+    for title, noisy, alone in VARIANTS:
+        if confusions:
+            print(f"\n{name}, {title}")
+        confusions.append(evaluate(homes[noisy], rain, pm25.reindex(rain.index).fillna(0.0), alone=alone))
+        print(report(confusions[-1]))
+    return confusions, wash_checks(homes[False])
 
 
 def main(seed="0"):
     if seed == "hidden":
-        total, washes = Counter(), Counter()
+        totals, washes = [Counter() for _ in VARIANTS], Counter()
         for i, (city, (lat, lon)) in enumerate(HIDDEN_CITIES.items()):
-            confusion, checks = run(city, lat, lon, *HIDDEN_YEAR, HIDDEN_SEED + i, hidden=True)
-            total += confusion
+            confusions, checks = run(city, lat, lon, *HIDDEN_YEAR, HIDDEN_SEED + i, hidden=True)
+            totals = [total + confusion for total, confusion in zip(totals, confusions)]
             washes += checks
-        print("\nHidden test set, all three cities")
-        print(report(total))
+        for i, (total, (title, _, _)) in enumerate(zip(totals, VARIANTS)):
+            print("\nHidden test set, all three cities" + (f", {title}" if i else ""))
+            print(report(total))
     else:
         end = datetime.date.today() - datetime.timedelta(days=7)
         _, washes = run("Delhi", config.SIM_LAT, config.SIM_LON, str(end - datetime.timedelta(days=365)), str(end), int(seed), hidden=False)

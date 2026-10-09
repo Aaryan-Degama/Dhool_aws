@@ -1,9 +1,11 @@
 """Physics and simulator checks on synthetic clear-sky weather. No network."""
+import numpy as np
 import pandas as pd
 import pvlib
 import pytest
 
 from dhool import config
+from dhool.evaluate import CLASSES, evaluate
 from dhool.expected import expected_daily_kwh
 from dhool.sim import simulate
 
@@ -71,6 +73,24 @@ def test_haze_drops_every_home_together(homes):
 def test_same_seed_same_neighbourhood(weather, pm25, homes):
     again = simulate(weather, pm25, n_homes=8, seed=1)
     assert again["home-03"]["daily"].equals(homes["home-03"]["daily"])
+
+
+def test_weather_error_changes_what_each_roof_made_and_nothing_else(weather, pm25, homes):
+    same = simulate(weather, pm25, n_homes=8, seed=1, weather_noise=0.0)
+    assert all(same[h]["daily"].equals(homes[h]["daily"]) and same[h]["meta"] == homes[h]["meta"] for h in homes)
+    noisy = simulate(weather, pm25, n_homes=8, seed=1, weather_noise=0.15)
+    for h, home in homes.items():
+        assert noisy[h]["meta"] == home["meta"]  # the answer key is untouched
+        assert noisy[h]["daily"].drop(columns="actual").equals(home["daily"].drop(columns="actual"))
+        assert 0.1 < np.log(noisy[h]["daily"]["actual"] / home["daily"]["actual"]).std() < 0.2
+
+
+def test_scoring_alone_checks_the_same_days_against_the_same_truth(weather, pm25, homes):
+    rain = weather["rain"].resample("D").sum()
+    both, alone = evaluate(homes, rain, pm25), evaluate(homes, rain, pm25, alone=True)
+    for truth in CLASSES:
+        assert sum(both[truth, v] for v in CLASSES) == sum(alone[truth, v] for v in CLASSES)
+    assert sum(both.values()) == 8 * 8 and both != alone  # 8 homes, 8 weekly checks each
 
 
 def test_dusty_homes_are_added_without_changing_the_others(weather, pm25, homes):
