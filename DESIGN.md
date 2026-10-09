@@ -68,6 +68,11 @@ address forces one, and `&dark=1` gives its night version, for demos and screens
 Dust in the air alone is not a sandstorm: Delhi's air read 300 to 380 µg/m³ of dust on a calm, clear
 night, which wrongly triggered the first version of the rule.
 
+The sun and the moon hang behind the roof scene, so they are drawn only on a page that has the scene (the
+Roof tab, sign-in, "Working it out"). Forecast, Why and Setup open with a heading right where the sun
+would be, so there the sky keeps its colour, clouds and stars but not the sun or moon (`#sky::after`,
+faded out with `:has()`).
+
 No people and no landscape illustration: the only scene is the roof model. Everything drawn has to be
 physically possible. Rain and snow fall both behind the page and in front of the roof scene; blown sand
 stays in the air and thins out before the terrace floor rather than streaking across it. Surfaces turn to dark glass tinted by the sky
@@ -96,7 +101,13 @@ bar, each with an icon and a word:
 |---|---|
 | Roof | Home name and "running at N% of normal"; the roof model; a strip of four readings (today's weather, next rain, units possible today, date of the last reading); the verdict card (what to do, a glowing meter, money lost, how sure, the reason, the action); two tiles leading to Forecast and Why |
 | Forecast | The next 7 days: weather, likely against possible units |
-| Why | The reason, should-have-made against made, money lost, the 90-day chart |
+| Why | The reason, should-have-made against made, money lost, the chart (90 days, or from three weeks before a fault) |
+
+**What "should have made" and "possible" mean.** What this roof makes when it is clean and healthy: the
+physics at the roof's own normal share, the same basis the verdict measures against. Never the physics
+alone, which no roof reaches; a healthy roof would otherwise look a few percent short everywhere. On the
+Why tab, should-have-made and made are a day, averaged over the week to the last reading, and the loss
+shown beside them is exactly their difference.
 | Setup | Upload a screenshot (the model reads it, then the homeowner checks and corrects every number before saving), connect an inverter with its API key, type a reading, family code, sign out |
 
 The meter and the percentage show output against **this roof's own normal** (100 minus the loss), not

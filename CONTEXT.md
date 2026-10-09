@@ -89,6 +89,13 @@ The project's current state. **Update this file whenever something changes** (a 
   - **Not measured on real inverter apps:** no real screenshots yet. The demo app's print is large; real apps may print smaller. `scripts/eval-vision.py` re-runs the measurement on any saved demo image.
 - **Frosted glass and a pinned scene (Oct 9):** after phone weather-app references from the owner: on the Roof tab the scene stays pinned while the cards slide over it; once the page moves, the background below the top 30% of the screen blurs in (the top stays sharp); cards are frosted glass that mostly shows the sky; headings on glass stay white, with the verdict's colour in the bolt, meter and scene; soft clouds in the day sky. Verified by screenshot, unscrolled and scrolled, in day, night and rain.
 - **On the owner's phone over Wi-Fi (Oct 9):** the built app is served from this laptop with `vite preview` on port 4173 at `http://172.19.12.142:4173` (laptop's Wi-Fi address that day). Works only on the same Wi-Fi and while the laptop is on; location lookup does not work over plain http.
+- **Five bugs from a review, fixed and deployed (Oct 9):**
+  - **Nightly run crashed on a house linked before API keys** ("Degama house": a plant, no key; `KeyError: 'inverter_key'`, its verdict frozen at 25 Sept). A house without a key now counts as not linked. The house was then relinked with its plant's key (the same write Setup makes) and gets fresh verdicts again.
+  - **Figures that did not add up.** "Should have made" was the physics for one day, while the loss was measured against the roof's own normal over a week (8.86 and 5.52 shown, 2.86 a day lost). Now should-have-made is the roof's normal and made is the real average, both a day over the week to the last reading, and the loss is their difference: demo house 8.43 − 5.65 = 2.78 a day, ₹136 a week, made/normal 67% = "running at 67%". The same wrong basis sat under the chart's should-have-made line and the forecast's "possible" (a healthy roof looked about 7% short every week); both now use the roof's normal too. The analysis returns `normal_share`.
+  - **The Why chart missed the fault**: it showed 90 days and the drop was 183 days back. It now starts three weeks before a fault (the demo house: 13 Mar to 2 Oct, drop on 3 Apr).
+  - **Demo data ended on 25 Sept.** The simulator reads the archive and the forecast API's recent days, so the data now runs to yesterday (2 Oct); same 30 plants and roofs. Regenerate before recording.
+  - **Headings ran over the sun** on Forecast, Why and Setup. The sun and moon now show only on pages with the roof scene.
+  - 6 new tests, each failing on the old code: 83 pass. Verified live (both houses re-analysed, `done: 2, failed: 0`) and by screenshot of every tab, day and night.
 - **CI (Oct 9):** `.github/workflows/ci.yml` runs pytest and the web build on every push and pull request. `amplify.yml` tells Amplify Hosting how to build `web/` on every push to `main`.
 
 ## Next
@@ -96,6 +103,7 @@ The project's current state. **Update this file whenever something changes** (a 
 2. Real inverter screenshots from the owner: run the reader on them, and fix what it misreads. Then Laya.
 3. CI (GitHub Actions) and the first commit and push.
 4. Verification after a wash or vendor visit ("predicted +X%, observed +Y%"), and the hidden test set with varied simulator settings.
+5. Right before recording the video: regenerate the demo data, deploy, and re-run the analysis (`CLAUDE.md`, Commands).
 
 ## Blockers
 - **Amplify Hosting in ap-south-1 is full.** Creating a second app there fails with "maximum number of apps in this account"; the one slot is Slate's app. An empty test app in us-east-1 was created and deleted without trouble, so the cap is per region. Host Dhool's web app from another region (Amplify serves through CloudFront, so the region barely matters) or delete Slate's app. Connecting the GitHub repo needs the user to authorise GitHub in the Amplify console; it cannot be done from the CLI without handing AWS a GitHub token.
@@ -110,6 +118,7 @@ The project's current state. **Update this file whenever something changes** (a 
 - Statistics in `DHOOL.md` 2.1 and prior art in 2.12 still need citable sources before the write-up
 
 ## Log
+- **2026-10-09:** Fixed five bugs from a review: the nightly run's crash on a keyless house (relinked), Why-tab figures that did not add up (should-have-made, the chart and "possible" now all use the roof's own normal), a chart that missed a fault older than 90 days, demo data a week stale (now through yesterday), and headings over the sun. Deployed and verified live.
 - **2026-10-09:** Real screenshot reader deployed: Qwen3-VL-2B through llama.cpp in a 3008 MB Lambda container, asked narrow questions, results confirmed and corrected by the homeowner. 93/93 demo values read exactly, none invented. Demo inverter app gained a daily list screen. `CREDITS.md` added.
 - **2026-10-09:** Fixed the false sandstorm sky over Delhi (rule now needs wind and lost visibility, not just dust); night versions of cloud, snow and sand; scene polish (layered skyline with haze, shaded parapet, sky reflected in the glass).
 - **2026-10-09:** Weather-driven skies (seven, with falling rain, snow and sand), a calmer night, and the terrace-and-city scene with a lower camera. Web test added to CI.

@@ -35,7 +35,7 @@ def rain_on(day):
 def test_healthy_roof_is_ok():
     v = verdict(home(np.ones(120)), NO_RAIN, DRY_WEEK)
     assert (v["verdict"], v["cause"]) == ("OK", "ok")
-    assert v["expected_kwh"] == 14.0 and v["loss_rs_per_week"] < 20
+    assert v["loss_rs_per_week"] < 20
 
 
 def test_sawtooth_with_no_rain_coming_is_clean():
@@ -96,6 +96,25 @@ def test_repeated_one_day_dips_are_inspect():
     v = verdict(home(factor), NO_RAIN, DRY_WEEK, neighbours=healthy_neighbours())
     assert (v["verdict"], v["cause"]) == ("INSPECT", "trips")
     assert len(v["evidence"]["dip_days"]) == 3
+
+
+def fault_from(day):
+    factor = np.ones(120)
+    factor[day:] = 0.67
+    return factor
+
+
+@pytest.mark.parametrize("factor", [np.ones(120), dust(0.004, reset_day=80), fault_from(90),
+                                    fault_from(8)],  # nearly all the history is after the fault
+                         ids=["ok", "dust", "fault", "early-fault"])
+def test_the_figures_shown_together_add_up(factor):
+    """Should have made, made, and the loss a day sit side by side on the Why tab: the subtraction must work,
+    against this roof's own normal (not the physics, which no roof reaches), and match the percentage."""
+    v = verdict(home(factor), NO_RAIN, DRY_WEEK)
+    assert v["expected_kwh"] - v["actual_kwh"] == pytest.approx(v["loss_kwh_per_day"], abs=0.006)
+    assert 12 < v["expected_kwh"] < 14  # 14 kWh of physics, at what this roof normally runs at (about 93%)
+    assert v["actual_kwh"] / v["expected_kwh"] == pytest.approx(1 - v["loss_pct"] / 100, abs=0.02)
+    assert v["loss_rs_per_week"] == round(v["loss_kwh_per_day"] * 7 * 7)
 
 
 def test_too_little_data_is_wait():

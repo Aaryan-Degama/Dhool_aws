@@ -28,7 +28,9 @@ def table():
 def run_house(house_id):
     meta = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"})["Item"]
     fleet = None
-    if meta.get("plant_id"):  # connected inverter: pull from the brand's cloud (here, the demo one)
+    # Connected inverter: pull from the brand's cloud (here, the demo one). Houses linked before API keys
+    # existed have a plant but no key; they count as not linked until the owner connects again in Setup.
+    if meta.get("plant_id") and meta.get("inverter_key"):
         readings = connectors.inverter_readings(meta["inverter_url"], meta["inverter_key"], meta["plant_id"])
         fleet = connectors.inverter_fleet(meta["inverter_url"])
         fleet.pop(meta["plant_id"], None)

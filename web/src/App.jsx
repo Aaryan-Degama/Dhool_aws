@@ -165,7 +165,7 @@ function vendorMessage(house, v) {
     "Namaste,",
     `Our rooftop solar system (${house.name}) is producing much less than it should.`,
     v.reason,
-    `On ${day(v.as_of)} it should have made about ${v.expected_kwh} units and made ${v.actual_kwh}.`,
+    `In the week to ${day(v.as_of)} it made about ${v.actual_kwh} units a day, where it normally makes ${v.expected_kwh} in that weather.`,
     "Please send someone to inspect it under the maintenance that comes with the installation.",
     "Thank you.",
   ].join("\n");
@@ -313,6 +313,10 @@ export function WhyTab({ verdict: v }) {
           <div><dt>Should have made</dt><dd>{v.expected_kwh}<span> units</span></dd></div>
           <div><dt>Made</dt><dd>{v.actual_kwh}<span> units</span></dd></div>
         </dl>
+        <p className="note">
+          A day, on average, in the week to {day(v.as_of)}.
+          {v.cause !== "no_data" && " “Should have made” is what this roof normally makes in that weather."}
+        </p>
         {acting(v) && v.loss_rs_per_week > 0 && (
           <p className="loss">
             About <strong>₹{v.loss_rs_per_week} a week</strong> is being lost ({v.loss_kwh_per_day} units a day, {TARIFF_NOTE}).

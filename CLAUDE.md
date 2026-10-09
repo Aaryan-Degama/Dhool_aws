@@ -40,7 +40,7 @@ _Deploy commands are planned; confirm each one when that code exists._
 
 - Setup: `uv venv --python 3.12 .venv && uv pip install -p .venv -r backend/requirements-dev.txt`
 - Test: `.venv/bin/pytest`
-- Generate the simulated neighbourhood (real Open-Meteo weather): `cd backend && ../.venv/bin/python -m dhool.sim`
+- Generate the simulated neighbourhood (real Open-Meteo weather, a year through yesterday): `cd backend && ../.venv/bin/python -m dhool.sim`, then deploy and run the analysis for every house (`aws lambda invoke --function-name <AnalysisFunction> --payload '{}' out.json`). Do it again right before recording a demo, or the demo inverter's last reading falls behind the live weather.
 - Deploy backend (confirmed): `sam validate && ./scripts/build.sh && sam deploy` (the script is `sam build` plus proxy handling for the container build)
 - Score the verdict rules against the simulator: `cd backend && ../.venv/bin/python -m dhool.evaluate <seed>` (seed 0 is the development data; use other seeds for an honest number)
 - Deploy settings are in `samconfig.toml`: stack `dhool-aws`, region `ap-south-1`.

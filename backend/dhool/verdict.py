@@ -47,15 +47,23 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
     ratio = _ratio(daily)
     valid = ratio.dropna()
 
-    def result(verdict, cause, confidence, reason, loss=0.0, **evidence):
-        loss_kwh = loss * baseline * float(daily["expected"].tail(7).mean()) if valid.size else 0.0
+    def result(verdict, cause, confidence, reason, loss=0.0, level=None, **evidence):
+        # The figures the homeowner sees, a day on average over the last 7 days with a reading: what this
+        # roof normally makes in that weather (its own normal, `level` times the physics, not the physics
+        # alone), what it made, and the difference. The three are shown together, so they must add up.
+        week = daily.tail(7).dropna()
+        share = level or baseline
+        normal = round(share * float(week["expected"].mean()), 2)
+        made = round(float(week["actual"].mean()), 2)
+        lost = 0.0 if cause == "no_data" else round(max(0.0, normal - made), 2)  # no normal known yet
         return {
             "verdict": verdict, "cause": cause, "confidence": confidence, "reason": reason,
-            "expected_kwh": round(float(daily["expected"].iloc[-1]), 2),
-            "actual_kwh": round(float(daily["actual"].iloc[-1]), 2),
+            "normal_share": round(share, 3),  # this roof's normal as a share of the physics, for the chart and forecast
+            "expected_kwh": normal,
+            "actual_kwh": made,
             "loss_pct": round(100 * loss, 1),
-            "loss_kwh_per_day": round(loss_kwh, 2),
-            "loss_rs_per_week": round(loss_kwh * 7 * config.TARIFF_RS),
+            "loss_kwh_per_day": lost,
+            "loss_rs_per_week": round(lost * 7 * config.TARIFF_RS),
             "evidence": evidence,
         }
 
@@ -92,7 +100,8 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
             f"Output fell about {drop:.0%} around {day:%-d %b} and has stayed down for {len(post)} days. "
             "Dust builds slowly and haze lifts, so this looks like a hardware fault, such as a failed "
             "string or new shading.",
-            loss=max(loss, drop), step_date=str(day.date()), drop_pct=round(100 * drop, 1), days_down=len(post))
+            loss=max(loss, drop), level=max(baseline, level_before),  # the bigger loss is against the higher level
+            step_date=str(day.date()), drop_pct=round(100 * drop, 1), days_down=len(post))
 
     # 2. Trips: sharp one-day dips that recover, which the area did not share.
     dips = (ratio / ratio.rolling(7, center=True, min_periods=4).median() <= DIP).tail(30)

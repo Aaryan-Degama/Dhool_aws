@@ -70,8 +70,12 @@ p { margin: 0; }
    (sun, moon and stars, cloud), and something falling (rain, snow, blown sand). Surfaces become dark
    glass so text stays readable over any of them. No figures, no landscape: the roof scene is the model. */
 #sky { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: var(--sky, var(--paper)); }
-#sky i { position: absolute; inset: 0; }
+#sky i, #sky::after { position: absolute; inset: 0; }
 #root { position: relative; z-index: 1; }
+/* The sun or moon (#sky::after) hangs behind the roof scene. A page without the scene starts with a heading
+   right where it would be, so there the sky keeps its colour and clouds but not the sun or moon. */
+#sky::after { content: ""; transition: opacity 0.4s; }
+:root:not(:has(.hero)) #sky::after { opacity: 0; }
 
 [data-sky] {
   --card-top: rgba(var(--glass), 0.64);
@@ -122,9 +126,11 @@ p { margin: 0; }
   --ground-far: #b3b0a6; --ground: #9a968b; --tile: rgba(60, 56, 48, 0.18); --wall: #c9c5ba; --wall-top: #e6e3da;
   --city-far: #8fb9e8; --city-near: #6f9fd6;
 }
+[data-sky="day"] #sky::after {
+  background: radial-gradient(circle at 78% 7.1rem, #fff 0 1.15rem, rgba(255, 255, 255, 0.6) 1.5rem, rgba(255, 255, 255, 0.2) 4rem, transparent 10rem);
+}
 [data-sky="day"] #sky i:first-child {
   background:
-    radial-gradient(circle at 78% 7.1rem, #fff 0 1.15rem, rgba(255, 255, 255, 0.6) 1.5rem, rgba(255, 255, 255, 0.2) 4rem, transparent 10rem),
     radial-gradient(34% 2.4rem at 22% 3.4rem, rgba(255, 255, 255, 0.5), transparent 72%),
     radial-gradient(22% 1.8rem at 34% 2.6rem, rgba(255, 255, 255, 0.42), transparent 72%),
     radial-gradient(28% 2rem at 58% 1.6rem, rgba(255, 255, 255, 0.3), transparent 72%),
@@ -172,10 +178,13 @@ p { margin: 0; }
   --ground-far: #22254a; --ground: #181a38; --tile: rgba(0, 0, 0, 0.28); --wall: #2a2d58; --wall-top: #41457a;
   --city-far: #23264f; --city-near: #151735; --windows: 0.9;
 }
-[data-sky="night"] #sky i:first-child {  /* stars thinning toward the horizon, and the moon */
+[data-sky="night"] #sky::after {  /* the moon, and its faint glow */
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cdefs%3E%3CradialGradient id='m' cx='38%25' cy='36%25'%3E%3Cstop offset='0' stop-color='%23f4f5fa'/%3E%3Cstop offset='.7' stop-color='%23cfd3e2'/%3E%3Cstop offset='1' stop-color='%23a9aec4'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='40' cy='40' r='30' fill='url(%23m)'/%3E%3Cg fill='%238f95b0' opacity='.45'%3E%3Ccircle cx='30' cy='32' r='7'/%3E%3Ccircle cx='48' cy='50' r='9'/%3E%3Ccircle cx='52' cy='28' r='4'/%3E%3Ccircle cx='32' cy='52' r='4.5'/%3E%3Ccircle cx='42' cy='38' r='3'/%3E%3C/g%3E%3C/svg%3E") no-repeat right 1.5rem top 5.2rem / 3.6rem,
-    radial-gradient(circle at calc(100% - 3.3rem) 7rem, rgba(200, 206, 235, 0.16), transparent 6rem),
+    radial-gradient(circle at calc(100% - 3.3rem) 7rem, rgba(200, 206, 235, 0.16), transparent 6rem);
+}
+[data-sky="night"] #sky i:first-child {  /* stars, thinning toward the horizon */
+  background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='340' fill='%23fff'%3E%3Ccircle cx='18' cy='22' r='0.7' opacity='0.8'/%3E%3Ccircle cx='64' cy='88' r='0.5' opacity='0.5'/%3E%3Ccircle cx='97' cy='31' r='0.9' opacity='0.9'/%3E%3Ccircle cx='131' cy='142' r='0.5' opacity='0.5'/%3E%3Ccircle cx='158' cy='64' r='0.6' opacity='0.7'/%3E%3Ccircle cx='203' cy='18' r='0.5' opacity='0.6'/%3E%3Ccircle cx='226' cy='112' r='0.8' opacity='0.8'/%3E%3Ccircle cx='262' cy='49' r='0.5' opacity='0.5'/%3E%3Ccircle cx='301' cy='96' r='0.5' opacity='0.6'/%3E%3Ccircle cx='334' cy='27' r='0.8' opacity='0.9'/%3E%3Ccircle cx='41' cy='171' r='0.5' opacity='0.5'/%3E%3Ccircle cx='88' cy='226' r='0.5' opacity='0.4'/%3E%3Ccircle cx='176' cy='198' r='0.7' opacity='0.7'/%3E%3Ccircle cx='247' cy='183' r='0.5' opacity='0.4'/%3E%3Ccircle cx='318' cy='214' r='0.6' opacity='0.6'/%3E%3Ccircle cx='12' cy='262' r='0.5' opacity='0.4'/%3E%3Ccircle cx='143' cy='271' r='0.5' opacity='0.5'/%3E%3Ccircle cx='283' cy='266' r='0.5' opacity='0.4'/%3E%3Ccircle cx='349' cy='148' r='0.5' opacity='0.6'/%3E%3Ccircle cx='115' cy='9' r='0.5' opacity='0.6'/%3E%3Ccircle cx='52' cy='48' r='0.4' opacity='0.5'/%3E%3Ccircle cx='189' cy='96' r='0.4' opacity='0.4'/%3E%3Ccircle cx='275' cy='132' r='0.4' opacity='0.5'/%3E%3Ccircle cx='30' cy='120' r='0.4' opacity='0.4'/%3E%3Ccircle cx='210' cy='60' r='0.4' opacity='0.5'/%3E%3Ccircle cx='120' cy='90' r='0.4' opacity='0.4'/%3E%3Ccircle cx='330' cy='70' r='0.4' opacity='0.4'/%3E%3Ccircle cx='75' cy='150' r='0.4' opacity='0.4'/%3E%3Ccircle cx='240' cy='24' r='0.4' opacity='0.5'/%3E%3Ccircle cx='160' cy='160' r='0.4' opacity='0.3'/%3E%3Ccircle cx='300' cy='300' r='0.4' opacity='0.3'/%3E%3Ccircle cx='60' cy='310' r='0.4' opacity='0.3'/%3E%3Ccircle cx='200' cy='320' r='0.4' opacity='0.3'/%3E%3Ccircle cx='105' cy='200' r='0.4' opacity='0.4'/%3E%3Ccircle cx='345' cy='250' r='0.4' opacity='0.3'/%3E%3C/svg%3E");
   -webkit-mask-image: linear-gradient(#000 45%, transparent 85%);
   mask-image: linear-gradient(#000 45%, transparent 85%);

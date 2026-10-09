@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from . import config
-from .expected import expected_daily_kwh, fetch_pm25, fetch_weather
+from .expected import expected_daily_kwh, fetch_pm25, fetch_weather_with_forecast
 
 # home index -> planted hardware problem; every other home only gets dust.
 PLANTED = {0: "string_fault", 1: "string_fault", 2: "shading", 3: "inverter_trips"}
@@ -84,10 +84,12 @@ def simulate(weather, pm25, n_homes=30, seed=0):
 
 
 def main(path="data/neighbourhood.json", seed=0):
-    """Fetch the last 12 months of real weather and write the neighbourhood to JSON."""
-    end = datetime.date.today() - datetime.timedelta(days=7)  # the archive lags a few days
+    """Fetch 12 months of real weather, through yesterday, and write the neighbourhood to JSON.
+    Run it again right before a demo: the demo inverter's last day is the day before this ran."""
+    end = datetime.date.today() - datetime.timedelta(days=1)
     start = end - datetime.timedelta(days=365)
-    weather = fetch_weather(config.SIM_LAT, config.SIM_LON, str(start), str(end))
+    # The archive lags about a week; the forecast API serves the recent days, as it does for the analysis.
+    weather = fetch_weather_with_forecast(config.SIM_LAT, config.SIM_LON, start).loc[:str(end)]
     pm25 = fetch_pm25(config.SIM_LAT, config.SIM_LON, str(start), str(end))
     homes = simulate(weather, pm25, seed=seed)
     out = {

@@ -1,14 +1,16 @@
 """The demo inverter cloud and the analysis step that turns readings into a verdict. No network."""
 import json
 
+import boto3
 import pandas as pd
 import pvlib
 import pytest
+from moto import mock_aws
 
-from dhool import config
+from dhool import config, connectors
 from dhool.analyse import analyse
 from dhool.expected import expected_daily_kwh
-from handlers import mock_inverter
+from handlers import analysis, mock_inverter
 
 META = {"kw": 3, "lat": config.SIM_LAT, "lon": config.SIM_LON, "tilt": 20, "azimuth": 180}
 
@@ -64,6 +66,40 @@ def test_analyse_turns_readings_into_a_verdict_and_a_chart():
                                    "actual": None, "rain_mm": 0.0}
     week = result["forecast"]
     assert [d["date"] for d in week] == [f"2026-0{m}-{d:02d}" for m, d in [(4, 30)] + [(5, d) for d in range(1, 7)]]
-    assert all(d["likely_kwh"] == pytest.approx(d["possible_kwh"] * 0.93 * 0.67, abs=0.2) for d in week)
+    # "Should have made" and "possible" are this roof's own normal (93% of the physics here), not the physics:
+    # a healthy day sits on the line, and the week ahead is likely 67% of possible, as the roof runs now.
+    assert result["series"][0]["actual"] == pytest.approx(result["series"][0]["expected"], abs=0.02)
+    assert all(d["likely_kwh"] == pytest.approx(d["possible_kwh"] * 0.67, abs=0.2) for d in week)
     assert week[0]["temp_max"] == 28 and week[0]["rain_mm"] == 0.0
     json.dumps(result)  # must be storable as JSON
+
+
+def test_the_chart_reaches_back_to_a_fault_older_than_its_90_days():
+    weather = clear_weather(157)  # 150 days of readings + a week of forecast
+    expected = expected_daily_kwh(weather, META["lat"], META["lon"], META["kw"], META["tilt"], META["azimuth"])
+    factor = pd.Series(0.93, index=expected.index[:150])
+    factor.iloc[30:] *= 0.67  # a string dies 120 days before the last reading
+    readings = {str(day.date()): round(kwh, 2) for day, kwh in (expected[:150] * factor).items()}
+
+    result = analyse(META, readings, weather)
+    dates = [d["date"] for d in result["series"]]
+    assert result["cause"] == "fault" and dates[-1] == result["as_of"]
+    assert dates.index(result["evidence"]["step_date"]) == 21  # three weeks of normal output, then the drop
+
+
+def test_the_nightly_run_survives_a_house_linked_before_api_keys(monkeypatch):
+    """A house with a plant but no key (linked the old way) is read from its own readings, not the inverter."""
+    for name, value in {"AWS_DEFAULT_REGION": "ap-south-1", "AWS_ACCESS_KEY_ID": "t", "AWS_SECRET_ACCESS_KEY": "t",
+                        "TABLE": "dhool-test"}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(connectors, "inverter_readings", lambda *a: pytest.fail("there is no key to call the inverter with"))
+    with mock_aws():
+        table = boto3.resource("dynamodb").create_table(
+            TableName="dhool-test", BillingMode="PAY_PER_REQUEST",
+            AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}, {"AttributeName": "sk", "AttributeType": "S"}],
+            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}])
+        table.put_item(Item={"pk": "HOUSES", "sk": "h1"})
+        table.put_item(Item={"pk": "HOUSE#h1", "sk": "META", "plant_id": "home-04", "inverter_url": "https://api.invalid/mock",
+                             "kw": 3, "lat": "28.59", "lon": "77.23", "tilt": 20, "azimuth": 180})
+        monkeypatch.setattr(analysis, "_table", None)
+        assert analysis.handler({}, None) == {"done": 1, "failed": 0}
