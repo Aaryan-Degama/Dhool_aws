@@ -108,7 +108,7 @@ physics at the roof's own normal share, the same basis the verdict measures agai
 alone, which no roof reaches; a healthy roof would otherwise look a few percent short everywhere. On the
 Why tab, should-have-made and made are a day, averaged over the week to the last reading, and the loss
 shown beside them is exactly their difference.
-| Setup | Upload a screenshot (the model reads it, then the homeowner checks and corrects every number before saving), connect an inverter with its API key, type a reading, family code, sign out |
+| Setup | Upload a screenshot (the model reads it, then the homeowner checks and corrects every number before saving; while it reads, a timer, "about a minute", and "Type the number instead" one tap away, with the other forms still usable), connect an inverter with its API key, type a reading, family code, sign out |
 
 The meter and the percentage show output against **this roof's own normal** (100 minus the loss), not
 against the physics number, which no roof reaches.

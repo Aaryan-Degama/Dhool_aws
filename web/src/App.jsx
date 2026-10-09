@@ -331,6 +331,27 @@ export function WhyTab({ verdict: v }) {
   );
 }
 
+/** While the model reads a screenshot: how long it has been, and the way to type the number instead. */
+function Reading({ since, onType }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+  const s = Math.max(0, Math.round((now - since) / 1000));
+  return (
+    <div className="reading">
+      <span className="spinner" aria-hidden="true" />
+      <p role="status">
+        Reading your screenshot: about a minute. Stay on this page.
+        {s > 120 && <small>Still reading. After a quiet spell the reader starts up first, which can take up to five minutes.</small>}
+      </p>
+      <span className="elapsed" aria-hidden="true">{Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</span>
+      <button className="link" onClick={onType}>Type the number instead</button>
+    </div>
+  );
+}
+
 function AddData({ house, onSent }) {
   const today = new Date().toLocaleDateString("en-CA");
   const base = `/houses/${house.house_id}`;
@@ -343,7 +364,7 @@ function AddData({ house, onSent }) {
   const send = (path, body) => (e) => { e?.preventDefault(); run(async () => { await api(base + path, body()); onSent(); }); };
 
   const upload = (file) => run(async () => {
-    setShot({ reading: true });
+    setShot({ reading: true, since: Date.now() });
     try {
       const slot = await api(`${base}/screenshots`, { content_type: file.type });
       const form = new FormData();
@@ -351,20 +372,28 @@ function AddData({ house, onSent }) {
       form.append("file", file);
       const sent = await fetch(slot.url, { method: "POST", body: form });
       if (!sent.ok) throw new Error("The upload did not go through. Check the image is under 5 MB, then try again.");
-      // A model reads the picture in the background, which takes a minute or so: ask until it has finished.
       const { shot_id } = await api(`${base}/screenshots/read`, { key: slot.key });
-      for (let asked = 0; asked < 150 && here.current; asked++) {
-        await new Promise((done) => setTimeout(done, 4000));
-        const result = await api(`${base}/screenshots/${shot_id}`);
-        if (result.status === "read") return setShot({ rows: result.readings.map((r) => ({ date: r.date, kwh: String(r.kwh) })) });
-        if (result.status === "unreadable") break;
-      }
-      setShot({ failed: true });
+      waitFor(shot_id); // not awaited: the other ways in stay usable while the model reads
     } catch (e) {
       setShot(null);
       throw e;
     }
   });
+  // A model reads the picture in the background, which takes about a minute: ask until it has finished.
+  const waitFor = async (shotId) => {
+    for (let asked = 0; asked < 150 && here.current; asked++) {
+      await new Promise((done) => setTimeout(done, 4000));
+      const result = await api(`${base}/screenshots/${shotId}`).catch(() => null); // a dropped connection: ask again
+      if (result?.status === "read") return setShot({ rows: result.readings.map((r) => ({ date: r.date, kwh: String(r.kwh) })) });
+      if (result?.status === "unreadable") break;
+    }
+    setShot({ failed: true });
+  };
+  const typeInstead = () => {
+    const box = document.getElementById("typed-kwh");
+    box.scrollIntoView({ block: "center", behavior: "smooth" });
+    box.focus({ preventScroll: true });
+  };
   const setRow = (date, kwh) => setShot({ rows: shot.rows.map((r) => (r.date === date ? { ...r, kwh } : r)) });
   const kept = () => shot.rows.filter((r) => r.kwh.trim() !== "").map((r) => ({ date: r.date, kwh: Number(r.kwh) }));
   const demoApp = <a href={`${API_URL}/mock/app`} target="_blank" rel="noreferrer">demo inverter app</a>;
@@ -402,10 +431,7 @@ function AddData({ house, onSent }) {
             <button className="link" onClick={() => setShot(null)}>Not right? Choose another image</button>
           </>
         ) : shot?.reading ? (
-          <p className="working-note" role="status">
-            <span className="spinner" aria-hidden="true" />
-            Reading your screenshot. This takes a minute or two; keep this page open.
-          </p>
+          <Reading since={shot.since} onType={typeInstead} />
         ) : (
           <label className="secondary file">
             Choose a screenshot
@@ -414,9 +440,12 @@ function AddData({ house, onSent }) {
           </label>
         )}
         {shot?.failed && (
-          <p className="error" role="alert">
-            Dhool could not read daily units from that image. Try a screen where the number is printed, or type it in below.
-          </p>
+          <>
+            <p className="error" role="alert">
+              Dhool could not read daily units from that image. Try a screen where the number is printed, or type it in.
+            </p>
+            <button className="link" onClick={typeInstead}>Type the number instead</button>
+          </>
         )}
       </div>
 
@@ -435,7 +464,7 @@ function AddData({ house, onSent }) {
         <h2>Or type today's number</h2>
         <div className="row">
           <Field label="Date" type="date" max={today} required value={reading.date} onChange={(e) => setReading({ ...reading, date: e.target.value })} />
-          <Field label="Units made (kWh)" inputMode="decimal" required value={reading.kwh} onChange={(e) => setReading({ ...reading, kwh: e.target.value })} />
+          <Field label="Units made (kWh)" id="typed-kwh" inputMode="decimal" required value={reading.kwh} onChange={(e) => setReading({ ...reading, kwh: e.target.value })} />
         </div>
         <button className="secondary" disabled={state.busy}>Save reading</button>
       </form>

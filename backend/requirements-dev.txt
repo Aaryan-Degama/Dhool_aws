@@ -2,3 +2,4 @@
 pytest
 boto3
 moto[dynamodb,s3]
+pillow==12.3.0  # the screenshot reader shrinks pictures with it (vision/); the same version as its container

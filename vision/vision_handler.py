@@ -13,8 +13,6 @@ import boto3
 
 import screenshot_reader
 
-TYPES = {"png": "image/png", "jpg": "image/jpeg"}
-
 
 def handler(event, context):
     if event.get("warm"):  # the 5-minute ping: have the model loaded and its weights in memory, nothing else
@@ -23,7 +21,7 @@ def handler(event, context):
     started = time.time()
     try:
         image = boto3.client("s3").get_object(Bucket=os.environ["UPLOADS"], Key=event["key"])["Body"].read()
-        result = screenshot_reader.read(image, TYPES.get(event["key"].rsplit(".", 1)[-1], "image/png"))
+        result = screenshot_reader.read(image)
         status = "read"
     except Exception as e:  # whatever went wrong, the homeowner must not be left waiting on a spinner
         result, status = {"readings": [], "error": f"{type(e).__name__}: {e}"[:300]}, "failed"

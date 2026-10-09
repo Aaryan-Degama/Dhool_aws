@@ -15,5 +15,7 @@ RUN cmake -S /src -B /build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
 FROM public.ecr.aws/lambda/python:3.12
 COPY --from=build /build/bin/llama-server /opt/llama-server
 COPY models/ /opt/models/
+# After the 1.5 GB of weights, so changing anything below does not upload them again.
+RUN pip install --no-cache-dir pillow==12.3.0
 COPY screenshot_reader.py vision_handler.py ${LAMBDA_TASK_ROOT}/
 CMD ["vision_handler.handler"]
