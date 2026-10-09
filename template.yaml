@@ -2,6 +2,31 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Dhool backend. Cognito sign-in, HTTP API, DynamoDB, screenshot uploads read by a vision model, pvlib analysis, demo inverter cloud.
 
+Parameters:
+  WebOrigin:
+    Type: String
+    Default: '*'  # ponytail: tighten to the Amplify URL once it exists (one override: WebOrigin=https://...)
+    Description: The web app's origin, for CORS on the API and on screenshot uploads.
+  AlarmEmail:
+    Type: String
+    Default: ''
+    Description: Where alarms are emailed. Empty means the alarm topic has no subscriber.
+  VapidParam:
+    Type: String
+    Default: /dhool/vapid-private-key
+    Description: Name of the SSM SecureString holding the Web Push (VAPID) private key. Must start with a slash.
+  VapidSubject:
+    Type: String
+    Default: https://github.com  # ponytail: a placeholder that signs; set it to mailto:<the owner's address>
+    Description: Contact sent to the push services with every notification, as mailto:<address> or https://<host> (no path).
+
+Conditions:
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, '']]
+
+Globals:
+  Function:
+    Tracing: Active
+
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -19,8 +44,8 @@ Resources:
       GenerateSecret: false
       ExplicitAuthFlows: [ALLOW_USER_SRP_AUTH, ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
 
-  # One table: HOUSE#<id> (META, MEMBER#<sub>, READING#<date>, VERDICT#<date>),
-  # USER#<sub> -> HOUSE#<id>, INVITE#<code> (expires through TTL).
+  # One table: HOUSE#<id> (META, MEMBER#<sub>, READING#<date>, VERDICT#<date>, ACTION#<date>, SHOT#<id>,
+  # PUSH#<hash>), USER#<sub> -> HOUSE#<id>, HOUSES -> <id>, INVITE#<code> and JOINFAIL#<sub> (expire through TTL).
   Table:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -39,9 +64,21 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       CorsConfiguration:
-        AllowOrigins: ['*']  # ponytail: tighten to the Amplify domain once it exists
+        AllowOrigins: [!Ref WebOrigin]
         AllowHeaders: [authorization, content-type]
-        AllowMethods: [GET, POST]
+        AllowMethods: [GET, POST, DELETE]
+      # Per route, across all callers. ponytail: no per-person limit; put WAF or a usage plan in front
+      # when there are enough users for one of them to crowd out the rest.
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+      RouteSettings:
+        'POST /join':  # invite codes are six letters: slow down guessing (the handler also counts misses per person)
+          ThrottlingBurstLimit: 5
+          ThrottlingRateLimit: 1
+        # The nightly run reads the demo inverter once per house.
+        'GET /mock/v1/plants/{plantId}/daily': {ThrottlingBurstLimit: 100, ThrottlingRateLimit: 50}
+        'GET /mock/fleet/daily': {ThrottlingBurstLimit: 100, ThrottlingRateLimit: 50}
       Auth:
         DefaultAuthorizer: Cognito
         Authorizers:
@@ -66,6 +103,8 @@ Resources:
           VISION_FUNCTION: !Ref VisionFunction
           MESSAGE_FUNCTION: !Ref MessageFunction
           UPLOADS: !Ref Uploads
+      LoggingConfig:
+        LogGroup: !Ref ApiLogGroup
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref Table
@@ -77,6 +116,13 @@ Resources:
             FunctionName: !Ref MessageFunction
         - S3WritePolicy:   # only to sign upload slots; the API never reads the images itself
             BucketName: !Ref Uploads
+        - Statement:       # deleting a home deletes its screenshots
+            - Effect: Allow
+              Action: s3:ListBucket
+              Resource: !GetAtt Uploads.Arn
+            - Effect: Allow
+              Action: s3:DeleteObject
+              Resource: !Sub ${Uploads.Arn}/*
       Events:
         StartUpload: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/screenshots'}}
         ReadScreenshot: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/screenshots/read'}}
@@ -91,12 +137,16 @@ Resources:
         CreateHouse: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: /houses}}
         Join: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: /join}}
         GetHouse: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}'}}
+        DeleteHouse: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: DELETE, Path: '/houses/{houseId}'}}
+        RemoveMember: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: DELETE, Path: '/houses/{houseId}/members/{sub}'}}
+        SubscribePush: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/push'}}
+        UnsubscribePush: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: DELETE, Path: '/houses/{houseId}/push'}}
         CreateInvite: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/invites'}}
         AddReading: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/readings'}}
         ListReadings: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/readings'}}
 
   # pvlib physics + verdict rules. A container image because pvlib and pandas exceed the zip limit.
-  # Runs on demand when new data arrives, and every night for every house.
+  # Runs on demand when new data arrives, and every night: the scheduled run starts one run per house.
   AnalysisFunction:
     Type: AWS::Serverless::Function
     Metadata:
@@ -109,9 +159,31 @@ Resources:
       Environment:
         Variables:
           TABLE: !Ref Table
+          VAPID_PARAM: !Ref VapidParam
+          VAPID_SUBJECT: !Ref VapidSubject
+      LoggingConfig:
+        LogGroup: !Ref AnalysisLogGroup
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref Table
+        - Statement:
+            # Itself, once per house each night. By name pattern: a reference to its own ARN would be circular.
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-AnalysisFunction-*
+            # The key that signs Web Push notifications, and the decryption of that one SecureString.
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${VapidParam}
+            - Effect: Allow
+              Action: kms:Decrypt
+              Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*
+              Condition:
+                StringEquals:
+                  kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+      EventInvokeConfig:
+        DestinationConfig:
+          OnFailure: {Type: SQS, Destination: !GetAtt FailureQueue.Arn}
       Events:
         Nightly:
           Type: Schedule
@@ -128,7 +200,7 @@ Resources:
           - {Id: expire-screenshots, Status: Enabled, ExpirationInDays: 30}
       CorsConfiguration:
         CorsRules:
-          - AllowedOrigins: ['*']  # ponytail: tighten to the web app's domain once it exists
+          - AllowedOrigins: [!Ref WebOrigin]
             AllowedMethods: [POST]
             AllowedHeaders: ['*']
 
@@ -144,6 +216,8 @@ Resources:
       PackageType: Image
       Timeout: 300  # a fresh container took over two minutes to pull PyTorch out of the image; after that, under a second
       MemorySize: 3008
+      LoggingConfig:
+        LogGroup: !Ref MessageLogGroup
       Events:
         KeepWarm:
           Type: Schedule
@@ -167,6 +241,8 @@ Resources:
         Variables:
           UPLOADS: !Ref Uploads
           TABLE: !Ref Table
+      LoggingConfig:
+        LogGroup: !Ref VisionLogGroup
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref Uploads
@@ -174,6 +250,8 @@ Resources:
             TableName: !Ref Table
       EventInvokeConfig:
         MaximumRetryAttempts: 0  # a failed read is reported once, not retried for another fifteen minutes
+        DestinationConfig:
+          OnFailure: {Type: SQS, Destination: !GetAtt FailureQueue.Arn}
       Events:
         # Loading the 1.6 GB model into a fresh container takes about four minutes. A ping every five
         # minutes keeps one container loaded, so a homeowner waits about a minute instead.
@@ -194,11 +272,121 @@ Resources:
       Runtime: python3.12
       Timeout: 10
       MemorySize: 512
+      LoggingConfig:
+        LogGroup: !Ref MockInverterLogGroup
       Events:
         App: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/app, Auth: {Authorizer: NONE}}}
         Plants: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/v1/plants, Auth: {Authorizer: NONE}}}
         Daily: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/mock/v1/plants/{plantId}/daily', Auth: {Authorizer: NONE}}}
         Fleet: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /mock/fleet/daily, Auth: {Authorizer: NONE}}}
+
+  # Named log groups kept for 30 days. New names: the /aws/lambda/... groups Lambda made by itself already
+  # exist and cannot be taken over by the stack (they keep their old lines and can be deleted by hand).
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /dhool/${AWS::StackName}/api
+      RetentionInDays: 30
+  AnalysisLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /dhool/${AWS::StackName}/analysis
+      RetentionInDays: 30
+  VisionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /dhool/${AWS::StackName}/vision
+      RetentionInDays: 30
+  MessageLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /dhool/${AWS::StackName}/messages
+      RetentionInDays: 30
+  MockInverterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /dhool/${AWS::StackName}/mock-inverter
+      RetentionInDays: 30
+
+  # Failures are seen: a background run that failed for good (analysis after its retries, a screenshot read
+  # at once) leaves its event here, and any message or any function error raises an alarm on the topic.
+  FailureQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600  # 14 days, the most SQS keeps
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  FailureQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: A background run failed for good; its event is waiting in the failure queue.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - {Name: QueueName, Value: !GetAtt FailureQueue.QueueName}
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  ApiErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: The API raised an error it did not handle.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - {Name: FunctionName, Value: !Ref ApiFunction}
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  AnalysisErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: A verdict run failed.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - {Name: FunctionName, Value: !Ref AnalysisFunction}
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+  VisionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: The screenshot reader failed.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - {Name: FunctionName, Value: !Ref VisionFunction}
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
 
 Outputs:
   ApiUrl:
@@ -207,3 +395,7 @@ Outputs:
     Value: !Ref UserPool
   UserPoolClientId:
     Value: !Ref UserPoolClient
+  FailureQueueUrl:
+    Value: !Ref FailureQueue
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic

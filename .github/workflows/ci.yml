@@ -9,6 +9,18 @@ permissions:
   contents: read
 
 jobs:
+  template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      - run: sam validate --lint
+        env:
+          AWS_DEFAULT_REGION: ap-south-1  # no credentials: the lint reads the file alone
+      - run: docker build -t dhool-analysis backend  # the analysis image: its pinned requirements still install together
+
   test:
     runs-on: ubuntu-latest
     steps:

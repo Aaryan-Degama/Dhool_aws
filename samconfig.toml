@@ -7,3 +7,13 @@ resolve_s3 = true
 resolve_image_repos = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
+
+# A second copy of the stack for trying a change first: `sam deploy --config-env staging`. Nothing is deployed
+# to it yet. It would need its own push key: parameter_overrides = "VapidParam=/dhool-aws-staging/vapid-private-key".
+[staging.deploy.parameters]
+stack_name = "dhool-staging"
+region = "ap-south-1"
+resolve_s3 = true
+resolve_image_repos = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
