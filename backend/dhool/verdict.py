@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from . import config
+from .reasons import say
 
 MIN_DAYS = 14          # days of data needed to learn a roof's normal
 STEP_DROP = 0.90       # a week's median this far below the week before is a sudden drop
@@ -144,7 +145,8 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
         made = round(float(week["actual"].mean()), 2)
         lost = 0.0 if cause == "no_data" else round(max(0.0, normal - made), 2)  # no normal known yet
         return {
-            "verdict": verdict, "cause": cause, "confidence": confidence, "reason": reason,
+            "verdict": verdict, "cause": cause, "confidence": confidence,
+            "reason": reason["en"], "reason_hi": reason["hi"],
             "normal_share": round(share, 3),  # this roof's normal as a share of the physics, for the chart and forecast
             "expected_kwh": normal,
             "actual_kwh": made,
@@ -158,7 +160,7 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
     if len(valid) < MIN_DAYS:
         baseline = 1.0
         return result("WAIT", "no_data", "low",
-                      f"Only {len(valid)} days of data so far. Dhool needs about two weeks to learn this roof's normal.")
+                      say("no_data", n=len(valid)))
 
     baseline = normal(ratio)
     step = _steps(ratio)  # medians: robust for deciding whether a change happened
@@ -215,9 +217,7 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
         confidence = "high" if len(post) >= 14 and neighbours is not None else "medium" if len(post) >= 7 else "low"
         return result(
             "INSPECT", "fault", confidence,
-            f"Output fell about {drop:.0%} around {day:%-d %b} and has stayed down for {len(post)} days. "
-            "Dust builds slowly and haze lifts, so this looks like a hardware fault, such as a failed "
-            "string or new shading.",
+            say("fault", drop=drop, day=day, days=len(post)),
             loss=max(loss, drop), level=max(baseline, level_before),  # the bigger loss is against the higher level
             step_date=str(day.date()), drop_pct=round(100 * drop, 1), days_down=len(post))
 
@@ -230,23 +230,20 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
     if neighbours is not None and dips.sum() >= 2:
         return result(
             "INSPECT", "trips", "medium",
-            f"Output dropped sharply on {int(dips.sum())} separate days in the last 30 and came back each time. "
-            "This can be the inverter shutting down for part of the day.",
+            say("trips", n=int(dips.sum())),
             loss=loss, dip_days=[str(d.date()) for d in dips[dips].index])
 
     # 3. Just cleaned: rain or a reported wash in the last day or two. The week's median still shows the dirt
     # from before, so say what is known and measure again once clear days come in.
     if last_clean is not None and len(since) < MIN_AFTER and (rained | told)[last_clean]:
         loss = 0.0
-        by = "Rain" if rained[last_clean] else "Your wash" if actions[-1]["type"] == "wash" else "The vendor's visit"
-        return result("OK", "ok", "medium",
-                      f"{by} on {last_clean:%-d %b} should have brought the panels back. Dhool will confirm it "
-                      "over the next few clear days.", cleaned_on=str(last_clean.date()))
+        by = say("by_rain" if rained[last_clean] else "by_wash" if actions[-1]["type"] == "wash" else "by_visit")
+        return result("OK", "ok", "medium", say("just_cleaned", by=by, day=last_clean),
+                      cleaned_on=str(last_clean.date()))
 
     # 4. Near this roof's normal.
     if loss < OK_LOSS:
-        return result("OK", "ok", "high",
-                      f"Your roof is producing what it should: within {max(loss, 0.01):.0%} of its normal.", loss=loss)
+        return result("OK", "ok", "high", say("ok", loss=max(loss, 0.01)), loss=loss)
 
     # 5. Haze: bad air, and the area fell together in the last few days.
     if pm25 is not None and len(valid) >= 10:
@@ -259,17 +256,14 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
             if fell <= (0.96 if neighbours is not None else AREA_DROP):
                 return result(
                     "WAIT", "haze", "medium" if neighbours is not None else "low",
-                    f"The air is hazy (PM2.5 around {pm_now:.0f}) and output across the area fell about "
-                    f"{1 - fell:.0%} in the last few days. Less sunlight is reaching the panels. "
-                    "Washing won't help, so save the water.",
+                    say("haze", pm=pm_now, fell=1 - fell),
                     loss=loss, pm25=round(pm_now), area_drop_pct=round(100 * (1 - fell), 1))
 
     # 6. The homeowner washed the panels and output stayed down: whatever this is, it is not dust.
     if check and check["type"] == "wash" and check["status"] == "not_recovered":
         return result(
             "INSPECT", "not_dust", "medium",
-            f"You washed the panels on {pd.Timestamp(check['date']):%-d %b}, but output is still about {loss:.0%} below "
-            "this roof's normal. Dust was not the cause, so have the system inspected.", loss=loss)
+            say("not_dust", day=pd.Timestamp(check["date"]), loss=loss), loss=loss)
 
     # 7. Dust: a steady decline since the panels were last cleaned by rain or by hand.
     if len(since) >= SHORT_TREND_DAYS:
@@ -280,37 +274,30 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
             plan = wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms, cost=cost)
             per_day = round(loss * normal_kwh * config.TARIFF_RS)
             saved = plan["saving_rs"]
-            on = (ratio.index[-1] + pd.Timedelta(days=plan["in_days"] or 0)).strftime("%A")
+            on = ratio.index[-1] + pd.Timedelta(days=plan["in_days"] or 0)
             evidence = {"rate_pct_per_day": round(100 * rate, 2), "days_since_clean": days,
                         "saving_rs": plan["saving_rs"], "wash_cost_rs": cost}
             if plan["wash"]:
-                until = (f"before the {'rain' if plan['before'] == 'rain' else 'dust storm'} on {on}" if plan["in_days"]
-                         else f"over the next {config.DRY_SPELL_DAYS} days if it stays dry")
+                until = (say("until_rain" if plan["before"] == "rain" else "until_dust_storm", on=on) if plan["in_days"]
+                         else say("until_dry", n=config.DRY_SPELL_DAYS))
                 return result(
                     "CLEAN", "dust", "high" if days >= 14 and loss >= 0.08 else "medium",
-                    f"Output has slipped about {rate:.1%} a day for {days} days since the panels were last cleaned, "
-                    f"and is now {loss:.0%} below this roof's normal. Not washing would lose about ₹{saved} {until}; "
-                    f"a wash costs ₹{cost}, so washing now leaves you about ₹{saved - cost} ahead."
-                    + (" The storm will mean washing again afterwards either way." if plan.get("before") == "dust_storm" else ""),
+                    say("clean", rate=rate, days=days, loss=loss, saved=saved, until=until, cost=cost, ahead=saved - cost,
+                        storm=say("storm_after") if plan.get("before") == "dust_storm" else ""),
                     loss=loss, **evidence)
             evidence["wait_for"] = plan["wait_for"]
             if plan["wait_for"] == "rain":
-                reason = (f"Dust has cut output by about {loss:.0%} over {days} days, but rain is forecast on {on} and will "
-                          f"wash the panels for free. Until then you lose about ₹{saved}; a wash costs ₹{cost}. Waiting is "
-                          f"₹{cost - saved} cheaper.")
+                reason = say("wait_rain", loss=loss, days=days, on=on, saved=saved, cost=cost, diff=cost - saved)
             elif plan["wait_for"] == "dust_storm":
-                reason = (f"Dust has cut output by about {loss:.0%} over {days} days, but a dust storm is forecast on {on} "
-                          f"and would dirty the panels again. Wash now and again after it: ₹{2 * cost}. Wait and wash once "
-                          f"after it: ₹{saved} lost and ₹{cost} for the wash, ₹{saved + cost}. Waiting is ₹{cost - saved} cheaper.")
+                reason = say("wait_dust_storm", loss=loss, days=days, on=on, saved=saved, cost=cost, twice=2 * cost,
+                             total=saved + cost, diff=cost - saved)
             else:
-                later = f" At this rate it will be in about {plan['in_days']} days." if plan["in_days"] else ""
-                reason = (f"Dust is costing about ₹{per_day} a day, {loss:.0%} of this roof's output: about ₹{saved} over "
-                          f"the next {config.DRY_SPELL_DAYS} days. A wash costs ₹{cost}, so it is not worth it yet.{later}")
+                later = say("worth_it_later", in_days=plan["in_days"]) if plan["in_days"] else ""
+                reason = say("not_worth_it", per_day=per_day, loss=loss, saved=saved, n=config.DRY_SPELL_DAYS, cost=cost,
+                             later=later)
                 evidence["worth_it_in_days"] = plan["in_days"]
             return result("WAIT", "dust", "medium", reason, loss=loss, **evidence)
 
     # 8. Something is off but the pattern is not clear. Say so, and don't send anyone up to the roof.
-    return result("WAIT", "unclear", "low",
-                  f"Output is about {loss:.0%} below this roof's normal, but the pattern is not clear yet. "
-                  "Dhool will check again as more days come in.", loss=loss,
+    return result("WAIT", "unclear", "low", say("unclear", loss=loss), loss=loss,
                   rate_pct_per_day=round(100 * rate, 2), days_measured=len(since))

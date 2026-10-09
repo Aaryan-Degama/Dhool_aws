@@ -240,3 +240,21 @@ def test_a_dearer_wash_turns_wash_now_into_not_worth_it_yet():
     v = verdict(series, rain, DRY_WEEK, wash_cost=2000)
     assert (v["verdict"], v["evidence"]["wait_for"], v["evidence"]["wash_cost_rs"]) == ("WAIT", "not_worth_it", 2000)
     assert "₹2000" in v["reason"]
+
+
+def test_every_reason_reads_in_hindi_with_the_same_figures_as_the_english():
+    import re
+    import string
+    from dhool.reasons import REASONS, say
+    day = pd.Timestamp("2026-08-17")  # a Monday
+    for key, text in REASONS.items():
+        names = {name for _, name, _, _ in string.Formatter().parse(text["en"]) if name}
+        assert names == {name for _, name, _, _ in string.Formatter().parse(text["hi"]) if name}, key
+        figures = {name: day if name in ("day", "on") else say("by_rain") if name in ("by", "until", "storm", "later")
+                   else 0.37 if name in ("drop", "loss", "rate", "fell") else 41 + i for i, name in enumerate(sorted(names))}
+        said = say(key, **figures)
+        number = r"₹?\d+(?:\.\d+)?%?"
+        assert sorted(re.findall(number, said["en"])) == sorted(re.findall(number, said["hi"])), key
+        assert re.search(r"[ऀ-ॿ]", said["hi"]) and not re.search(r"[ऀ-ॿ]", said["en"]), key
+    assert say("until_rain", on=day) == {"en": "before the rain on Monday", "hi": "सोमवार की बारिश से पहले"}
+    assert say("fault", drop=0.33, day=day, days=40)["hi"].startswith("17 अगस्त के आसपास")

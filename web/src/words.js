@@ -1,16 +1,18 @@
 // What the homeowner should do, in their words. The API's verdict, cause and reason for waiting pick the line.
+import { t } from "./i18n.js";
+
 const HEADLINE = {
-  "INSPECT:fault": "Call your vendor",
-  "INSPECT:trips": "Call your vendor",
-  "INSPECT:not_dust": "Call your vendor",
-  "CLEAN:dust": "Wash the panels",
-  "WAIT:dust": "Wait for the rain",
-  "WAIT:dust:dust_storm": "Wash after the dust storm",
-  "WAIT:dust:not_worth_it": "Not worth washing yet",
-  "WAIT:haze": "Don't wash. It's haze.",
-  "WAIT:unclear": "Wait and watch",
-  "WAIT:no_data": "Still learning your roof",
-  "OK:ok": "Your solar is working",
+  "INSPECT:fault": t("Call your vendor"),
+  "INSPECT:trips": t("Call your vendor"),
+  "INSPECT:not_dust": t("Call your vendor"),
+  "CLEAN:dust": t("Wash the panels"),
+  "WAIT:dust": t("Wait for the rain"),
+  "WAIT:dust:dust_storm": t("Wash after the dust storm"),
+  "WAIT:dust:not_worth_it": t("Not worth washing yet"),
+  "WAIT:haze": t("Don't wash. It's haze."),
+  "WAIT:unclear": t("Wait and watch"),
+  "WAIT:no_data": t("Still learning your roof"),
+  "OK:ok": t("Your solar is working"),
 };
 
 /** `said` is a verdict, or a line of the log: { verdict, cause, wait_for } or { verdict, cause, evidence }. */

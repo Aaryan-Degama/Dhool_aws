@@ -1,5 +1,6 @@
 // Dhool's pictures: the rooftop array that shows what is wrong, the chart that shows why, and the icons.
 import { useEffect, useId, useRef, useState } from "react";
+import { LOCALE, t } from "./i18n.js";
 
 // ── The rooftop array, drawn in perspective ────────────────────────────────────────────────────────────
 // Six columns by two rows of modules on a tilted frame: three strings of two columns each.
@@ -78,11 +79,11 @@ const DUST = (() => {  // the same speckles every time: a tiny seeded generator,
 })();
 
 const LABEL = {
-  fault: (n) => `Rooftop solar array with ${n} of ${COLS} columns dark`,
-  trips: () => "Rooftop solar array switching off and on",
-  dust: () => "Rooftop solar array covered in dust",
-  haze: () => "Rooftop solar array under hazy air",
-  ok: () => "Rooftop solar array, fully lit",
+  fault: (n) => t("Rooftop solar array with {n} of {cols} columns dark", { n, cols: COLS }),
+  trips: () => t("Rooftop solar array switching off and on"),
+  dust: () => t("Rooftop solar array covered in dust"),
+  haze: () => t("Rooftop solar array under hazy air"),
+  ok: () => t("Rooftop solar array, fully lit"),
 };
 
 /** The roof as a model: a dead string goes dark, dust lies on the glass, haze veils it. Drag to turn it. */
@@ -173,7 +174,7 @@ export function PanelModel({ verdict }) {
 
   return (
     <svg className={`pm pm-${cause}${ghost ? " pm-ghost" : ""}`} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img"
-         aria-label={(LABEL[cause] || (() => "Rooftop solar array, still being measured"))(deadCols)}
+         aria-label={(LABEL[cause] || (() => t("Rooftop solar array, still being measured")))(deadCols)}
          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       <defs>
         <radialGradient id={`${id}fog`}><stop offset="0.3" stopColor="#cdd4dd" stopOpacity="0.52" /><stop offset="1" stopColor="#cdd4dd" stopOpacity="0" /></radialGradient>
@@ -278,7 +279,7 @@ const SKY = {
   cloud: <path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 9.5 4.25 4.25 0 0 1 17 18z" />,
   rain: <><path d="M7 15a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 6.5 4.25 4.25 0 0 1 17 15z" /><path className="drops" d="M8 18v3M12 18v3M16 18v3" /></>,
 };
-const SKY_NAME = { sun: "Sunny", cloud: "Cloudy", rain: "Rain" };
+const SKY_NAME = { sun: t("Sunny"), cloud: t("Cloudy"), rain: t("Rain") };
 const ICONS = {
   ...SKY,
   bolt: <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z" />,
@@ -294,8 +295,8 @@ export const Icon = ({ name, label }) => (
   </svg>
 );
 
-export const day = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-export const weekday = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short" });
+export const day = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(LOCALE, { day: "numeric", month: "short" });
+export const weekday = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(LOCALE, { weekday: "short" });
 /** sun, cloud or rain for one forecast day, judged against the best day of that week. */
 export const skyOf = (d, week) => (d.rain_mm >= 1 ? "rain" : d.possible_kwh < 0.7 * Math.max(...week.map((w) => w.possible_kwh)) ? "cloud" : "sun");
 
@@ -319,7 +320,8 @@ export function WhyChart({ verdict }) {
   return (
     <figure className="why">
       <svg viewBox={`0 0 ${W} ${H}`} role="img"
-           aria-label={`Daily output from ${day(first.date)} to ${day(last.date)}. On the last day the roof should have made ${last.expected} units and made ${last.actual ?? "no reading"}.`}>
+           aria-label={t("Daily output from {from} to {to}. On the last day the roof should have made {expected} units and made {made}.",
+                         { from: day(first.date), to: day(last.date), expected: last.expected, made: last.actual ?? t("no reading") })}>
         <polygon className="expected-area" points={`0,${H - bottom} ${expected} ${W},${H - bottom}`} />
         <polyline className="expected-line" points={expected} />
         {actual.map((run, i) =>
@@ -337,9 +339,9 @@ export function WhyChart({ verdict }) {
         <text className="axis" x={W} y={H - 2} textAnchor="end">{day(last.date)}</text>
       </svg>
       <figcaption>
-        <span className="key key-expected">Should have made</span>
-        <span className="key key-actual">Made</span>
-        <span className="key key-rain">Rain that washes panels</span>
+        <span className="key key-expected">{t("Should have made")}</span>
+        <span className="key key-actual">{t("Made")}</span>
+        <span className="key key-rain">{t("Rain that washes panels")}</span>
       </figcaption>
     </figure>
   );
@@ -348,14 +350,15 @@ export function WhyChart({ verdict }) {
 /** The coming week: weather, what the roof could make, and what it will likely make as it is running now. */
 export function Forecast({ verdict }) {
   const week = verdict.forecast || [];
-  if (!week.length) return <p className="lede">No forecast yet. It appears with the next reading.</p>;
+  if (!week.length) return <p className="lede">{t("No forecast yet. It appears with the next reading.")}</p>;
   const best = Math.max(...week.map((d) => d.possible_kwh));
   const [likely, possible] = weekTotals(verdict);
   return (
     <section className="forecast">
       <p className="lede">
-        About {likely} units likely
-        {possible - likely >= 2 ? `, out of ${possible} this roof could make in this weather if it were clean and healthy.` : "."}
+        {possible - likely >= 2
+          ? t("About {likely} units likely, out of {possible} this roof could make in this weather if it were clean and healthy.", { likely, possible })
+          : t("About {likely} units likely.", { likely })}
       </p>
       <div className="card stack">
       <ol>
@@ -375,7 +378,7 @@ export function Forecast({ verdict }) {
           );
         })}
       </ol>
-      <p className="key-row"><span className="key key-likely">Likely</span><span className="key key-possible">Possible if clean and healthy</span></p>
+      <p className="key-row"><span className="key key-likely">{t("Likely")}</span><span className="key key-possible">{t("Possible if clean and healthy")}</span></p>
       </div>
     </section>
   );
