@@ -30,29 +30,33 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 **Complete and live**
 - Sign-in and family sharing: one house, several logins, joined by a 6-letter code.
 - Verdicts (wash, call the vendor, wait, all good) with a reason, money lost, a chart and a 7-day forecast; re-run nightly and when data arrives.
-- Verdict rules reworked: 94–96% on development data, 84% on the hidden test set (never tune against it).
+- Verdict rules reworked: 93–95% on development data (7 Oct; it runs on the last year of weather, so it moves with the date), 84% on the hidden test set (never tune against it).
 - Wash decision by cost: wash only when the saving beats the wash cost (settable per home), both totals in the reason.
-- Wash and vendor-visit check, and a log of advice and actions.
+- Wash and vendor-visit check, and a log of advice and actions. A wash or visit reported for today shows its card at once.
 - Readings in three ways: inverter link by API key, screenshot upload, typed number.
 - Demo inverter cloud: 33 simulated homes on real weather (faults `home-00` to `home-03`, healthy ones, dusty `home-30` to `home-32`).
 - Screenshot reader: Qwen3-VL-2B on Lambda. 93/93 on demo screens; only 6 of 11 on real-app store screenshots.
 - Vendor-reply reader: Laya v3.2 (int8, ONNX Runtime) on Lambda, about 250 ms a reply. Every Laya version is in the GitHub release `laya-models`.
 - The app: roof scene, weather skies, frosted cards, four tabs.
+- English and Hindi across the whole app, the reasons included. Starts in the phone's language; changed in Setup.
+- `README.md` and `WRITEUP.md` (the live URL and the video link are still blank in both).
 
 **Pending, needs the owner**
-1. Public URL: connect the repo to Amplify Hosting in a region other than Mumbai. Dhool is not on Amplify; the only Amplify app on the account is Slate's.
-2. Real inverter screenshots (a today screen and a daily list).
-3. Emails for the showcase accounts, and which case each shows (wash, call the vendor, all good).
-4. 
-5. Twenty to thirty real vendor replies, to score Laya honestly.
+1. Public URL: connect the repo to Amplify Hosting in a region other than Mumbai. Dhool is not on Amplify; the only Amplify app on the account is Slate's. Then put the URL in `README.md` and `WRITEUP.md`.
+2. Read the Hindi through once (`web/src/hi.js`, `backend/dhool/reasons.py`): it was written by Claude and no native speaker has checked it.
+3. Real inverter screenshots (a today screen and a daily list).
+4. Emails for the showcase accounts, and which case each shows (wash, call the vendor, all good).
+5. 
+6. Twenty to thirty real vendor replies, to score Laya honestly.
+7. A license for the repo (there is no `LICENSE` file).
 
 **Pending, to build or check**
-1. The wash case on the day: the dusty homes read "all good" after the 27 Sept rain. Regenerate the data on or after 5 Oct and confirm one says "wash" before relying on it.
-2. Browser checks against the live backend: the wash and visit cards, the wash-cost field, the log card and the vendor-reply box were only seen with a stubbed backend or in the dev preview.
-3. Android emulator re-check since the redesign.
-4. Hindi strings: the app is English only. With Bedrock gone, Hindi means hand-written fixed strings, not a model.
-5. README, write-up and the 3-minute video.
-6. Refresh the demo data right before recording (Commands, below).
+1. The 3-minute video.
+2. Right before recording: refresh the demo data (Commands, below) and confirm a dusty home still says "wash". On 7 Oct all three did (`home-30` to `home-32`, 10 dry days since the last rain); rain of 5 mm would turn them back to "all good".
+3. The phone keyboard over the forms: the emulator check on 7 Oct could not bring the keyboard up from a script, so this was not seen.
+4. Screenshot upload against the live backend in Hindi (the flow itself was verified on 3 Oct, in English).
+
+**Checked on 7 Oct** (scripted Chrome at phone width against the live backend, English and Hindi; and the Android emulator): the three cases (fault, wash, all good), the vendor-reply box, wash and visit report with undo, the wash-cost field, the log, the language choice. No sideways scrolling or clipped text in either language.
 
 **Costs:** charges were effectively zero on 3 Oct. Two model Lambdas are pinged every 5 minutes to stay loaded, and about 14 GB of container images sit in ECR. The `Dhool-laya` worktree can be removed; its v1 and v2 model folders are also in the release.
 
@@ -61,12 +65,12 @@ _Code lives in the `Dhool_aws` repo._
 
 ```
 template.yaml              SAM: user pool, HTTP API + JWT authorizer, table, bucket, functions, nightly schedule
-backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, analyse, connectors, authz, config; evaluate and realcheck score the rules)
+backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, reasons, analyse, connectors, authz, config; evaluate and realcheck score the rules)
 backend/handlers/          thin I/O wrappers: api, analysis (pvlib container, nightly), mock_inverter (demo inverter cloud)
 vision/                    the screenshot reader: Qwen3-VL-2B on CPU through llama.cpp, a Lambda container (weights in vision/models/, not in git)
 backend/tests/             pytest
 messages/                  the vendor-reply reader: Laya fine-tuned on vendor-replies.jsonl, a Lambda container (weights in messages/models/, not in git)
-web/                       React + Vite PWA, deployed by Amplify Hosting from `main` (App.jsx; words.js headlines; check.jsx wash and visit check; plan.jsx wash cost and log)
+web/                       React + Vite PWA, deployed by Amplify Hosting from `main` (App.jsx; words.js headlines; check.jsx wash and visit check; plan.jsx wash cost and log; i18n.js and hi.js the Hindi)
 .github/workflows/ci.yml   pytest, the web test and the web build on every push
 ```
 
@@ -89,7 +93,7 @@ _All confirmed unless a line says otherwise._
 - Run one function locally: `sam local invoke <FunctionName>`
 - Frontend: `npm run dev` / `npm run build` in `web/`; `/#preview` shows every verdict state without signing in. Amplify Hosting builds `main` using `amplify.yml`.
 - On the owner's phone over the Wi-Fi: `npm run build && npx vite preview --host 0.0.0.0 --port 4173` in `web/`, then open `http://<laptop Wi-Fi address>:4173` (the laptop's is in `ip -4 addr show wlp1s0`). Serves the built files only, never the dev server. A rebuild is picked up without a restart.
-- Web test (the weather-to-sky rule): `npm test` in `web/`. Add `?sky=day|cloud|rain|storm|snow|sand|night` to the address to force a sky, and `&dark=1` for its night version.
+- Web tests (the weather-to-sky rule; every line of the app has its Hindi): `npm test` in `web/`. Add `?sky=day|cloud|rain|storm|snow|sand|night` to the address to force a sky, `&dark=1` for its night version, and `?lang=hi|en` to force a language.
 - Design decisions live in `DESIGN.md`; read it before changing the UI.
 - Android emulator (AVD `dhool`, Android 15): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 
@@ -121,4 +125,6 @@ Say in the write-up that Bedrock and Textract were unavailable on this account a
 - The answer key in `evaluate.py` applies the same wash plan to the true dust, so the score measures detection, not the policy.
 - What the homeowner reports (a wash, a vendor visit) is an `ACTION#<date>` item, treated by the rules as a known cleaning or repair and checked before against after. The log (`GET /houses/{id}/history`) is built from the stored daily verdicts and these items; nothing else writes to it.
 - Verdict headlines are in `web/src/words.js` only; the card and the log both read them from there.
+- **Two languages, fixed text.** Every line the app shows goes through `t("English")` (`web/src/i18n.js`) and has its Hindi in `web/src/hi.js`; `npm test` fails on a line without one. A verdict's reason is built on the server in both languages from one set of figures (`backend/dhool/reasons.py`, returned as `reason` and `reason_hi`): add the Hindi with the English, never a number in one and not the other. No model translates. "Dhool" stays in Latin letters in Hindi (धूल is also the word for dust).
+- A wash or visit dated after the last reading (today, when readings end yesterday) still gets its check card (`waiting`) and, for a wash, the "just cleaned" OK: do not filter such reports out of `verdict()`.
 - **Two sessions, one stack.** When another session is working in this checkout, work in your own `git worktree` on a branch, push the branch, and let the session that owns the checkout merge and deploy: a deploy from a second copy overwrites what the first has live.

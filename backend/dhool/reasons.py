@@ -62,7 +62,7 @@ REASONS = {
     },
     "until_rain": {"en": "before the rain on {on:%A}", "hi": "{on:%A} की बारिश से पहले"},
     "until_dust_storm": {"en": "before the dust storm on {on:%A}", "hi": "{on:%A} की आँधी से पहले"},
-    "until_dry": {"en": "over the next {n} days if it stays dry", "hi": "मौसम सूखा रहा तो अगले {n} दिनों में"},
+    "until_dry": {"en": "over the next {n} days if it stays dry", "hi": "अगले {n} दिनों में (अगर बारिश न हुई तो)"},
     "storm_after": {
         "en": " The storm will mean washing again afterwards either way.",
         "hi": " आँधी के बाद पैनल दोबारा धोने ही पड़ेंगे।",

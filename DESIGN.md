@@ -1,6 +1,6 @@
 # DESIGN.md — how Dhool looks and speaks
 
-Set on Oct 8, reworked on Oct 9 into a premium, car-app style at the owner's request (reference: the
+Set on Oct 8, reworked on Oct 10 into a premium, car-app style at the owner's request (reference: the
 Tesla app). Tokens live in `web/src/styles.css`; change them there, not in components.
 
 ## Idea
@@ -127,5 +127,5 @@ One sequence when a verdict arrives: the camera settles onto the roof, the rail 
 then the meter fills. Dragging turns the model. Nothing moves under reduced motion.
 
 ## Not done yet
-Hindi strings, screenshot upload, the "I washed them" verification step, a service worker for offline use,
+A service worker for offline use,
 a home switcher for people in two homes.

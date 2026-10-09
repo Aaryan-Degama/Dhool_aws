@@ -28,6 +28,6 @@ test("no Hindi is left behind for a line the app no longer uses", () => {
 
 test("no text is left bare between tags", () => {
   // Words sitting directly in the JSX, outside t(): what a missed line looks like. Brand and language names are meant to be.
-  const bare = [...source.matchAll(/>\s*([A-Z][a-z]+(?: [A-Za-z']+)+[^<>{}]*?)\s*</g)].map((m) => m[1]).filter((s) => !/^Language ·/.test(s));
+  const bare = [...source.matchAll(/>\s*([A-Z][a-z]+(?: [A-Za-z']+)+[^<>{}]*?)\s*</g)].map((m) => m[1]).filter((s) => !/^Language/.test(s));
   assert.deepEqual(bare, []);
 });

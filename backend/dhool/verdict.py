@@ -174,7 +174,11 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
     if area_step is not None:
         washed &= ~(area_step >= WASH_JUMP)  # the whole area jumping up is haze lifting, not a wash
     told = pd.Series(False, index=ratio.index)
-    actions = sorted((a for a in actions if pd.Timestamp(a["date"], tz=ratio.index.tz) in told.index), key=lambda a: a["date"])
+    reported = sorted(actions, key=lambda a: a["date"])
+    actions = [a for a in reported if pd.Timestamp(a["date"], tz=ratio.index.tz) in told.index]
+    # Reported for a day after the last reading ("I washed them today", and the readings end yesterday):
+    # nothing can be measured yet, but the homeowner must see it was taken in and be able to take it back.
+    ahead = reported[-1] if reported and pd.Timestamp(reported[-1]["date"], tz=ratio.index.tz) > ratio.index[-1] else None
     for action in actions:
         told[pd.Timestamp(action["date"], tz=ratio.index.tz)] = True
     cleaned = rained | washed | told
@@ -186,8 +190,8 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
     lag = (week.index[-1] - week.index[len(week) // 2]).days  # how old the week's median is
     recent = float(week.median()) - max(0.0, rate) * baseline * lag
     loss = max(0.0, 1 - recent / baseline)
-    if actions:
-        check = check_action(ratio, baseline, actions[-1])
+    if ahead or actions:
+        check = check_action(ratio, baseline, ahead or actions[-1])
 
     # 1. Fault: a sudden drop that the area did not share and that never recovered.
     # With neighbours, a roof's change is judged against theirs: a drop the whole area shares cancels out,
@@ -235,6 +239,10 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
 
     # 3. Just cleaned: rain or a reported wash in the last day or two. The week's median still shows the dirt
     # from before, so say what is known and measure again once clear days come in.
+    if ahead:
+        return result("OK", "ok", "medium",
+                      say("just_cleaned", by=say("by_wash" if ahead["type"] == "wash" else "by_visit"),
+                          day=pd.Timestamp(ahead["date"])), cleaned_on=ahead["date"])
     if last_clean is not None and len(since) < MIN_AFTER and (rained | told)[last_clean]:
         loss = 0.0
         by = say("by_rain" if rained[last_clean] else "by_wash" if actions[-1]["type"] == "wash" else "by_visit")

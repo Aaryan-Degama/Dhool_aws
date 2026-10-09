@@ -99,7 +99,10 @@ function Auth({ onDone }) {
           </button>
         )}
       </form>
-      <Language />
+      {/* Setup, where the language is chosen, comes after signing in: offer the other one here too. */}
+      {lang === "hi"
+        ? <button className="link" lang="en" onClick={() => setLang("en")}>English</button>
+        : <button className="link" lang="hi" onClick={() => setLang("hi")}>हिंदी</button>}
     </main>
   );
 }
@@ -570,7 +573,7 @@ function Home({ house, onSignOut }) {
       <AddData house={house} onSent={awaitVerdict} />
       <WashCost house={house} onSent={awaitVerdict} />
       <Invite house={house} />
-      <section className="card"><h2 lang="en">Language · <span lang="hi">भाषा</span></h2><Language /></section>
+      <section className="card stack"><h2 lang="en">Language{" · "}<span lang="hi">भाषा</span></h2><Language /></section>
       <button className="secondary" onClick={onSignOut}>{t("Sign out")}</button>
     </>
   );

@@ -207,6 +207,24 @@ def test_a_wash_that_changed_nothing_means_it_was_not_dust():
     assert (v["verdict"], v["cause"], v["check"]["status"]) == ("INSPECT", "not_dust", "not_recovered")
 
 
+def test_a_wash_reported_today_after_the_last_reading_is_taken_in_and_awaited():
+    """The app's date box starts at today and readings end yesterday: the report must not vanish."""
+    today = [{"date": str((DAYS[109] + pd.Timedelta(days=1)).date()), "type": "wash"}]
+    dusty = home((1 - 0.004 * np.arange(120))[:110], days=DAYS[:110])
+    assert verdict(dusty, NO_RAIN[:110], DRY_WEEK)["verdict"] == "CLEAN"
+    v = verdict(dusty, NO_RAIN[:110], DRY_WEEK, actions=today)
+    assert (v["verdict"], v["check"]["status"], v["check"]["date"], v["check"]["days_after"]) == ("OK", "waiting", today[0]["date"], 0)
+    assert "Your wash on" in v["reason"]
+
+
+def test_a_vendor_visit_reported_today_keeps_the_fault_and_waits_for_proof():
+    factor = np.ones(120)
+    factor[60:] = 0.67
+    today = [{"date": str((DAYS[-1] + pd.Timedelta(days=1)).date()), "type": "visit"}]
+    v = verdict(home(factor), NO_RAIN, DRY_WEEK, actions=today)
+    assert (v["verdict"], v["cause"], v["check"]["type"], v["check"]["status"]) == ("INSPECT", "fault", "visit", "waiting")
+
+
 def test_no_reported_action_means_no_check():
     assert verdict(home(np.ones(120)), NO_RAIN, DRY_WEEK)["check"] is None
 
