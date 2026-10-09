@@ -10,15 +10,14 @@ written (3 Oct 2026).
 | [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct), GGUF build by the Qwen team ([Qwen/Qwen3-VL-2B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF), 4-bit `Q4_K_M` and `mmproj-Q8_0`, revision `52d6c8f`) | Reading the numbers off inverter-app screenshots | Apache-2.0 |
 | [Laya](https://huggingface.co/convaiinnovations/laya), multilingual checkpoint (Convai Innovations; mmBERT-base encoder, revision `55cf4c4`), fine-tuned by us on `messages/vendor-replies.jsonl` | Sorting a vendor's reply to an inspection request into four labels (not deployed yet) | Apache-2.0 |
 | [Open-Meteo](https://open-meteo.com) weather, forecast and air-quality APIs | Sunlight, temperature, wind and rain for the physics; rain forecast; dust and PM2.5; the weather behind the app | Data under CC BY 4.0; free API for non-commercial use |
-| [NREL PVDAQ public datasets](https://data.openei.org/submissions/4568): PVOutput.org residential systems, daily energy | Checking the method on nine real rooftops (`backend/dhool/realcheck.py`). Read at run time, not redistributed here | CC BY 4.0 |
 
 ## Code
 
 | What | Used for | Licence |
 |---|---|---|
 | [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server`, release `b11351`, built from source) | Running the vision model on CPU inside Lambda | MIT |
-| [Pillow](https://python-pillow.github.io) 12.3.0 | Shrinking screenshots for the vision model, and refusing oversized ones | MIT-CMU |
 | [laya](https://github.com/NandhaKishorM/laya) 0.3.24 Python package, and its CPU fine-tuning script `notebooks/laya_finetune_typed_decisions_mps.py`, which `scripts/laya-tune.py` is adapted from | Running, fine-tuning and calibrating Laya | Apache-2.0 |
+| Laya's `scripts/export_onnx.py` (commit `c829d5a`), whose int8 step `scripts/laya-tune.py` adapts; [ONNX](https://github.com/onnx/onnx) 1.23 and [ONNX Runtime](https://github.com/microsoft/onnxruntime) 1.30 | Exporting the fine-tuned Laya to ONNX, shrinking it to int8 and running it | Apache-2.0, Apache-2.0, MIT |
 | PyTorch 2.14 (CPU), Transformers 5.18 | Fine-tuning Laya on a laptop | BSD-3-Clause, Apache-2.0 |
 | [pvlib](https://github.com/pvlib/pvlib-python) 0.16.1 | Solar position, sunlight on the panel, cell temperature, expected output | BSD-3-Clause |
 | pandas 3.0.6, NumPy 2.5.3 (with SciPy and h5py pulled in by pvlib) | Time series for the physics and the verdict rules | BSD-3-Clause |

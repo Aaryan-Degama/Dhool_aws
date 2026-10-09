@@ -3,6 +3,8 @@
     .venv-laya/bin/python scripts/laya-tune.py eval                 # the shipped checkpoint, untouched
     .venv-laya/bin/python scripts/laya-tune.py train                # writes messages/models/vendor-replies-v3
     .venv-laya/bin/python scripts/laya-tune.py eval messages/models/vendor-replies-v3
+    .venv-laya/bin/python scripts/laya-tune.py quantize messages/models/vendor-replies-v3   # int8 ONNX copies
+    .venv-laya/bin/python scripts/laya-tune.py eval messages/models/vendor-replies-v3 --onnx <file.onnx>
 
 The training loop is adapted from Laya's own CPU script (notebooks/laya_finetune_typed_decisions_mps.py,
 Apache-2.0, https://github.com/NandhaKishorM/laya); see CREDITS.md. Changes: our data, frozen token
@@ -12,6 +14,8 @@ import argparse
 import collections
 import json
 import random
+import resource
+import time
 from pathlib import Path
 
 import numpy as np
@@ -61,9 +65,11 @@ def onehot(label):
 
 
 def evaluate(agent, split="test"):
-    hits, conf, wrong = collections.defaultdict(list), [], []
+    hits, conf, wrong, ms = collections.defaultdict(list), [], [], []
     for r in rows(split):
+        t0 = time.perf_counter()
         a = agent.predict(r["text"], QUESTIONS)["answers"]["reply"]
+        ms.append((time.perf_counter() - t0) * 1000)
         ok = a["choice"] == r["label"]
         for key in ("all", "lang:" + r["lang"], "label:" + r["label"]):
             hits[key].append(ok)
@@ -74,9 +80,28 @@ def evaluate(agent, split="test"):
         print(f"  {key:24s} {sum(hits[key]):3d}/{len(hits[key]):3d} = {np.mean(hits[key]):.3f}")
     print(f"  calibration error (ECE)  {ece_score(np.array(conf), np.array(hits['all'], dtype=float)):.3f}"
           f"   mean confidence {np.mean(conf):.3f}")
+    print(f"  per reply: median {np.median(ms):.0f} ms, slowest {max(ms):.0f} ms")
     for w in wrong:
         print("  wrong: want %s, got %s (%.2f): %s" % w)
     return float(np.mean(hits["all"]))
+
+
+def quantize(folder):
+    """int8 copies of <folder>-onnx/model.onnx (export it first with Laya's scripts/export_onnx.py).
+
+    int8-layers is Laya's own recipe: the attention and MLP weights only. int8-all also shrinks the
+    token table, which is 60% of the model and which Laya's recipe leaves in float32.
+    """
+    import onnx
+    from onnxruntime.quantization import QuantType, quantize_dynamic
+    src = Path(str(folder).rstrip("/") + "-onnx")
+    for name, ops in (("int8-layers", ["MatMul"]), ("int8-all", ["MatMul", "Gather"])):
+        model = onnx.load(str(src / "model.onnx"))
+        del model.graph.value_info[:]  # stale shapes from the exporter trip the quantizer
+        # per_channel stays off: Laya measured it collapsing this model (their issue #790)
+        quantize_dynamic(model_input=model, model_output=str(src / f"model-{name}.onnx"),
+                         op_types_to_quantize=ops, weight_type=QuantType.QInt8, per_channel=False)
+        print(name, "->", src / f"model-{name}.onnx")
 
 
 def train(args):
@@ -161,7 +186,8 @@ def train(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("command", choices=["eval", "train"])
+    p.add_argument("command", choices=["eval", "train", "quantize"])
+    p.add_argument("--onnx", help="eval: run this .onnx graph (with the folder's tokenizer and config) instead")
     p.add_argument("model", nargs="?", help="eval: a fine-tuned folder; omit for the shipped checkpoint")
     p.add_argument("--out", default=str(OUT))
     p.add_argument("--epochs", type=int, default=6)
@@ -170,8 +196,16 @@ if __name__ == "__main__":
     if args.command == "train":
         train(args)
         args.model = args.out
-    agent = (laya.load(args.model, device="cpu") if args.model
-             else laya.load(BASE[0], subfolder=BASE[1], device="cpu", revision=BASE_REVISION))
+    if args.command == "quantize":
+        quantize(args.model or args.out)
+        raise SystemExit
+    if args.onnx:
+        from laya.onnx_agent import ONNXAgent
+        agent = ONNXAgent(args.model, onnx_path=args.onnx)
+    else:
+        agent = (laya.load(args.model, device="cpu") if args.model
+                 else laya.load(BASE[0], subfolder=BASE[1], device="cpu", revision=BASE_REVISION))
     for split in ("test", "test2", "test3"):  # each later set was written after earlier mistakes were seen
         print(split, "replies,", args.model or "shipped multilingual checkpoint")
         evaluate(agent, split)
+    print("peak memory %d MB" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024))
