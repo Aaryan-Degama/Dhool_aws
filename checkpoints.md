@@ -95,6 +95,51 @@ Slices for v1 and v2 on `test` and `test2`:
 - "It is normal, nothing needs doing", a wrong number, and "pay the old bill first" are `refused`.
 - "Will call", "will check", "it will be done" with no visit, auto-replies and greetings are `unclear`.
 
+### v3 at other precisions (v3.1, v3.2)
+
+Same trained weights as v3, stored and run differently. Measured 3 Oct 2026 on two cores
+(`taskset -c 0,1`, to match a Lambda), one reply at a time.
+
+| Model | Weights | Size on disk | `test` (56) | `test2` (40) | `test3` (60) | All (156) | Per reply | Peak memory |
+|---|---|---|---|---|---|---|---|---|
+| v3 / **v3.1** | float16, PyTorch | 647 MB | 54 (96.4%) | 39 (97.5%) | 54 (90.0%) | 147 (94.2%) | 396 ms | 2.3 GB |
+| v3 ONNX | float32, ONNX Runtime | 1.3 GB | 54 (96.4%) | 39 (97.5%) | 54 (90.0%) | 147 (94.2%) | 130 ms | 1.1 GB |
+| **v3.2** | int8, ONNX Runtime | 335 MB | 54 (96.4%) | 38 (95.0%) | 52 (86.7%) | 144 (92.3%) | 71 ms | 1.1 GB |
+| int8, layers only (not kept) | int8 layers, float32 token table | 925 MB | 53 (94.6%) | 38 (95.0%) | 54 (90.0%) | 145 (92.9%) | 70 ms | 2.2 GB |
+
+- **v3.1 is v3.** The training script has always saved weights in float16 (322M parameters at 2 bytes),
+  so the 647 MB file was float16 from the start and v3's scores were measured on it. A float32 file would
+  be 1.29 GB. `vendor-replies-v3.1-f16` is a link to the `vendor-replies-v3` folder, not a second copy.
+  PyTorch widens the weights to float32 in memory, which is why it uses 2.3 GB.
+- **v3 ONNX** gives exactly v3's answers (147 of 156, same mistakes) three times faster and in half the
+  memory. It is the one to deploy if accuracy matters most.
+- **v3.2 (int8)** is half the size of float16 and 5.6 times faster than PyTorch, for three more mistakes
+  (144 against 147), two of them on the edge-case set. There is no 8-bit float; int8 is the 8-bit option.
+  Made with ONNX Runtime's dynamic quantization of the layer weights and the token table, one scale per
+  tensor. Its extra `test3` mistakes are refusals ("Maine ye dhandha band kar diya 2 saal pehle",
+  "हमने यह नहीं लगाया था, जिसने लगाया उसे कहिए") and "Kal 10 baje 👍".
+- **int8 on the layers only** is Laya's own recipe. It leaves the token table (60% of the model) in
+  float32, so it is larger than float16; not kept. `scripts/laya-tune.py quantize` rebuilds it.
+- A float16 ONNX graph was not made: ONNX Runtime on a CPU has no fast float16 kernels.
+- Calibration error (`test` / `test2` / `test3`): v3 0.005 / 0.023 / 0.096; v3.2 0.065 / 0.007 / 0.079.
+  Confidence is no more trustworthy after quantization than before.
+
+| | v3 ONNX | v3.2 |
+|---|---|---|
+| Folder | `messages/models/vendor-replies-v3-onnx/` (`model.onnx` + `model.onnx.data`; uses v3's tokenizer and config) | `messages/models/vendor-replies-v3.2-int8/` (self-contained) |
+| SHA-256 | `model.onnx.data`: `d2ae1dfa9a095c60c3fe745556c5f9901731bc1b8c59c7ce31c177a661b9d63c` | `model.onnx`: `d57a203eb94b57981519a1015e248f0a40370ad301c1a254c87f720ce7e52a60` |
+| Made with | Laya's `scripts/export_onnx.py` (commit `c829d5a`) on the v3 folder | `scripts/laya-tune.py quantize messages/models/vendor-replies-v3` (writes `model-int8-all.onnx`) |
+
+```python
+import json
+from laya.onnx_agent import ONNXAgent
+folder = "messages/models/vendor-replies-v3.2-int8"
+agent = ONNXAgent(folder, onnx_path=folder + "/model.onnx")
+agent.predict("Sir kal 11 baje aata hu", json.load(open(folder + "/questions.json")))["answers"]["reply"]["choice"]
+```
+
+Score one: `taskset -c 0,1 .venv-laya/bin/python scripts/laya-tune.py eval <folder> --onnx <folder>/model.onnx`
+
 ### v3
 
 | | |
@@ -153,6 +198,6 @@ Score one again: `.venv-laya/bin/python scripts/laya-tune.py eval messages/model
 
 ### Where the weights are, and the risk
 
-All three folders live only on the owner's laptop, in the `Dhool-laya` worktree, and are ignored by git.
+All of these folders (3.5 GB together) live only on the owner's laptop, in the `Dhool-laya` worktree, and are ignored by git.
 If they are deleted, v3 can be retrained in about 45 minutes; v1 and v2 cannot. Copy `messages/models/`
 somewhere else (an S3 bucket, a drive) if any must survive the laptop.
