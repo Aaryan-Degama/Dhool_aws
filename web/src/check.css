@@ -9,3 +9,11 @@
 .check-verified .check-figures div:last-child dd { color: var(--good); }
 .check-not_recovered .check-figures div:last-child dd { color: var(--fault); }
 .report { display: grid; gap: 0.75rem; margin-top: 0.75rem; }
+
+/* The vendor's reply, pasted and sorted into four kinds. */
+.vendor-reply { display: grid; gap: 0.75rem; margin-top: 0.25rem; }
+.vendor-reply textarea { font: inherit; color: inherit; width: 100%; padding: 0.625rem 0.75rem; background: var(--well); border: 1.5px solid var(--line); border-radius: var(--r-ctl); resize: vertical; }
+.reply-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.reply-kinds button { min-height: 2.75rem; padding: 0.375rem 0.5rem; font-size: var(--step--1); font-weight: 600; background: transparent; color: var(--ink); border: 1.5px solid var(--edge); }
+.reply-kinds button[aria-pressed="true"] { background: var(--current); color: var(--on-current); border-color: var(--current); }
+.vendor-reply small { display: block; margin-top: 0.25rem; color: var(--muted); }

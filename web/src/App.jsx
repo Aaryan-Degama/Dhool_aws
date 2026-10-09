@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, confirmSignUp, signedIn, signIn, signOut, signUp } from "./api.js";
-import { CheckCard, ReportAction } from "./check.jsx";
+import { CheckCard, ReportAction, VendorReply } from "./check.jsx";
 import { API_URL, TARIFF_NOTE } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
 import { setSky, skyOver } from "./sky.js";
@@ -279,6 +279,7 @@ export function RoofTab({ house, verdict: v, go, onAction }) {
         {v.verdict === "CLEAN" && (
           <p className="note">Wash early in the morning or after sunset, with plain water and a soft cloth. Never on hot panels.</p>
         )}
+        {onAction && v.verdict === "INSPECT" && <VendorReply house={house} />}
         {onAction && (v.verdict === "CLEAN" || v.verdict === "INSPECT") && (
           <ReportAction key={v.verdict} house={house} type={v.verdict === "CLEAN" ? "wash" : "visit"} onSent={onAction} />
         )}

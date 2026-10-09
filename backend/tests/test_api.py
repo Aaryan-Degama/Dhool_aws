@@ -244,3 +244,20 @@ def test_a_wash_or_visit_is_recorded_for_the_house_and_can_be_taken_back(house, 
     assert (item["type"], item["by"]) == ("wash", MOTHER) and ANALYSED == [house]
     assert call(FATHER, route, {"date": "2026-09-30", "remove": True}, house)[0] == 201
     assert "Item" not in table.get_item(Key={"pk": f"HOUSE#{house}", "sk": "ACTION#2026-09-30"})
+
+
+def test_a_vendor_reply_is_read_for_members_only_and_the_model_is_not_trusted(house, monkeypatch):
+    asked = []
+    monkeypatch.setattr(api, "_read_reply", lambda text: asked.append(text) or "visit_scheduled")
+    route = "POST /houses/{houseId}/vendor-reply"
+    assert call(FATHER, route, {"text": "  Sir kal 11 baje aata hu "}, house) == (200, {"label": "visit_scheduled"})
+    assert asked == ["Sir kal 11 baje aata hu"]
+    assert call(STRANGER, route, {"text": "ok"}, house)[0] == 403
+    assert call(FATHER, route, {"text": "   "}, house)[0] == 400 and call(FATHER, route, {"text": "x" * 1001}, house)[0] == 400
+    monkeypatch.setattr(api, "_read_reply", lambda text: "wash_the_car")  # not one of the four labels
+    assert call(FATHER, route, {"text": "ok"}, house)[0] == 503
+
+    def down(text):
+        raise TimeoutError("the reader is still starting")
+    monkeypatch.setattr(api, "_read_reply", down)
+    assert call(FATHER, route, {"text": "ok"}, house)[0] == 503 and len(asked) == 1

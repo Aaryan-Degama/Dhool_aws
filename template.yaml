@@ -64,6 +64,7 @@ Resources:
           TABLE: !Ref Table
           ANALYSIS_FUNCTION: !Ref AnalysisFunction
           VISION_FUNCTION: !Ref VisionFunction
+          MESSAGE_FUNCTION: !Ref MessageFunction
           UPLOADS: !Ref Uploads
       Policies:
         - DynamoDBCrudPolicy:
@@ -72,6 +73,8 @@ Resources:
             FunctionName: !Ref AnalysisFunction
         - LambdaInvokePolicy:
             FunctionName: !Ref VisionFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref MessageFunction
         - S3WritePolicy:   # only to sign upload slots; the API never reads the images itself
             BucketName: !Ref Uploads
       Events:
@@ -79,6 +82,7 @@ Resources:
         ReadScreenshot: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/screenshots/read'}}
         ScreenshotResult: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/screenshots/{shotId}'}}
         ConnectInverter: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/inverter'}}
+        ReadVendorReply: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/vendor-reply'}}
         RecordAction: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/actions'}}
         GetVerdict: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/verdict'}}
         Me: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /me}}
@@ -125,6 +129,25 @@ Resources:
           - AllowedOrigins: ['*']  # ponytail: tighten to the web app's domain once it exists
             AllowedMethods: [POST]
             AllowedHeaders: ['*']
+
+  # Sorts a vendor's WhatsApp reply into four labels with Laya, fine-tuned on our replies (checkpoints.md).
+  # A container image: PyTorch and 650 MB of weights. Called by the API and answers in about a second once
+  # loaded; the ping keeps one container loaded, as for the screenshot reader.
+  MessageFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: messages
+    Properties:
+      PackageType: Image
+      Timeout: 300  # a fresh container took over two minutes to pull PyTorch out of the image; after that, under a second
+      MemorySize: 3008
+      Events:
+        KeepWarm:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Input: '{"warm": true}'
 
   # Reads an uploaded screenshot with a small vision model on CPU (Qwen3-VL-2B through llama.cpp).
   # A container image: the weights are 1.5 GB. 3008 MB is the most this account's Lambda may have.

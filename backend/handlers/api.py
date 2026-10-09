@@ -30,6 +30,8 @@ IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg"}
 SHOT_KEY = re.compile(r"houses/([0-9a-f]{12})/([0-9a-f]{32})\.(?:png|jpg)")
 SHOT_TTL_S = 24 * 3600         # a screenshot's reading result is kept for a day
 READING_TIMEOUT_S = 15 * 60    # after this long with no result, the reader is taken to have failed
+REPLY_LABELS = ("visit_scheduled", "asking_details", "refused", "unclear")
+MAX_REPLY_CHARS = 1000
 
 _table = None
 
@@ -215,6 +217,31 @@ def record_action(sub, event):
     return 201, {"date": str(date)}
 
 
+def _read_reply(text):
+    """Ask the vendor-reply reader (Laya, in its own Lambda) which of the four kinds of reply this is."""
+    client = boto3.client("lambda", config=Config(read_timeout=20, retries={"max_attempts": 0}))
+    out = client.invoke(FunctionName=os.environ["MESSAGE_FUNCTION"], Payload=json.dumps({"text": text}))
+    return json.loads(out["Payload"].read()).get("label")
+
+
+def read_vendor_reply(sub, event):
+    """What a vendor's pasted reply says: {"text"} -> {"label"}. A model reads it, so the homeowner sees the
+    label and can change it; nothing is saved here and the text is not kept."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    text = _body(event).get("text")
+    if not isinstance(text, str) or not 1 <= len(text.strip()) <= MAX_REPLY_CHARS:
+        raise HttpError(400, f"Paste the vendor's reply, up to {MAX_REPLY_CHARS} characters")
+    try:
+        label = _read_reply(text.strip())
+    except Exception as e:  # a reader that is still starting up, or broken: the homeowner picks the label by hand
+        print(json.dumps({"reply_reader": "unavailable", "house": house_id, "error": type(e).__name__}))
+        raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
+    if label not in REPLY_LABELS:  # the model's output is not trusted to be one of ours
+        raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
+    return 200, {"label": label}
+
+
 def start_upload(sub, event):
     """A short-lived, size-limited upload slot for one screenshot, inside this house's folder."""
     house_id = event["pathParameters"]["houseId"]
@@ -338,6 +365,7 @@ ROUTES = {
     "GET /houses/{houseId}/readings": list_readings,
     "POST /houses/{houseId}/inverter": connect_inverter,
     "POST /houses/{houseId}/actions": record_action,
+    "POST /houses/{houseId}/vendor-reply": read_vendor_reply,
     "POST /houses/{houseId}/screenshots": start_upload,
     "POST /houses/{houseId}/screenshots/read": read_screenshot,
     "GET /houses/{houseId}/screenshots/{shotId}": screenshot_result,
