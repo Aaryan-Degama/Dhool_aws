@@ -13,6 +13,14 @@ REASONS = {
         "en": "Only {n} days of data so far. Dhool needs about two weeks to learn this roof's normal.",
         "hi": "अभी सिर्फ़ {n} दिन का डेटा है। इस छत का सामान्य स्तर समझने के लिए Dhool को लगभग दो हफ़्ते चाहिए।",
     },
+    "outage": {
+        "en": "Your roof {when}, though the sun was good. Check that the inverter is switched on and shows "
+              "no error. If it is off or shows an error, call the vendor.",
+        "hi": "धूप अच्छी थी, फिर भी आपकी छत ने {when} लगभग कुछ भी बिजली नहीं बनाई। देखिए कि इन्वर्टर चालू है "
+              "और उस पर कोई एरर नहीं दिख रहा। अगर वह बंद है या एरर दिखा रहा है, तो वेंडर को बुलाइए।",
+    },
+    "outage_on": {"en": "made almost nothing on {day:%-d %b}", "hi": "{day:%-d %b} को"},
+    "outage_since": {"en": "has made almost nothing since {day:%-d %b}", "hi": "{day:%-d %b} से"},
     "fault": {
         "en": "Output fell about {drop:.0%} around {day:%-d %b} and has stayed down for {days} days. "
               "Dust builds slowly and haze lifts, so this looks like a hardware fault, such as a failed "

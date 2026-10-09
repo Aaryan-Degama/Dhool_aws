@@ -115,6 +115,38 @@ def test_same_drop_alone_with_clean_air_is_inspect():
     assert v["verdict"] == "INSPECT"
 
 
+def off_for(days):
+    factor = np.ones(120)
+    factor[120 - days:] = 0.0  # a healthy roof, then nothing at all in good sun
+    return factor
+
+
+@pytest.mark.parametrize("neighbours", [None, healthy_neighbours()], ids=["alone", "neighbours"])
+def test_a_sunny_day_at_zero_is_an_outage_not_all_good(neighbours):
+    v = verdict(home(off_for(1)), NO_RAIN, DRY_WEEK, neighbours=neighbours)
+    assert (v["verdict"], v["cause"], v["confidence"]) == ("INSPECT", "outage", "high")
+    assert v["evidence"] == {"outage_days": 1, "since": str(DAYS[-1].date())}
+    assert v["loss_pct"] == 100 and v["loss_rs_per_week"] > 0
+    assert "made almost nothing on 30 Apr" in v["reason"] and "30 अप्रैल को" in v["reason_hi"]
+
+
+def test_three_days_off_are_counted_from_the_first():
+    v = verdict(home(off_for(3)), NO_RAIN, DRY_WEEK)
+    assert (v["cause"], v["evidence"]) == ("outage", {"outage_days": 3, "since": str(DAYS[-3].date())})
+    assert "has made almost nothing since 28 Apr" in v["reason"]
+
+
+def test_a_power_cut_that_takes_the_whole_area_down_is_not_this_roofs_outage():
+    neighbours = pd.DataFrame({f"n{i}": home(off_for(1), seed=10 + i).eval("actual / expected") for i in range(6)})
+    assert verdict(home(off_for(1)), NO_RAIN, DRY_WEEK, neighbours=neighbours)["cause"] != "outage"
+
+
+def test_a_dark_last_day_at_zero_is_not_an_outage():
+    series = home(off_for(1))
+    series.loc[DAYS[-1], "expected"] = 3.0  # heavy cloud: too dark a day to judge anything by
+    assert verdict(series, NO_RAIN, DRY_WEEK)["cause"] != "outage"
+
+
 def test_repeated_one_day_dips_are_inspect():
     factor = np.ones(120)
     factor[[95, 103, 112]] = 0.5

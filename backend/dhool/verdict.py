@@ -3,6 +3,7 @@
 Physics and plain rules only: no model makes this decision, and every verdict carries the reason
 and the numbers behind it. The rules, in order:
 
+0. The latest sunny day or days made almost nothing; the area did not  -> outage -> INSPECT
 1. Sudden drop that never recovers, and the area did not drop with it  -> fault  -> INSPECT
 2. Sharp one-day dips that come back, several in a month               -> trips  -> INSPECT
 3. Rain or a reported wash in the last day or two, too soon to measure  -> OK
@@ -44,6 +45,8 @@ HAZE_AREA_DROP = 0.96  # with neighbours to read it off, haze needs the area's m
 AREA_DIP = 0.90        # the area's median this far below the days around it is a cloud, not this roof tripping
 STEP_WANDERS = 4       # a sudden drop must be this many times the roof's own week-on-week wander
 STAY_WANDERS = 3       # ...and climbing back to within this many times of it means it recovered
+OUTAGE = 0.10          # a sunny day under this share of the roof's normal: the system was off, not dirty
+AREA_OUT = 0.5         # ...unless the area's median fell under this share of its own recent level that day
 
 
 def _ratio(daily):
@@ -155,6 +158,24 @@ def _result(f, verdict, cause, confidence, reason, loss=0.0, level=None, **evide
 
 # One function per rule. Each reads the figures `verdict()` prepared (`f`) and returns a result, or None
 # for "not this one".
+
+def _outage(f):
+    """0. Outage: the latest day or days with good sun (dark days are already blanked) made almost nothing.
+    Nothing gradual does that: the inverter is off, tripped or showing an error."""
+    out = f.valid < OUTAGE * f.baseline
+    if f.neighbours is not None:
+        # A grid power cut shuts every grid-tied inverter in the area, and that is not this roof's fault.
+        area = f.neighbours.median(axis=1).reindex(out.index)
+        out &= ~(area < AREA_OUT * area.tail(30).median())
+    days = int(out[::-1].cummin().sum())  # how many of the latest days in a row
+    if not days:
+        return None
+    off = f.valid.tail(days)
+    return _result(
+        f, "INSPECT", "outage", "high",
+        say("outage", when=say("outage_on" if days == 1 else "outage_since", day=off.index[0])),
+        loss=1 - float(off.mean()) / f.baseline, outage_days=days, since=str(off.index[0].date()))
+
 
 def _fault(f):
     """1. Fault: a sudden drop that the area did not share and that never recovered."""
@@ -337,7 +358,8 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
     if ahead or actions:
         f.check = check_action(ratio, baseline, ahead or actions[-1])
 
-    return (_fault(f) or _trips(f) or _just_cleaned(f) or _ok(f) or _haze(f) or _not_dust(f) or _dust(f)
+    return (_outage(f) or _fault(f) or _trips(f) or _just_cleaned(f) or _ok(f) or _haze(f) or _not_dust(f)
+            or _dust(f)
             # 8. Something is off but the pattern is not clear. Say so, and don't send anyone up to the roof.
             or _result(f, "WAIT", "unclear", "low", say("unclear", loss=loss), loss=loss,
                        rate_pct_per_day=round(100 * rate, 2), days_measured=len(since)))
