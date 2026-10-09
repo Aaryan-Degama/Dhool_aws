@@ -13,6 +13,8 @@ const HEADLINE = {
   "INSPECT:not_dust": "Call your vendor",
   "CLEAN:dust": "Wash the panels",
   "WAIT:dust": "Wait for the rain",
+  "WAIT:dust:dust_storm": "Wash after the dust storm",
+  "WAIT:dust:not_worth_it": "Not worth washing yet",
   "WAIT:haze": "Don't wash. It's haze.",
   "WAIT:unclear": "Wait and watch",
   "WAIT:no_data": "Still learning your roof",
@@ -261,7 +263,7 @@ export function RoofTab({ house, verdict: v, go, onAction }) {
       <section className="card verdict-card">
         <div className="vc-top">
           <Icon name="bolt" />
-          <h1>{HEADLINE[`${v.verdict}:${v.cause}`] || v.verdict}</h1>
+          <h1>{HEADLINE[`${v.verdict}:${v.cause}:${v.evidence?.wait_for}`] || HEADLINE[`${v.verdict}:${v.cause}`] || v.verdict}</h1>
           {known && <span className="pct">{running}%</span>}
         </div>
         <div className="glow-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={known ? running : 0}

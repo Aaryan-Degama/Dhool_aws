@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from dhool.verdict import verdict
+from dhool.verdict import verdict, wash_plan
 
 DAYS = pd.date_range("2026-01-01", periods=120, freq="D", tz="Asia/Kolkata")
 NO_RAIN = pd.Series(0.0, index=DAYS)
@@ -51,9 +51,34 @@ def test_dust_with_rain_coming_is_wait():
     assert (v["verdict"], v["cause"]) == ("WAIT", "dust")
 
 
-def test_rain_in_five_days_is_too_far_to_wait_for():
-    v = verdict(home(dust(0.004, reset_day=80)), rain_on(80), [0.0, 0.0, 0.0, 0.0, 12.0])
-    assert v["verdict"] == "CLEAN"
+def test_rain_in_five_days_is_still_worth_waiting_for_on_a_small_loss():
+    """8% of a 3 kW roof is about ₹7 a day: four days of that does not pay for a wash the rain will do free."""
+    v = verdict(home(dust(0.002, reset_day=80)), rain_on(80), [0.0, 0.0, 0.0, 0.0, 12.0])
+    assert (v["verdict"], v["cause"], v["evidence"]["wait_for"]) == ("WAIT", "dust", "rain")
+    assert v["evidence"]["saving_rs"] < v["evidence"]["wash_cost_rs"] == 50
+
+
+def test_a_heavy_loss_is_washed_even_with_rain_five_days_off():
+    v = verdict(home(dust(0.006, reset_day=80)), rain_on(80), [0.0, 0.0, 0.0, 0.0, 12.0])  # 23% down, ₹20 a day
+    assert v["verdict"] == "CLEAN" and "before the rain on" in v["reason"] and v["evidence"]["saving_rs"] >= 50
+
+
+def test_a_dust_storm_coming_means_wash_after_it():
+    v = verdict(home(dust(0.004, reset_day=80)), rain_on(80), DRY_WEEK, dust_storms=[False, True, False])
+    assert (v["verdict"], v["evidence"]["wait_for"]) == ("WAIT", "dust_storm") and "Wash after it" in v["reason"]
+
+
+@pytest.mark.parametrize("loss,kwh,rain,storms,wash,wait_for,in_days", [
+    (0.10, 13.0, [0] * 7, [], True, None, None),                  # ₹9 a day for a dry month: wash
+    (0.10, 13.0, [0, 9, 0], [], False, "rain", 2),                # rain the day after tomorrow: one day's saving
+    (0.10, 13.0, [0, 0, 0, 0, 0, 0, 9], [], True, None, 7),       # rain a week off: six days at ₹9 pays
+    (0.10, 13.0, [0] * 7, [False, False, True], False, "dust_storm", 3),
+    (0.05, 4.3, [0] * 7, [], False, "not_worth_it", 3),           # a 1 kW roof: ₹1.50 a day, ₹45 over a dry month
+    (0.25, 4.3, [0] * 7, [], True, None, None),                   # the same roof once it is really dirty
+])
+def test_wash_plan_weighs_saving_against_the_cost_of_a_wash(loss, kwh, rain, storms, wash, wait_for, in_days):
+    plan = wash_plan(loss, 0.002, kwh, rain, storms)
+    assert (plan["wash"], plan["wait_for"], plan["in_days"]) == (wash, wait_for, in_days)
 
 
 def test_step_drop_that_stays_is_inspect():

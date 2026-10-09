@@ -58,6 +58,16 @@ def fetch_pm25(lat, lon, start, end):
     return df["pm2_5"].resample("D").mean()
 
 
+def fetch_dust_storms(lat, lon):
+    """For today and the next six days: True where a dust storm is forecast (see config.STORM_*)."""
+    air = _fetch_hourly(AIR_QUALITY_URL, lat, lon, ["dust"], forecast_days=7)
+    wind = _fetch_hourly(FORECAST_URL, lat, lon, ["wind_gusts_10m", "visibility"], forecast_days=7)
+    hours = air.join(wind, how="inner")
+    storm = ((hours["dust"] >= config.STORM_DUST) & (hours["wind_gusts_10m"] >= config.STORM_GUST_KMH)
+             & (hours["visibility"] <= config.STORM_VISIBILITY_M))
+    return storm.resample("D").max().astype(bool)
+
+
 def expected_daily_kwh(weather, lat, lon, kw, tilt=config.DEFAULT_TILT, azimuth=config.DEFAULT_AZIMUTH):
     """Daily kWh a clean, healthy system of `kw` should produce in this weather."""
     # Open-Meteo radiation is the mean over the hour ending at the timestamp,

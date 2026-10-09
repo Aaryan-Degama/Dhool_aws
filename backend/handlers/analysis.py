@@ -13,7 +13,7 @@ from boto3.dynamodb.conditions import Key
 
 from dhool import connectors
 from dhool.analyse import analyse
-from dhool.expected import fetch_pm25, fetch_weather_with_forecast
+from dhool.expected import fetch_dust_storms, fetch_pm25, fetch_weather_with_forecast
 
 _table = None
 
@@ -50,10 +50,16 @@ def run_house(house_id):
         print(json.dumps({"analysis": "pm25_unavailable", "house": house_id, "error": str(e)}))
         pm25 = None
 
+    try:  # a dust storm on the way means "wash after it"; without the forecast the wash plan uses rain alone
+        storms = fetch_dust_storms(lat, lon)
+    except Exception as e:
+        print(json.dumps({"analysis": "dust_forecast_unavailable", "house": house_id, "error": str(e)}))
+        storms = None
+
     # What the homeowner told Dhool they did (washed the panels, had the vendor in), for the before-and-after check.
     actions = [{"date": i["sk"].split("#", 1)[1], "type": i["type"]} for i in table().query(
         KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("ACTION#"))["Items"]]
-    result = analyse(meta, readings, weather, pm25, fleet, actions)
+    result = analyse(meta, readings, weather, pm25, fleet, actions, storms)
     table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"VERDICT#{result['as_of']}",
                            "json": json.dumps(result), "at": int(time.time())})
     print(json.dumps({"analysis": "done", "house": house_id, "as_of": result["as_of"],

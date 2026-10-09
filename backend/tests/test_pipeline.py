@@ -115,3 +115,15 @@ def test_a_reported_wash_reaches_the_verdict_with_its_before_and_after():
     assert (check["status"], check["date"], result["verdict"]) == ("verified", "2026-04-20", "OK")
     assert check["predicted_pct"] == pytest.approx(check["observed_pct"], abs=4) and check["observed_pct"] > 15
     json.dumps(result)
+
+
+def test_a_dust_storm_forecast_after_the_last_reading_reaches_the_wash_plan():
+    weather = clear_weather(67)
+    expected = expected_daily_kwh(weather, META["lat"], META["lon"], META["kw"], META["tilt"], META["azimuth"])
+    dirt = pd.Series([0.004 * i for i in range(60)], index=expected.index[:60])
+    readings = {str(day.date()): round(kwh, 2) for day, kwh in (expected[:60] * 0.93 * (1 - dirt)).items()}
+    storms = pd.Series(False, index=expected.index[60:67])  # the forecast starts the day after the last reading
+    storms.iloc[1] = True
+    assert analyse(META, readings, weather)["verdict"] == "CLEAN"
+    result = analyse(META, readings, weather, dust_storms=storms)
+    assert (result["verdict"], result["evidence"]["wait_for"]) == ("WAIT", "dust_storm")

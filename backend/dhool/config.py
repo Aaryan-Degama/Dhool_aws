@@ -7,6 +7,11 @@ DEFAULT_TILT = 20.0      # degrees from horizontal
 DEFAULT_AZIMUTH = 180.0  # degrees, 180 = facing south
 
 TARIFF_RS = 7.0          # ₹ per kWh, for turning lost energy into money
+WASH_COST_RS = 50.0      # what one wash costs the household in water and effort; a paid cleaner is ₹200 to ₹300
+# A dust storm is dusty air, strong gusts and lost visibility in the same hour (the app's sandstorm sky uses
+# the same three). Dust alone is not one: Delhi's air carries 300 µg/m³ on a calm clear night.
+STORM_DUST, STORM_GUST_KMH, STORM_VISIBILITY_M = 150.0, 40.0, 5000.0
+DRY_SPELL_DAYS = 30      # with no rain or dust storm in the forecast, a wash is taken to keep paying this long
 
 # Physics.
 INVERTER_EFFICIENCY = 0.96

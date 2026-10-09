@@ -17,7 +17,7 @@ import pandas as pd
 from . import config
 from .expected import fetch_pm25, fetch_weather
 from .sim import simulate
-from .verdict import RAIN_SOON_DAYS, _ratio, check_action, normal, verdict
+from .verdict import _ratio, check_action, normal, verdict, wash_plan
 
 CLASSES = ["CLEAN", "INSPECT", "WAIT", "OK"]
 HIDDEN_SEED = 20261003
@@ -36,8 +36,13 @@ def truth(home, i, rain):
     if (daily["cause"].iloc[i - 2:i + 1] == "haze").sum() >= 2:
         return "WAIT"
     if daily["soiling"].iloc[i] >= 0.05:
-        rain_soon = (rain.iloc[i + 1:i + 1 + RAIN_SOON_DAYS] >= home["meta"].get("clean_mm", config.CLEAN_RAIN_MM)).any()
-        return "WAIT" if rain_soon else "CLEAN"
+        # The same wash plan the rules use, but fed the truth: the real dust, the roof's real normal, and
+        # how much rain it really takes to clean this roof. What is scored is the measuring, not the policy.
+        meta = home["meta"]
+        normal_kwh = meta["baseline"] * float(daily["expected"].iloc[i - 6:i + 1].mean())
+        plan = wash_plan(daily["soiling"].iloc[i], meta["soiling_rate"], normal_kwh, list(rain.iloc[i + 1:i + 8]),
+                         clean_mm=meta.get("clean_mm", config.CLEAN_RAIN_MM))
+        return "CLEAN" if plan["wash"] else "WAIT"
     return "OK"
 
 
