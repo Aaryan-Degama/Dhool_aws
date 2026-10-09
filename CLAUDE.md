@@ -23,6 +23,40 @@ Hackathon project for Environmental Hacks (WeMakeDevs × AWS, Oct 8 – 11, 2026
 4. **Ship the smallest thing that works.** Pick a working vertical slice over breadth.
 5. Every piece of third-party code gets a credit and needs a compatible license.
 
+## Status (3 Oct 2026; keep this current, details and numbers are in `CONTEXT.md`)
+
+All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1).
+
+**Complete and live**
+- Sign-in and family sharing: one house, several logins, joined by a 6-letter code.
+- Verdicts (wash, call the vendor, wait, all good) with a reason, money lost, a chart and a 7-day forecast; re-run nightly and when data arrives.
+- Verdict rules reworked: 94–96% on development data, 84% on the hidden test set (never tune against it).
+- Wash decision by cost: wash only when the saving beats the wash cost (settable per home), both totals in the reason.
+- Wash and vendor-visit check, and a log of advice and actions.
+- Readings in three ways: inverter link by API key, screenshot upload, typed number.
+- Demo inverter cloud: 33 simulated homes on real weather (faults `home-00` to `home-03`, healthy ones, dusty `home-30` to `home-32`).
+- Screenshot reader: Qwen3-VL-2B on Lambda. 93/93 on demo screens; only 6 of 11 on real-app store screenshots.
+- Vendor-reply reader: Laya v3.2 (int8, ONNX Runtime) on Lambda, about 250 ms a reply. Every Laya version is in the GitHub release `laya-models`.
+- The app: roof scene, weather skies, frosted cards, four tabs.
+
+**Pending, needs the owner**
+1. Public URL: connect the repo to Amplify Hosting in a region other than Mumbai. Dhool is not on Amplify; the only Amplify app on the account is Slate's.
+2. Real inverter screenshots (a today screen and a daily list).
+3. Emails for the showcase accounts, and which case each shows (wash, call the vendor, all good).
+4. 
+5. Bedrock access, or a role in the teammate's account (see "Pending on Bedrock").
+6. Twenty to thirty real vendor replies, to score Laya honestly.
+
+**Pending, to build or check**
+1. The wash case on the day: the dusty homes read "all good" after the 27 Sept rain. Regenerate the data on or after 5 Oct and confirm one says "wash" before relying on it.
+2. Browser checks against the live backend: the wash and visit cards, the wash-cost field, the log card and the vendor-reply box were only seen with a stubbed backend or in the dev preview.
+3. Android emulator re-check since the redesign.
+4. Hindi strings: the app is English only.
+5. README, write-up and the 3-minute video.
+6. Refresh the demo data right before recording (Commands, below).
+
+**Costs:** charges were effectively zero on 3 Oct. Two model Lambdas are pinged every 5 minutes to stay loaded, and about 14 GB of container images sit in ECR. The `Dhool-laya` worktree can be removed; its v1 and v2 model folders are also in the release.
+
 ## Project layout
 _Code lives in the `Dhool_aws` repo._
 
