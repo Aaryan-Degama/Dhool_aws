@@ -3,23 +3,11 @@ import { api, confirmSignUp, signedIn, signIn, signOut, signUp } from "./api.js"
 import { CheckCard, ReportAction, VendorReply } from "./check.jsx";
 import { API_URL, TARIFF_NOTE } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
+import { Log, WashCost } from "./plan.jsx";
 import { setSky, skyOver } from "./sky.js";
+import { headline } from "./words.js";
 import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, WhyChart } from "./visuals.jsx";
 
-// What the homeowner should do, in their words. The API's verdict and cause pick the line.
-const HEADLINE = {
-  "INSPECT:fault": "Call your vendor",
-  "INSPECT:trips": "Call your vendor",
-  "INSPECT:not_dust": "Call your vendor",
-  "CLEAN:dust": "Wash the panels",
-  "WAIT:dust": "Wait for the rain",
-  "WAIT:dust:dust_storm": "Wash after the dust storm",
-  "WAIT:dust:not_worth_it": "Not worth washing yet",
-  "WAIT:haze": "Don't wash. It's haze.",
-  "WAIT:unclear": "Wait and watch",
-  "WAIT:no_data": "Still learning your roof",
-  "OK:ok": "Your solar is working",
-};
 const SURE = { high: "Dhool is sure about this.", medium: "Dhool is fairly sure about this.", low: "Dhool is not sure yet." };
 const SURE_SHORT = { high: "Dhool is sure", medium: "Fairly sure", low: "Not sure yet" };
 
@@ -263,7 +251,7 @@ export function RoofTab({ house, verdict: v, go, onAction }) {
       <section className="card verdict-card">
         <div className="vc-top">
           <Icon name="bolt" />
-          <h1>{HEADLINE[`${v.verdict}:${v.cause}:${v.evidence?.wait_for}`] || HEADLINE[`${v.verdict}:${v.cause}`] || v.verdict}</h1>
+          <h1>{headline(v)}</h1>
           {known && <span className="pct">{running}%</span>}
         </div>
         <div className="glow-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={known ? running : 0}
@@ -312,7 +300,7 @@ export function WeekTab({ verdict: v }) {
   );
 }
 
-export function WhyTab({ verdict: v }) {
+export function WhyTab({ verdict: v, house, log }) {
   return (
     <article className={`tab ${tone(v)}`}>
       <h1>Why Dhool says this</h1>
@@ -336,6 +324,7 @@ export function WhyTab({ verdict: v }) {
         <WhyChart verdict={v} />
         <p className="sure">{SURE[v.confidence]} Reading from {day(v.as_of)}.</p>
       </div>
+      {(house || log) && <Log house={house} entries={log} />}
     </article>
   );
 }
@@ -566,6 +555,7 @@ function Home({ house, onSignOut }) {
   const setup = (
     <>
       <AddData house={house} onSent={awaitVerdict} />
+      <WashCost house={house} onSent={awaitVerdict} />
       <Invite house={house} />
       <button className="secondary" onClick={onSignOut}>Sign out</button>
     </>
@@ -589,7 +579,7 @@ function Home({ house, onSignOut }) {
         </>
       ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} onAction={awaitVerdict} />
         : tab === "week" ? <WeekTab verdict={verdict} />
-        : tab === "why" ? <WhyTab verdict={verdict} />
+        : tab === "why" ? <WhyTab verdict={verdict} house={house} />
         : <article className="tab">{setup}</article>}
       {has && !waiting && <Nav tab={tab} go={go} />}
     </main>
@@ -602,7 +592,13 @@ function Preview() {
     <main className="page preview">
       {FIXTURES.map((v, i) => <RoofTab key={i} house={house} verdict={v} go={() => {}} onAction={() => {}} />)}
       <WeekTab verdict={FIXTURES[0]} />
-      <WhyTab verdict={FIXTURES[0]} />
+      <WhyTab verdict={FIXTURES[0]} log={[
+        { date: "2026-09-25", kind: "said", verdict: "OK", cause: "ok", loss_pct: 1 },
+        { date: "2026-09-16", kind: "did", type: "wash", status: "verified" },
+        { date: "2026-09-12", kind: "said", verdict: "CLEAN", cause: "dust", loss_pct: 13 },
+        { date: "2026-09-05", kind: "said", verdict: "WAIT", cause: "dust", wait_for: "dust_storm", loss_pct: 9 },
+        { date: "2026-08-20", kind: "said", verdict: "OK", cause: "ok", loss_pct: 2 },
+      ]} />
       <Nav tab="roof" go={() => {}} />
     </main>
   );

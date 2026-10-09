@@ -56,25 +56,30 @@ def normal(ratio):
     return float(ratio.rolling(7, min_periods=4).median().quantile(0.9))
 
 
-def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=config.CLEAN_RAIN_MM):
+def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=config.CLEAN_RAIN_MM, cost=None):
     """Is washing worth it today? A wash wins back today's dust loss every day until something undoes it:
     rain (which would have cleaned the panels for free) or a dust storm (which dirties them again).
 
     loss: share of normal output lost to dust now. rate: share lost per extra day. normal_kwh: what the roof
     makes in a day when clean. rain_forecast: mm for the coming days, tomorrow first. dust_storms: True for
-    each coming day with a dust storm forecast. Returns {"wash", "saving_rs", "wait_for", "in_days"}.
+    each coming day with a dust storm forecast. cost: what one wash costs this household, in ₹.
+    Returns {"wash", "saving_rs", "wait_for", "in_days"}.
+
+    A storm means washing again afterwards whatever is done today, so that later wash cancels out: wash now
+    only if what would be missed before the storm is more than one wash costs. Rain is the same sum.
     """
+    cost = config.WASH_COST_RS if cost is None else cost
     per_day = loss * normal_kwh * config.TARIFF_RS
     rain = next((i + 1 for i, mm in enumerate(rain_forecast) if mm >= clean_mm), None)
     storm = next((i + 1 for i, hit in enumerate(dust_storms) if hit), None)
     end = min((d for d in (rain, storm) if d), default=None)
     # Dust builds at the same rate washed or not, so the gap a wash opens stays what it removed today.
     saving = per_day * ((end - 1) if end else config.DRY_SPELL_DAYS)
-    plan = {"wash": bool(saving >= config.WASH_COST_RS), "saving_rs": round(saving), "wait_for": None, "in_days": end}
+    plan = {"wash": bool(saving >= cost), "saving_rs": round(saving), "wait_for": None, "in_days": end}
     if not plan["wash"]:
         plan["wait_for"] = "rain" if end and end == rain else "dust_storm" if end else "not_worth_it"
         if not end and rate > 0:  # how long until the dust is costing enough to repay a wash
-            worth = config.WASH_COST_RS / (normal_kwh * config.TARIFF_RS * config.DRY_SPELL_DAYS)
+            worth = cost / (normal_kwh * config.TARIFF_RS * config.DRY_SPELL_DAYS)
             plan["in_days"] = max(1, int(np.ceil((worth - loss) / rate)))
     elif end:
         plan["wait_for"] = None
@@ -117,12 +122,13 @@ def check_action(ratio, baseline, action):
     return out
 
 
-def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), dust_storms=()):
+def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), dust_storms=(), wash_cost=None):
     """daily: DataFrame[expected, actual] indexed by day, oldest first.
     rain: daily mm, same index. rain_forecast: mm for the coming days, tomorrow first.
     pm25: daily mean µg/m³ (optional). neighbours: DataFrame of actual/expected ratios, one column per
     nearby home (optional). actions: what the homeowner reported, [{"date": "YYYY-MM-DD", "type": "wash" | "visit"}].
     dust_storms: True for each coming day with a dust storm forecast, tomorrow first (optional).
+    wash_cost: what one wash costs this household in ₹ (optional; config.WASH_COST_RS if not given).
     """
     ratio = _ratio(daily)
     valid = ratio.dropna()
@@ -270,9 +276,10 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
         days = int((since.index[-1] - since.index[0]).days)
         if rate >= MIN_DUST_RATE:
             normal_kwh = baseline * float(daily["expected"].tail(7).mean())
-            plan = wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms)
+            cost = round(config.WASH_COST_RS if wash_cost is None else wash_cost)
+            plan = wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms, cost=cost)
             per_day = round(loss * normal_kwh * config.TARIFF_RS)
-            cost = round(config.WASH_COST_RS)
+            saved = plan["saving_rs"]
             on = (ratio.index[-1] + pd.Timedelta(days=plan["in_days"] or 0)).strftime("%A")
             evidence = {"rate_pct_per_day": round(100 * rate, 2), "days_since_clean": days,
                         "saving_rs": plan["saving_rs"], "wash_cost_rs": cost}
@@ -282,21 +289,23 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
                 return result(
                     "CLEAN", "dust", "high" if days >= 14 and loss >= 0.08 else "medium",
                     f"Output has slipped about {rate:.1%} a day for {days} days since the panels were last cleaned, "
-                    f"and is now {loss:.0%} below this roof's normal. Washing now saves about ₹{plan['saving_rs']} "
-                    f"{until}, more than the ₹{cost} or so a wash costs in water and effort.",
+                    f"and is now {loss:.0%} below this roof's normal. Not washing would lose about ₹{saved} {until}; "
+                    f"a wash costs ₹{cost}, so washing now leaves you about ₹{saved - cost} ahead."
+                    + (" The storm will mean washing again afterwards either way." if plan.get("before") == "dust_storm" else ""),
                     loss=loss, **evidence)
             evidence["wait_for"] = plan["wait_for"]
             if plan["wait_for"] == "rain":
                 reason = (f"Dust has cut output by about {loss:.0%} over {days} days, but rain is forecast on {on} and will "
-                          f"wash the panels for free. Washing today would save only about ₹{plan['saving_rs']} before then.")
+                          f"wash the panels for free. Until then you lose about ₹{saved}; a wash costs ₹{cost}. Waiting is "
+                          f"₹{cost - saved} cheaper.")
             elif plan["wait_for"] == "dust_storm":
                 reason = (f"Dust has cut output by about {loss:.0%} over {days} days, but a dust storm is forecast on {on} "
-                          "and would dirty the panels again. Wash after it, not before: washing today would save only "
-                          f"about ₹{plan['saving_rs']}.")
+                          f"and would dirty the panels again. Wash now and again after it: ₹{2 * cost}. Wait and wash once "
+                          f"after it: ₹{saved} lost and ₹{cost} for the wash, ₹{saved + cost}. Waiting is ₹{cost - saved} cheaper.")
             else:
                 later = f" At this rate it will be in about {plan['in_days']} days." if plan["in_days"] else ""
-                reason = (f"Dust is costing about ₹{per_day} a day, {loss:.0%} of this roof's output. A wash costs about "
-                          f"₹{cost} in water and effort, so it is not worth it yet.{later}")
+                reason = (f"Dust is costing about ₹{per_day} a day, {loss:.0%} of this roof's output: about ₹{saved} over "
+                          f"the next {config.DRY_SPELL_DAYS} days. A wash costs ₹{cost}, so it is not worth it yet.{later}")
                 evidence["worth_it_in_days"] = plan["in_days"]
             return result("WAIT", "dust", "medium", reason, loss=loss, **evidence)
 

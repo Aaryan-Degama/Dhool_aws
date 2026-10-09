@@ -261,3 +261,30 @@ def test_a_vendor_reply_is_read_for_members_only_and_the_model_is_not_trusted(ho
         raise TimeoutError("the reader is still starting")
     monkeypatch.setattr(api, "_read_reply", down)
     assert call(FATHER, route, {"text": "ok"}, house)[0] == 503 and len(asked) == 1
+
+
+def test_the_cost_of_a_wash_is_a_setting_of_the_house(house):
+    assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["wash_cost_rs"] == 50
+    assert call(STRANGER, "POST /houses/{houseId}/settings", {"wash_cost_rs": 350}, house)[0] == 403
+    for bad in ({"wash_cost_rs": -1}, {"wash_cost_rs": "350"}, {"wash_cost_rs": 99999}, {}):
+        assert call(FATHER, "POST /houses/{houseId}/settings", bad, house)[0] == 400
+    assert call(FATHER, "POST /houses/{houseId}/settings", {"wash_cost_rs": 350}, house) == (200, {"wash_cost_rs": 350})
+    assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["wash_cost_rs"] == 350 and ANALYSED == [house]
+
+
+def test_the_log_lists_what_dhool_advised_and_what_the_household_did(house, table):
+    def said(date, verdict, cause, **more):
+        table.put_item(Item={"pk": f"HOUSE#{house}", "sk": f"VERDICT#{date}", "at": 1,
+                             "json": json.dumps({"verdict": verdict, "cause": cause, "loss_pct": 9.0, **more})})
+    said("2026-09-26", "OK", "ok")
+    said("2026-09-27", "WAIT", "dust", evidence={"wait_for": "rain"})
+    said("2026-09-28", "CLEAN", "dust")
+    said("2026-09-29", "CLEAN", "dust")  # the same advice again: not a new line
+    call(FATHER, "POST /houses/{houseId}/actions", {"type": "wash", "date": "2026-09-29"}, house)
+    said("2026-10-02", "OK", "ok", check={"type": "wash", "date": "2026-09-29", "status": "verified"})
+    assert call(STRANGER, "GET /houses/{houseId}/history", house_id=house)[0] == 403
+    log = call(FATHER, "GET /houses/{houseId}/history", house_id=house)[1]["log"]
+    assert [(e["date"], e["kind"], e.get("verdict") or e["type"]) for e in log] == [
+        ("2026-10-02", "said", "OK"), ("2026-09-29", "did", "wash"), ("2026-09-28", "said", "CLEAN"),
+        ("2026-09-27", "said", "WAIT"), ("2026-09-26", "said", "OK")]
+    assert log[1]["status"] == "verified" and log[3]["wait_for"] == "rain"

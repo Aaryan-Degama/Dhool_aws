@@ -85,6 +85,8 @@ Resources:
         ReadVendorReply: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/vendor-reply'}}
         RecordAction: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/actions'}}
         GetVerdict: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/verdict'}}
+        SaveSettings: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/settings'}}
+        History: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/history'}}
         Me: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /me}}
         CreateHouse: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: /houses}}
         Join: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: /join}}

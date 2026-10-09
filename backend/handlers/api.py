@@ -25,6 +25,7 @@ INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I/L
 INVITE_TTL_S = 7 * 24 * 3600
 MAX_KWH_PER_KW = 12  # no roof makes more than this per installed kW in a day
 MAX_READINGS = 120   # in one request: a screenshot's history chart, not a bulk import
+HISTORY_DAYS = 45    # how far back the log of advice looks
 MAX_UPLOAD_BYTES = 5_000_000
 IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg"}
 SHOT_KEY = re.compile(r"houses/([0-9a-f]{12})/([0-9a-f]{32})\.(?:png|jpg)")
@@ -123,6 +124,7 @@ def get_house(sub, event):
     return 200, {
         "house_id": house_id,
         **{k: meta[k] for k in ("name", "kw", "lat", "lon", "tilt", "azimuth")},
+        "wash_cost_rs": meta.get("wash_cost_rs", config.WASH_COST_RS),
         "members": [{"sub": m["sk"].split("#", 1)[1], "role": m["role"]} for m in members],
     }
 
@@ -335,6 +337,41 @@ def connect_inverter(sub, event):
     return 200, {"house_id": house_id, "plant_id": plant_id}
 
 
+def save_settings(sub, event):
+    """What one wash costs this household, in ₹: the figure the wash-or-wait sums are done against."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    cost = _number(_body(event), "wash_cost_rs", 0, 5000)
+    table().update_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"},
+                        UpdateExpression="SET wash_cost_rs = :c", ExpressionAttributeValues={":c": cost})
+    _start_analysis(house_id)
+    return 200, {"wash_cost_rs": cost}
+
+
+def history(sub, event):
+    """What Dhool advised and what the household did, newest first. A piece of advice is listed on the day it
+    first appeared, not on every day it was repeated."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "read")
+    def items(prefix, **more):
+        return table().query(KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with(prefix), **more)["Items"]
+    log, last = [], None
+    for item in reversed(items("VERDICT#", ScanIndexForward=False, Limit=HISTORY_DAYS)):  # oldest of them first
+        v = json.loads(item["json"])
+        said = (v["verdict"], v["cause"], (v.get("evidence") or {}).get("wait_for"))
+        if said != last:
+            log.append({"date": item["sk"].split("#", 1)[1], "kind": "said", "verdict": said[0], "cause": said[1],
+                        "wait_for": said[2], "loss_pct": v.get("loss_pct")})
+        last = said
+        check = v.get("check")
+    latest = check if log else None  # the newest verdict carries the outcome of the newest wash or visit
+    for item in items("ACTION#"):
+        date = item["sk"].split("#", 1)[1]
+        log.append({"date": date, "kind": "did", "type": item["type"],
+                    "status": latest["status"] if latest and latest["date"] == date else None})
+    return 200, {"log": sorted(log, key=lambda e: (e["date"], e["kind"] == "did"), reverse=True)}
+
+
 def get_verdict(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
@@ -370,6 +407,8 @@ ROUTES = {
     "POST /houses/{houseId}/screenshots/read": read_screenshot,
     "GET /houses/{houseId}/screenshots/{shotId}": screenshot_result,
     "GET /houses/{houseId}/verdict": get_verdict,
+    "POST /houses/{houseId}/settings": save_settings,
+    "GET /houses/{houseId}/history": history,
 }
 
 

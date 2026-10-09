@@ -17,3 +17,10 @@
 .reply-kinds button { min-height: 2.75rem; padding: 0.375rem 0.5rem; font-size: var(--step--1); font-weight: 600; background: transparent; color: var(--ink); border: 1.5px solid var(--edge); }
 .reply-kinds button[aria-pressed="true"] { background: var(--current); color: var(--on-current); border-color: var(--current); }
 .vendor-reply small { display: block; margin-top: 0.25rem; color: var(--muted); }
+
+/* The log of advice and actions (plan.jsx). */
+.log { list-style: none; margin: 0; padding: 0; }
+.log li { display: grid; grid-template-columns: 4.5rem 1fr; gap: 0.75rem; padding: 0.5rem 0; font-size: var(--step--1); color: var(--soft); }
+.log li + li { border-top: 1px solid var(--line); }
+.log time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.log-did strong { color: var(--current); }

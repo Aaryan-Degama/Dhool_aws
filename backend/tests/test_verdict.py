@@ -65,7 +65,7 @@ def test_a_heavy_loss_is_washed_even_with_rain_five_days_off():
 
 def test_a_dust_storm_coming_means_wash_after_it():
     v = verdict(home(dust(0.004, reset_day=80)), rain_on(80), DRY_WEEK, dust_storms=[False, True, False])
-    assert (v["verdict"], v["evidence"]["wait_for"]) == ("WAIT", "dust_storm") and "Wash after it" in v["reason"]
+    assert (v["verdict"], v["evidence"]["wait_for"]) == ("WAIT", "dust_storm") and "Wait and wash once after it" in v["reason"]
 
 
 @pytest.mark.parametrize("loss,kwh,rain,storms,wash,wait_for,in_days", [
@@ -222,3 +222,21 @@ def test_a_gentle_wobble_over_a_week_is_not_called_dust():
     factor = np.ones(120)
     factor[112:] = 1 - 0.003 * np.arange(8)  # 2% over the last week: a week is too short to trust that
     assert verdict(home(factor), rain_on(111), DRY_WEEK)["verdict"] == "OK"
+
+
+def test_the_owners_two_cases_wash_before_a_storm_only_if_the_loss_beats_one_wash():
+    """A storm in a week means washing again afterwards either way. Missing ₹200 against a ₹350 wash: wait
+    (₹550 against ₹700). Missing ₹600: wash now (₹700 against ₹950)."""
+    storm = [False] * 6 + [True]
+    small = wash_plan(0.10, 0.002, 200 / 6 / 0.10 / 7, [0] * 7, storm, cost=350)   # ₹200 over the 6 days before it
+    large = wash_plan(0.10, 0.002, 600 / 6 / 0.10 / 7, [0] * 7, storm, cost=350)   # ₹600
+    assert (small["wash"], small["wait_for"], small["saving_rs"]) == (False, "dust_storm", 200)
+    assert (large["wash"], large["saving_rs"]) == (True, 600)
+
+
+def test_a_dearer_wash_turns_wash_now_into_not_worth_it_yet():
+    series, rain = home(dust(0.004, reset_day=80)), rain_on(80)
+    assert verdict(series, rain, DRY_WEEK)["verdict"] == "CLEAN"
+    v = verdict(series, rain, DRY_WEEK, wash_cost=2000)
+    assert (v["verdict"], v["evidence"]["wait_for"], v["evidence"]["wash_cost_rs"]) == ("WAIT", "not_worth_it", 2000)
+    assert "₹2000" in v["reason"]
