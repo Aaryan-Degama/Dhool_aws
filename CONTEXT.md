@@ -159,6 +159,7 @@ The project's current state. **Update this file whenever something changes** (a 
 - Statistics in `DHOOL.md` 2.1 and prior art in 2.12 still need citable sources before the write-up
 
 ## Log
+- **2026-10-09:** Every Laya version (v1, v2, v3, v3 ONNX, v3.2) is published as GitHub release `laya-models` with the score tables (`checkpoints.md` says how to fetch one). The deployed Lambda runs v3.2.
 - **2026-10-09:** The vendor-reply reader now runs Laya v3.2 (int8, ONNX Runtime): about 250 ms a reply and 1.8 GB on Lambda, down from 0.4 s and 2.6 GB with v3.
 - **2026-10-09:** Per-home wash cost, both totals shown in the wash-or-wait reason, and a log of advice and actions; branch `wash-cost-log`.
 - **2026-10-09:** Laya v3 integrated and deployed: the homeowner pastes the vendor's reply under "Call your vendor" and Dhool sorts it into four kinds with the next step; its own Lambda container, 0.4 s warm. Not yet tried on a real vendor reply.
