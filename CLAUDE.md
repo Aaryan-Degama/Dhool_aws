@@ -31,6 +31,7 @@ backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, con
 backend/handlers/          thin I/O wrappers: api, analysis (pvlib container, nightly), mock_inverter (demo inverter cloud)
 vision/                    the screenshot reader: Qwen3-VL-2B on CPU through llama.cpp, a Lambda container (weights in vision/models/, not in git)
 backend/tests/             pytest
+messages/                  labelled vendor replies for Laya (weights in messages/models/, not in git)
 web/                       React + Vite PWA, deployed by Amplify Hosting from `main`
 .github/workflows/ci.yml   pytest + sam validate on every push
 ```
@@ -47,6 +48,7 @@ _Deploy commands are planned; confirm each one when that code exists._
 - Live endpoints, pool IDs and demo account password: `.env` (gitignored, never commit)
 - Screenshot reader weights (1.5 GB, pinned and hash-checked): `./scripts/fetch-model.sh` (`./scripts/build.sh` runs it first). Keep the weights out of `backend/`: SAM would pack them into the zip Lambdas.
 - Measure the reader against saved demo screens (each carries its answer key): `LLAMA_SERVER=<path to llama-server> taskset -c 0,1 .venv/bin/python scripts/eval-vision.py <images>`. `taskset -c 0,1` matches the Lambda's two cores.
+- Laya (vendor-reply sorter; its own environment, never in `.venv` or CI): `uv venv --python 3.12 .venv-laya && uv pip install -p .venv-laya --index-url https://download.pytorch.org/whl/cpu torch && uv pip install -p .venv-laya laya`. Score the shipped checkpoint: `.venv-laya/bin/python scripts/laya-tune.py eval`. Fine-tune and score (about 9 minutes, needs about 5 GB free): `.venv-laya/bin/python scripts/laya-tune.py train`. Data in `messages/vendor-replies.jsonl`, weights in `messages/models/` (not in git).
 - `backend/requirements-analysis.txt` holds the heavy pvlib dependencies for the analysis container. Do not add a `backend/requirements.txt`: SAM would pack those into the small API Lambda zip.
 - Run one function locally: `sam local invoke <FunctionName>`
 - Frontend: `npm run dev` / `npm run build` in `web/`; `/#preview` shows every verdict state without signing in. Amplify Hosting builds `main` using `amplify.yml`.

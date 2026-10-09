@@ -50,7 +50,7 @@ The project's current state. **Update this file whenever something changes** (a 
 - **DynamoDB (one table, on-demand, `Query` only):** `HOUSE#<id>` with `META`, `MEMBER#<sub>`, `READING#<date>`, `VERDICT#<date>`; `USER#<sub>` → `HOUSE#<id>` lookup; `INVITE#<code>` with `expiresAt` TTL. Screenshots in S3 under `houses/<id>/`, reached only through presigned URLs issued after `authorize()`.
 - **Self-hosted models on CPU (decided Oct 9; replaces the Textract and templates-only plan, since Textract and Bedrock are both blocked on the Free plan):**
   - **Vision:** Qwen3-VL-2B-Instruct (Apache-2.0, confirmed) through llama.cpp in a Lambda container; built and deployed Oct 9 (see Done so far). Text (explanations, vendor messages) stays on fixed templates for now.
-  - **Laya:** `convaiinnovations/laya` multilingual checkpoint (mmBERT, 322M, about 647 MB, Apache 2.0, `laya` Python SDK), on CPU, for sorting homeowner messages and reading vendor replies. Its own page reports 0.362 accuracy without fine-tuning on its benchmark, so measure it on our cases first and fine-tune only if needed.
+  - **Laya (fine-tuned Oct 9, not deployed, not used by the app):** `convaiinnovations/laya` multilingual checkpoint (mmBERT, 322M, 644 MB, Apache 2.0, `laya` 0.3.24, revision `55cf4c4`), tuned to sort a vendor's reply to the "Message your vendor" request into `visit_scheduled`, `asking_details`, `refused`, `unclear`. See Done so far.
   - **Hosting (decided Oct 9):** a Lambda container called in the background (upload → job → result on the screenshot's DynamoDB item → the app asks for it). SageMaker Serverless was ruled out: its 60 s limit is shorter than one read on CPU.
   - **Guardrails that stay:** the verdict and every number come from code, never from a model; the user confirms the kWh read from a screenshot; manual entry and fixed templates remain as fallbacks.
   - The Strands agent stays dropped (it needs a hosted model API). Say openly in the write-up that Bedrock and Textract were unavailable on the Free plan.
@@ -96,11 +96,18 @@ The project's current state. **Update this file whenever something changes** (a 
   - **Demo data ended on 25 Sept.** The simulator reads the archive and the forecast API's recent days, so the data now runs to yesterday (2 Oct); same 30 plants and roofs. Regenerate before recording.
   - **Headings ran over the sun** on Forecast, Why and Setup. The sun and moon now show only on pages with the roof scene.
   - 6 new tests, each failing on the old code: 83 pass. Verified live (both houses re-analysed, `done: 2, failed: 0`) and by screenshot of every tab, day and night.
+- **Laya fine-tuned on vendor replies (Oct 9, branch `laya-finetune`, local only):**
+  - **Data:** `messages/vendor-replies.jsonl`, 201 short replies in Hinglish, Hindi and English (145 train, 56 test, 14 test per label). **Written by Claude, not collected from vendors**; the file says so in its header. The "never generate data with an LLM" rule was read as covering solar numbers (its stated reason in `DHOOL.md`), not text examples for a classifier; the owner has not confirmed that reading.
+  - **Before:** the shipped checkpoint got 20/56 (36%; chance is 25%), calling almost everything `refused` at high confidence.
+  - **After** (`scripts/laya-tune.py train`, 6 epochs, 116 replies, token table frozen, 8.5 min on the laptop CPU, peak 5.2 GB): **49/56 (87.5%)**. English 12/12, Hindi 15/16, Hinglish 22/28; `asking_details` 14/14, `visit_scheduled` 13/14, `refused` 12/14, `unclear` 10/14.
+  - **What the number does not show:** train and test were written by the same author in one sitting, so 87.5% is an upper bound, not a figure for real vendor replies. Its confidence is not usable: the seven wrong answers came at 0.64 to 0.97, and the fitted temperature hit the library's ceiling (5.0). Do not gate on confidence; the homeowner would confirm the label, as with screenshot numbers.
+  - **Weights** (644 MB) are in `Dhool-laya/messages/models/vendor-replies/`, gitignored, with the question they were tuned on (`questions.json`). Not uploaded anywhere.
+  - **Not done:** no Lambda, no API route, no screen. Four buttons ("they're coming / they asked for something / they refused / no answer") would do the same job with no model, so wire this in only if pasting the reply is wanted.
 - **CI (Oct 9):** `.github/workflows/ci.yml` runs pytest and the web build on every push and pull request. `amplify.yml` tells Amplify Hosting how to build `web/` on every push to `main`.
 
 ## Next
 1. Connect the repo to Amplify Hosting (needs the user in the console, see Blockers), then check the app by hand on the live URL and in the Android emulator.
-2. Real inverter screenshots from the owner: run the reader on them, and fix what it misreads. Then Laya.
+2. Real inverter screenshots from the owner: run the reader on them, and fix what it misreads. For Laya: 20 to 30 real vendor replies to score it on, and a decision on whether the app reads pasted replies at all.
 3. CI (GitHub Actions) and the first commit and push.
 4. Verification after a wash or vendor visit ("predicted +X%, observed +Y%"), and the hidden test set with varied simulator settings.
 5. Right before recording the video: regenerate the demo data, deploy, and re-run the analysis (`CLAUDE.md`, Commands).
@@ -118,6 +125,7 @@ The project's current state. **Update this file whenever something changes** (a 
 - Statistics in `DHOOL.md` 2.1 and prior art in 2.12 still need citable sources before the write-up
 
 ## Log
+- **2026-10-09:** Laya (multilingual) fine-tuned on 145 vendor replies written by Claude: 36% → 87.5% on 56 held-out replies by the same author. Confidence is not trustworthy. Local only, on branch `laya-finetune`; not deployed or wired into the app.
 - **2026-10-09:** Fixed five bugs from a review: the nightly run's crash on a keyless house (relinked), Why-tab figures that did not add up (should-have-made, the chart and "possible" now all use the roof's own normal), a chart that missed a fault older than 90 days, demo data a week stale (now through yesterday), and headings over the sun. Deployed and verified live.
 - **2026-10-09:** Real screenshot reader deployed: Qwen3-VL-2B through llama.cpp in a 3008 MB Lambda container, asked narrow questions, results confirmed and corrected by the homeowner. 93/93 demo values read exactly, none invented. Demo inverter app gained a daily list screen. `CREDITS.md` added.
 - **2026-10-09:** Fixed the false sandstorm sky over Delhi (rule now needs wind and lost visibility, not just dust); night versions of cloud, snow and sand; scene polish (layered skyline with haze, shaded parapet, sky reflected in the glass).

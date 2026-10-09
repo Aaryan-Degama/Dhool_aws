@@ -1,0 +1,206 @@
+# Vendor replies to a homeowner's "please inspect my rooftop solar" WhatsApp message, labelled.
+# WRITTEN BY CLAUDE (an AI model), not collected from real vendors. Good enough to teach the labels;
+# any score on the "test" rows is a score on the same author's writing, not on real replies.
+# Replace or extend with real replies before claiming anything about them.
+# label: visit_scheduled | asking_details | refused | unclear.  lang: en | hi (Devanagari) | hing (Hindi in Latin letters).
+{"text": "Ok sir kal subah 11 baje aata hu", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Technician bhej raha hu aaj shaam tak", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Sir Monday ko ladka aa jayega check karne", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Ji parso aa jaunga, ghar pe rehna", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "abhi nikal raha hu 1 ghante me pahunchta hu", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Visit charge 300 lagega, kal dopahar aa raha hu", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "thik h sir sunday ko dekh lete h aake", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Hamari team Thursday ko aapke yahan visit karegi", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "kl aata hu sir 4 bje k baad", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Sir string check karni padegi, mai Saturday aa jata hu meter leke", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Is hafte me pakka aa jayenge sir", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Engineer ko bol diya hai, wo kal aapko call karke aayega", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Aaj to nahi ho payega, kal subah pehla kaam aapka", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "ok ji budh ko aate hain", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Raste me hu sir 20 min", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "Complaint register kar di hai, 2 din me technician aa jayega", "label": "visit_scheduled", "lang": "hing", "split": "train"}
+{"text": "कल सुबह 10 बजे आ जाऊंगा", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "ठीक है सर, शनिवार को लड़का भेज देता हूं", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "आज शाम तक टेक्नीशियन आ जाएगा", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "जी, परसों आकर देख लेते हैं", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "हमारी टीम सोमवार को आपके घर आएगी", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "अभी निकल रहा हूं, आधे घंटे में पहुंचता हूं", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "विजिट चार्ज 500 लगेगा, कल आ रहा हूं", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "इस हफ्ते में आ जाएंगे, चिंता मत कीजिए", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "शिकायत दर्ज हो गई है, इंजीनियर दो दिन में आएगा", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "मंगलवार दोपहर को आता हूं", "label": "visit_scheduled", "lang": "hi", "split": "train"}
+{"text": "I will come tomorrow morning around 10", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Our engineer will visit on Thursday between 10 and 12.", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Sending a technician today evening", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Ok sir, will be there on Saturday", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Service visit booked for 6th Oct. Technician will call before coming.", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "On the way, reaching in 30 mins", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Can't make it today but I'll come day after tomorrow for sure", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "We will inspect the strings this week, my team will come", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Visit charges are Rs 400. I am coming Monday afternoon.", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Your complaint is logged, site visit within 48 hours", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Inverter ka photo bhejo display ka", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Kaunsi company ka inverter hai sir?", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "error code kya aa raha h screen pe", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Address aur system kitne kw ka hai bata do", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "kab se kam ban rahi hai unit?", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Warranty card hai kya aapke paas? uski photo daal do", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Visit charge 500 hoga, confirm karo to aate hain", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Sir aapka installation kab hua tha aur bill number kya hai", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "panel saaf kiye the kya haal me?", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "App ka screenshot bhej do pichle hafte ka", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Inverter pe laal light jal rahi hai ya hari?", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Aap kahan se bol rahe ho, location bhejo", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "kitne panel lage hain aur konse brand ke", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Sir pehle serial number bata do inverter ka", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Kaunsa din theek rahega aapke liye? aur ghar pe koi hoga?", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "Aapne kisse lagwaya tha? hamare yahan se ya kahin aur se", "label": "asking_details", "lang": "hing", "split": "train"}
+{"text": "इन्वर्टर की स्क्रीन की फोटो भेजिए", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "कौन सी कंपनी का इन्वर्टर है?", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "कब से कम यूनिट बन रही है?", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "अपना पता और सिस्टम कितने किलोवाट का है बताइए", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "स्क्रीन पर कौन सा एरर कोड आ रहा है?", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "वारंटी कार्ड की फोटो डाल दीजिए", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "विजिट का 500 रुपये लगेगा, आप हां कहें तो आते हैं", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "पैनल आखिरी बार कब धोए थे?", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "इन्वर्टर का सीरियल नंबर क्या है?", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "आपने सिस्टम कब लगवाया था?", "label": "asking_details", "lang": "hi", "split": "train"}
+{"text": "Please send a photo of the inverter display", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Which inverter brand and model do you have?", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "What error code is showing?", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Share your address and system size", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Since when is the generation low? Send last month's app screenshot.", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Is it still under warranty? Please share the invoice", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Visit will cost Rs 500. Shall I come?", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Kindly share the inverter serial number and date of installation", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Are all the lights on the inverter green?", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "What time are you home this week?", "label": "asking_details", "lang": "en", "split": "train"}
+{"text": "Sir warranty khatam ho gayi hai, ab hum nahi dekhte", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Ye hamara kaam nahi hai, company ke customer care pe call karo", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Hum ab solar ka kaam nahi karte", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "is area me hamari service nahi hai sir", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Barsaat me sabke yahan kam banti hai, kuch karne ki zarurat nahi", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Hamara kaam sirf installation tak tha, service alag hai", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "nahi aa sakte sir, aap kisi aur ko dikha lo", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Ye normal hai, panel purane hone pe aisa hi hota hai. aane ka koi fayda nahi", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Is brand ka inverter hum repair nahi karte", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Sir aapne AMC nahi liya tha to hum visit nahi karenge", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Sab theek hai sir, system me koi dikkat nahi, bar bar message mat karo", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Dukaan band kar di hai humne, ab ye kaam nahi hota", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "discom se baat karo ye unka masla hai hamara nahi", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Itni door nahi aa payenge", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Pehle ka payment baaki hai, jab tak wo nahi aata hum nahi aayenge", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "Sorry sir ho nahi payega humse", "label": "refused", "lang": "hing", "split": "train"}
+{"text": "वारंटी खत्म हो चुकी है, अब हम नहीं देखेंगे", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "यह हमारा काम नहीं है, कंपनी से बात कीजिए", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "इस इलाके में हमारी सर्विस नहीं है", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "हमने सोलर का काम बंद कर दिया है", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "यह सामान्य है, कुछ करने की जरूरत नहीं", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "नहीं आ सकते, किसी और को दिखा लीजिए", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "हमारा काम सिर्फ लगाने तक था, सर्विस हम नहीं देते", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "इस कंपनी का इन्वर्टर हम ठीक नहीं करते", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "बिना एएमसी के हम विजिट नहीं करते", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "सिस्टम में कोई खराबी नहीं है, आने की जरूरत नहीं", "label": "refused", "lang": "hi", "split": "train"}
+{"text": "Sorry, we don't service that brand", "label": "refused", "lang": "en", "split": "train"}
+{"text": "Your warranty has expired, we cannot attend this", "label": "refused", "lang": "en", "split": "train"}
+{"text": "We have closed our solar division. Please contact the manufacturer.", "label": "refused", "lang": "en", "split": "train"}
+{"text": "Not our responsibility, installation was handed over two years ago", "label": "refused", "lang": "en", "split": "train"}
+{"text": "This is normal in this season, no visit required", "label": "refused", "lang": "en", "split": "train"}
+{"text": "We do not cover your area anymore", "label": "refused", "lang": "en", "split": "train"}
+{"text": "Sorry can't help, please find another vendor", "label": "refused", "lang": "en", "split": "train"}
+{"text": "No AMC, no service visits. That is company policy.", "label": "refused", "lang": "en", "split": "train"}
+{"text": "There is nothing wrong with the system. We won't be sending anyone.", "label": "refused", "lang": "en", "split": "train"}
+{"text": "Take it up with the DISCOM, this is not a vendor issue", "label": "refused", "lang": "en", "split": "train"}
+{"text": "Ok", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Ji", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "👍", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Dekhte hain", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Abhi busy hu baad me baat karta hu", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "thik hai sir", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Sir main bahar hu abhi", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "hmm", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Message mil gaya", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "batata hu", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Sir shaadi me hu gaon aaya hua hu", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Acha", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Ho jayega sir tension mat lo", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Namaste sir kaise hain aap", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Dekh ke batate hain", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "haan haan pata hai", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "Sir network nahi aa raha baad me", "label": "unclear", "lang": "hing", "split": "train"}
+{"text": "ठीक है", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "जी सर", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "देखते हैं", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "अभी व्यस्त हूं, बाद में बात करता हूं", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "बताता हूं", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "मैसेज मिल गया", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "अच्छा", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "हो जाएगा सर, चिंता मत कीजिए", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "अभी बाहर हूं", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "नमस्ते", "label": "unclear", "lang": "hi", "split": "train"}
+{"text": "Noted", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Will check and get back to you", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Okay sir", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "In a meeting, will call later", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Received your message", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Let me see", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Hello sir", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Don't worry it will be sorted", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "I am out of station right now", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Thanks for informing", "label": "unclear", "lang": "en", "split": "train"}
+{"text": "Sir kal 12 se 2 ke beech hamara banda pahunch jayega", "label": "visit_scheduled", "lang": "hing", "split": "test"}
+{"text": "aaj hi aa jata hu shaam 5 bje", "label": "visit_scheduled", "lang": "hing", "split": "test"}
+{"text": "Shukrawar ko aana ho payega, usse pehle nahi", "label": "visit_scheduled", "lang": "hing", "split": "test"}
+{"text": "Ji bilkul, mistri ko bhej deta hu abhi", "label": "visit_scheduled", "lang": "hing", "split": "test"}
+{"text": "Do teen din me chakkar laga leta hu aapke yahan", "label": "visit_scheduled", "lang": "hing", "split": "test"}
+{"text": "600 rs visiting lagega sir, somwar subah aa rha hu", "label": "visit_scheduled", "lang": "hing", "split": "test"}
+{"text": "Dikkat lag rahi hai string me, mai khud aake dekhta hu kal", "label": "visit_scheduled", "lang": "hing", "split": "test"}
+{"text": "गुरुवार सुबह आ जाएंगे", "label": "visit_scheduled", "lang": "hi", "split": "test"}
+{"text": "जी, आज ही मिस्त्री भेज रहा हूं", "label": "visit_scheduled", "lang": "hi", "split": "test"}
+{"text": "दो-तीन दिन में आकर चेक कर लूंगा", "label": "visit_scheduled", "lang": "hi", "split": "test"}
+{"text": "रविवार को ग्यारह बजे पहुंच जाऊंगा", "label": "visit_scheduled", "lang": "hi", "split": "test"}
+{"text": "Technician assigned. He will reach you by Friday noon.", "label": "visit_scheduled", "lang": "en", "split": "test"}
+{"text": "Sure, I'll drop by tomorrow after lunch and take a look", "label": "visit_scheduled", "lang": "en", "split": "test"}
+{"text": "Booked you in for Wednesday morning", "label": "visit_scheduled", "lang": "en", "split": "test"}
+{"text": "Sir inverter ki video bana ke bhejo jab dhoop ho", "label": "asking_details", "lang": "hing", "split": "test"}
+{"text": "Konsa model hai aur kitne saal purana", "label": "asking_details", "lang": "hing", "split": "test"}
+{"text": "pichle mahine kitni unit bani thi?", "label": "asking_details", "lang": "hing", "split": "test"}
+{"text": "Aapka customer ID kya hai hamare record me", "label": "asking_details", "lang": "hing", "split": "test"}
+{"text": "Aane ka 400 lagega, manzoor hai to bolo", "label": "asking_details", "lang": "hing", "split": "test"}
+{"text": "Display pe kuch likha aa raha hai kya? padh ke batao", "label": "asking_details", "lang": "hing", "split": "test"}
+{"text": "Koi ped ya tanki ki chhaya to nahi aa rahi panel pe?", "label": "asking_details", "lang": "hing", "split": "test"}
+{"text": "पैनल की फोटो भेजिए ऊपर से", "label": "asking_details", "lang": "hi", "split": "test"}
+{"text": "पिछले महीने कितनी यूनिट बनी थी?", "label": "asking_details", "lang": "hi", "split": "test"}
+{"text": "आपका ग्राहक नंबर क्या है?", "label": "asking_details", "lang": "hi", "split": "test"}
+{"text": "क्या पैनल पर किसी चीज की छाया पड़ रही है?", "label": "asking_details", "lang": "hi", "split": "test"}
+{"text": "Can you tell me the readings on the display at noon?", "label": "asking_details", "lang": "en", "split": "test"}
+{"text": "How old is the system and who installed it?", "label": "asking_details", "lang": "en", "split": "test"}
+{"text": "There is a call-out fee of Rs 350, do you want to go ahead?", "label": "asking_details", "lang": "en", "split": "test"}
+{"text": "5 saal ho gaye sir, ab free service nahi milegi, hum nahi aayenge", "label": "refused", "lang": "hing", "split": "test"}
+{"text": "Aap seedha company walo ko pakdo, humse matlab nahi", "label": "refused", "lang": "hing", "split": "test"}
+{"text": "Sardi me to kam hi banegi, isme dekhne wali koi baat nahi hai", "label": "refused", "lang": "hing", "split": "test"}
+{"text": "ye wala kaam humne chhod diya h", "label": "refused", "lang": "hing", "split": "test"}
+{"text": "Aapke side nahi aate hum log", "label": "refused", "lang": "hing", "split": "test"}
+{"text": "maaf karna sir mere bas ka nahi hai, koi aur dhundh lo", "label": "refused", "lang": "hing", "split": "test"}
+{"text": "Ek panel se farak nahi padta, chalne do aise hi", "label": "refused", "lang": "hing", "split": "test"}
+{"text": "पांच साल हो गए, अब मुफ्त सर्विस नहीं मिलेगी, हम नहीं आएंगे", "label": "refused", "lang": "hi", "split": "test"}
+{"text": "आप सीधे कंपनी से संपर्क करें, हमसे नहीं होगा", "label": "refused", "lang": "hi", "split": "test"}
+{"text": "सर्दी में कम ही बनती है, देखने की कोई बात नहीं", "label": "refused", "lang": "hi", "split": "test"}
+{"text": "हम आपकी तरफ नहीं आते", "label": "refused", "lang": "hi", "split": "test"}
+{"text": "We only do new installations now, no repair work", "label": "refused", "lang": "en", "split": "test"}
+{"text": "That drop is expected with age. I don't see a reason to visit.", "label": "refused", "lang": "en", "split": "test"}
+{"text": "Out of warranty jobs are not taken up by us, sorry", "label": "refused", "lang": "en", "split": "test"}
+{"text": "ok sir", "label": "unclear", "lang": "hing", "split": "test"}
+{"text": "Haan ji boliye", "label": "unclear", "lang": "hing", "split": "test"}
+{"text": "abhi gaadi chala raha hu", "label": "unclear", "lang": "hing", "split": "test"}
+{"text": "Sochta hu kuch", "label": "unclear", "lang": "hing", "split": "test"}
+{"text": "Sir phone kharab tha ab dekha message", "label": "unclear", "lang": "hing", "split": "test"}
+{"text": "koi nahi ho jayega", "label": "unclear", "lang": "hing", "split": "test"}
+{"text": "Thodi der me call karta hu", "label": "unclear", "lang": "hing", "split": "test"}
+{"text": "हां जी बोलिए", "label": "unclear", "lang": "hi", "split": "test"}
+{"text": "थोड़ी देर में फोन करता हूं", "label": "unclear", "lang": "hi", "split": "test"}
+{"text": "सोचकर बताता हूं", "label": "unclear", "lang": "hi", "split": "test"}
+{"text": "ओके", "label": "unclear", "lang": "hi", "split": "test"}
+{"text": "Got it", "label": "unclear", "lang": "en", "split": "test"}
+{"text": "Driving now, talk later", "label": "unclear", "lang": "en", "split": "test"}
+{"text": "Sure sure, no problem", "label": "unclear", "lang": "en", "split": "test"}
