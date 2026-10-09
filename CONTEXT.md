@@ -144,6 +144,7 @@ The project's current state. **Update this file whenever something changes** (a 
 - Statistics in `DHOOL.md` 2.1 and prior art in 2.12 still need citable sources before the write-up
 
 ## Log
+- **2026-10-09:** Bedrock work waits for access; the owner may use a teammate's AWS account for it. The pending Bedrock items are listed in `CLAUDE.md` ("Pending on Bedrock").
 - **2026-10-09:** Fast dust: a steep slide now counts as dust a week after rain instead of two (the dusty demo homes read "unclear" otherwise). Hidden set rerun: 84%.
 - **2026-10-09:** Demo inverter gained three homes beside a planted dust source (`home-30` to `home-32`, 1.2–1.6% a day, never washed), because after the monsoon no home showed dust. The simulator now gives each demo home its own weather: with one series for all, a 4.6 mm shower at the centre and 5.2 mm at a home made the analysis and the data disagree on whether rain cleaned the roof. Real rain on 27 Sept washed the three, so today they read OK (3–5% down); in a past dry spell the same home reached CLEAN at 15 dry days (80%, saving ₹390) but read `unclear` at 9–13 days with 13–19% true dust loss. `wash-economics` merged and deployed. Showcase accounts (one email per house, three cases: wash, call vendor, all good) wait for the owner's email list.
 - **2026-10-09:** The owner spoke to AWS Support about the Bedrock block: they will look into it and expect to grant access to a few models. Nothing confirmed yet (no model list, no date). Until it is, the self-hosted reader stays the plan.

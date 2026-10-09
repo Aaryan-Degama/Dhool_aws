@@ -59,6 +59,18 @@ _Deploy commands are planned; confirm each one when that code exists._
 - Design decisions live in `DESIGN.md`; read it before changing the UI.
 - Android emulator (AVD `dhool`, Android 15): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 
+## Pending on Bedrock (do these when access arrives)
+_Bedrock inference is blocked on the owner's account (AWS Support is looking into it, see `CONTEXT.md` Blockers). The owner may use a teammate's AWS account for Bedrock until then. Nothing below is built; the app works without it._
+
+Before building anything: confirm which account and region, which models were granted, and that one real `InvokeModel` / `Converse` call succeeds. Do not assume a model id.
+
+1. **Screenshot reading with a Bedrock vision model.** The self-hosted reader got 6 of 11 values on real-app screens. Score a Bedrock model on the same screens with the same answer keys (`scripts/eval-vision.py` format) before switching. Keep the same contract: narrow questions, the API drops impossible values, the homeowner confirms every number. Keep the self-hosted reader as the fallback.
+2. **Explanations and the vendor message in Hindi and English.** Today these are fixed English templates (`verdict.py` reasons, `vendorMessage` in `App.jsx`). A model may only reword numbers and facts the analysis already produced; it never produces a number or the verdict.
+3. **Strands agent** (`DHOOL.md` 2.9), dropped because it needs a hosted model: tools `read_screenshot`, `get_verdict`, `explain_evidence`, `draft_vendor_request`, `verify_recovery`. Typed tools, not free chat. Build only if 1 and 2 are done and time remains.
+4. **Sorting free-text homeowner messages** falls to Bedrock only if Laya is cut; Laya's vendor-reply sorter is already wired in.
+
+If the model lives in a teammate's account: call it cross-account through a role the teammate creates for this purpose (the Lambda assumes it; scope it to `bedrock:InvokeModel` on the chosen models). Never put the teammate's access keys in code, in `.env` committed files, in Lambda environment variables in the template, or in chat. Say in the write-up that Bedrock runs in a second team account and why.
+
 ## Conventions
 - **Definition of done:** pure logic in `backend/dhool/` → tests pass → deployed → verified on the live URL → commit → push.
 - **Identity is server-side.** The caller is the JWT `sub` from the authorizer. Never read a user, house, role or ownership from the request body or query string.
