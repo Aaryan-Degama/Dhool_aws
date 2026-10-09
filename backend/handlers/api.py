@@ -5,6 +5,7 @@ Nothing in the body or query string is trusted for identity or house membership.
 """
 import base64
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -34,7 +35,19 @@ READING_TIMEOUT_S = 15 * 60    # after this long with no result, the reader is t
 REPLY_LABELS = ("visit_scheduled", "asking_details", "refused", "unclear")
 MAX_REPLY_CHARS = 1000
 
+JOIN_TRIES, JOIN_LOCK_S = 5, 3600  # wrong invite codes one person may try, and how long the count is kept
+SETTINGS = {"wash_cost_rs": (0, 5000), "tariff_rs": (1, 30)}
+# The server posts to a subscription's endpoint, so it must be a browser push service and nothing else.
+PUSH_ENDPOINT = re.compile(r"https://(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)+(?:push\.services\.mozilla\.com"
+                           r"|notify\.windows\.com|push\.apple\.com))/[A-Za-z0-9._~%:/?=&+-]*")
+MAX_ENDPOINT_CHARS, MAX_PUSH_KEY_CHARS = 2000, 200
+
 _table = None
+_request_id = None  # this invocation's, put on every log line
+
+
+def _log(**fields):
+    print(json.dumps({**fields, "request_id": _request_id}))
 
 
 def table():
@@ -77,14 +90,28 @@ def authorize(sub, house_id, action):
     item = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}"}).get("Item")
     role = item["role"] if item else None
     allowed = authz.decide(role, action)
-    print(json.dumps({"authz": "allow" if allowed else "deny", "sub": sub, "house": house_id,
-                      "action": action, "role": role}))
+    _log(authz="allow" if allowed else "deny", sub=sub, house=house_id, action=action, role=role)
     if not allowed:
         raise HttpError(403, "Not allowed")
+    return role
 
 
 def _house_meta(house_id):
     return table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"})["Item"]
+
+
+def _house_keys(house_id, prefix=None):
+    """The sort key (and who wrote it) of every item of a house, or of those starting with prefix, page by page."""
+    condition, more = Key("pk").eq(f"HOUSE#{house_id}"), {}
+    if prefix:
+        condition &= Key("sk").begins_with(prefix)
+    while True:
+        page = table().query(KeyConditionExpression=condition,
+                             ProjectionExpression="sk, #by", ExpressionAttributeNames={"#by": "by"}, **more)
+        yield from page["Items"]
+        if "LastEvaluatedKey" not in page:
+            return
+        more = {"ExclusiveStartKey": page["LastEvaluatedKey"]}
 
 
 def me(sub, event):
@@ -104,12 +131,13 @@ def create_house(sub, event):
         batch.put_item(Item={
             "pk": f"HOUSE#{house_id}", "sk": "META", "name": name,
             "kw": _number(data, "kw", Decimal("0.1"), 100),
-            "lat": _number(data, "lat", -90, 90),
-            "lon": _number(data, "lon", -180, 180),
+            "lat": round(_number(data, "lat", -90, 90), 2),  # about a kilometre: enough for weather, not an address
+            "lon": round(_number(data, "lon", -180, 180), 2),
             "tilt": _number(data, "tilt", 0, 90, config.DEFAULT_TILT),
             "azimuth": _number(data, "azimuth", 0, 360, config.DEFAULT_AZIMUTH),
         })
-        batch.put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "owner"})
+        batch.put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "owner",
+                             "joined_at": int(time.time())})
         batch.put_item(Item={"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "owner", "name": name})
         batch.put_item(Item={"pk": "HOUSES", "sk": house_id})  # the list the nightly run walks
     return 201, {"house_id": house_id}
@@ -125,7 +153,10 @@ def get_house(sub, event):
         "house_id": house_id,
         **{k: meta[k] for k in ("name", "kw", "lat", "lon", "tilt", "azimuth")},
         "wash_cost_rs": meta.get("wash_cost_rs", config.WASH_COST_RS),
-        "members": [{"sub": m["sk"].split("#", 1)[1], "role": m["role"]} for m in members],
+        "tariff_rs": meta.get("tariff_rs", config.TARIFF_RS),
+        "linked": bool(meta.get("plant_id") and meta.get("inverter_key")),
+        "members": [{"sub": m["sk"].split("#", 1)[1], "role": m["role"], "joined_at": m.get("joined_at"),
+                     "me": m["sk"] == f"MEMBER#{sub}"} for m in members],
     }
 
 
@@ -143,23 +174,99 @@ def join(sub, event):
     code = _body(event).get("code")
     if not isinstance(code, str):
         raise HttpError(400, "code is required")
+    # Six letters can be guessed, so each person gets a few wrong tries an hour. DynamoDB TTL deletes late,
+    # so both expiries are checked here too.
+    now = int(time.time())
+    fail_key = {"pk": f"JOINFAIL#{sub}", "sk": "META"}
+    fails = table().get_item(Key=fail_key).get("Item")
+    if fails and fails["expiresAt"] <= now:  # last hour's count, not yet removed
+        table().delete_item(Key=fail_key)
+    elif fails and fails["n"] >= JOIN_TRIES:
+        _log(authz="join_locked", sub=sub)
+        raise HttpError(429, "Too many wrong codes. Try again in an hour.")
     invite = table().get_item(Key={"pk": f"INVITE#{code.strip().upper()}", "sk": "META"}).get("Item")
-    # DynamoDB TTL deletes late, so the expiry is checked here too.
-    if not invite or invite["expiresAt"] < time.time():
+    house = None
+    if invite and invite["expiresAt"] >= now:  # the house may have been deleted since the code was made
+        house = table().get_item(Key={"pk": f"HOUSE#{invite['house_id']}", "sk": "META"}).get("Item")
+    if not house:
+        table().update_item(Key=fail_key, UpdateExpression="ADD n :one SET expiresAt = if_not_exists(expiresAt, :exp)",
+                            ExpressionAttributeValues={":one": 1, ":exp": now + JOIN_LOCK_S})
         raise HttpError(404, "Invite code not found or expired")
     house_id = invite["house_id"]
     try:
         # Never overwrite an existing membership: an owner using their own code stays owner.
-        table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "member"},
+        table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "member", "joined_at": now},
                          ConditionExpression="attribute_not_exists(pk)")
     except ClientError as e:
         if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
             raise
     else:
-        table().put_item(Item={"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "member",
-                               "name": _house_meta(house_id)["name"]})
-    print(json.dumps({"authz": "join", "sub": sub, "house": house_id}))
+        table().put_item(Item={"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "member", "name": house["name"]})
+    _log(authz="join", sub=sub, house=house_id)
     return 200, {"house_id": house_id}
+
+
+def delete_house(sub, event):
+    """The owner deletes the home: its readings, verdicts, screenshots, members and their alerts, for everyone."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "delete_house")
+    boto3.resource("s3").Bucket(os.environ["UPLOADS"]).objects.filter(Prefix=f"houses/{house_id}/").delete()
+    # Members go last: if this stops half-way the owner is still the owner and can press delete again.
+    keys = sorted((i["sk"] for i in _house_keys(house_id)), key=lambda sk: sk.startswith("MEMBER#"))
+    with table().batch_writer() as batch:
+        for sk in keys:
+            if sk.startswith("MEMBER#"):
+                batch.delete_item(Key={"pk": f"USER#{sk.split('#', 1)[1]}", "sk": f"HOUSE#{house_id}"})
+            batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": sk})
+        batch.delete_item(Key={"pk": "HOUSES", "sk": house_id})
+    _log(deleted="house", house=house_id, items=len(keys))
+    return 200, {"deleted": house_id}
+
+
+def remove_member(sub, event):
+    """The owner removes someone, or a member leaves. Who is asking is the token's sub; the path names who goes."""
+    house_id, member = event["pathParameters"]["houseId"], event["pathParameters"]["sub"]
+    role = authorize(sub, house_id, "leave" if member == sub else "remove_member")
+    if member == sub and role == "owner":
+        raise HttpError(400, "The owner cannot leave. Delete the home instead.")
+    with table().batch_writer() as batch:
+        batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{member}"})
+        batch.delete_item(Key={"pk": f"USER#{member}", "sk": f"HOUSE#{house_id}"})
+        for item in _house_keys(house_id, "PUSH#"):  # their phones stop getting this home's alerts
+            if item.get("by") == member:
+                batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": item["sk"]})
+    _log(removed="member", house=house_id, member=member)
+    return 200, {"removed": member}
+
+
+def _push_key(house_id, endpoint):
+    if not isinstance(endpoint, str) or len(endpoint) > MAX_ENDPOINT_CHARS or not PUSH_ENDPOINT.fullmatch(endpoint):
+        raise HttpError(400, "This browser's notifications are not supported.")
+    return {"pk": f"HOUSE#{house_id}", "sk": f"PUSH#{hashlib.sha256(endpoint.encode()).hexdigest()}"}
+
+
+def subscribe_push(sub, event):
+    """This phone wants the home's alerts: {"subscription": the browser's PushSubscription.toJSON(), "lang"}."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    data = _body(event)
+    subscription = data.get("subscription") if isinstance(data.get("subscription"), dict) else {}
+    key = _push_key(house_id, subscription.get("endpoint"))
+    keys = subscription.get("keys") if isinstance(subscription.get("keys"), dict) else {}
+    lang = data.get("lang", "en")
+    if lang not in ("en", "hi") or not all(
+            isinstance(keys.get(k), str) and 1 <= len(keys[k]) <= MAX_PUSH_KEY_CHARS for k in ("p256dh", "auth")):
+        raise HttpError(400, "This browser's notifications are not supported.")
+    table().put_item(Item={**key, "endpoint": subscription["endpoint"], "p256dh": keys["p256dh"], "auth": keys["auth"],
+                           "lang": lang, "by": sub, "at": int(time.time())})
+    return 201, {"subscribed": True}
+
+
+def unsubscribe_push(sub, event):
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    table().delete_item(Key=_push_key(house_id, _body(event).get("endpoint")))
+    return 200, {"subscribed": False}
 
 
 def _reading(item, limit):
@@ -237,7 +344,7 @@ def read_vendor_reply(sub, event):
     try:
         label = _read_reply(text.strip())
     except Exception as e:  # a reader that is still starting up, or broken: the homeowner picks the label by hand
-        print(json.dumps({"reply_reader": "unavailable", "house": house_id, "error": type(e).__name__}))
+        _log(reply_reader="unavailable", house=house_id, error=type(e).__name__)
         raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
     if label not in REPLY_LABELS:  # the model's output is not trusted to be one of ours
         raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
@@ -316,7 +423,7 @@ def _start_analysis(house_id):
 
 def connect_inverter(sub, event):
     house_id = event["pathParameters"]["houseId"]
-    authorize(sub, house_id, "write")
+    authorize(sub, house_id, "connect_inverter")
     api_key = _body(event).get("api_key")
     # The demo inverter cloud lives on this same API. A real brand would have its own fixed URL here.
     inverter_url = f"https://{event['requestContext']['domainName']}/mock"
@@ -331,21 +438,26 @@ def connect_inverter(sub, event):
         Key={"pk": f"HOUSE#{house_id}", "sk": "META"},
         UpdateExpression="SET plant_id = :p, inverter_url = :url, inverter_key = :key, kw = :kw, lat = :lat, lon = :lon, tilt = :tilt, azimuth = :az",
         ExpressionAttributeValues={":p": plant_id, ":url": inverter_url, ":key": api_key, ":kw": Decimal(str(plant["kw"])),
-                                   ":lat": Decimal(str(plant["lat"])), ":lon": Decimal(str(plant["lon"])),
+                                   ":lat": round(Decimal(str(plant["lat"])), 2), ":lon": round(Decimal(str(plant["lon"])), 2),
                                    ":tilt": Decimal(str(plant["tilt"])), ":az": Decimal(str(plant["azimuth"]))})
     _start_analysis(house_id)
     return 200, {"house_id": house_id, "plant_id": plant_id}
 
 
 def save_settings(sub, event):
-    """What one wash costs this household, in ₹: the figure the wash-or-wait sums are done against."""
+    """What one wash costs this household and what it pays per unit, in ₹: the figures the wash-or-wait sums are
+    done against. Either or both."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
-    cost = _number(_body(event), "wash_cost_rs", 0, 5000)
+    data = _body(event)
+    saved = {key: _number(data, key, low, high) for key, (low, high) in SETTINGS.items() if key in data}
+    if not saved:
+        raise HttpError(400, "Send wash_cost_rs or tariff_rs")
     table().update_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"},
-                        UpdateExpression="SET wash_cost_rs = :c", ExpressionAttributeValues={":c": cost})
+                        UpdateExpression="SET " + ", ".join(f"{key} = :{key}" for key in saved),
+                        ExpressionAttributeValues={f":{key}": value for key, value in saved.items()})
     _start_analysis(house_id)
-    return 200, {"wash_cost_rs": cost}
+    return 200, saved
 
 
 def history(sub, event):
@@ -397,6 +509,10 @@ ROUTES = {
     "POST /houses": create_house,
     "POST /join": join,
     "GET /houses/{houseId}": get_house,
+    "DELETE /houses/{houseId}": delete_house,
+    "DELETE /houses/{houseId}/members/{sub}": remove_member,
+    "POST /houses/{houseId}/push": subscribe_push,
+    "DELETE /houses/{houseId}/push": unsubscribe_push,
     "POST /houses/{houseId}/invites": create_invite,
     "POST /houses/{houseId}/readings": add_reading,
     "GET /houses/{houseId}/readings": list_readings,
@@ -413,6 +529,8 @@ ROUTES = {
 
 
 def handler(event, context):
+    global _request_id
+    _request_id = getattr(context, "aws_request_id", None)
     try:
         sub = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
         status, payload = ROUTES[event["routeKey"]](sub, event)

@@ -5,6 +5,7 @@ import time
 
 import boto3
 import pytest
+from boto3.dynamodb.conditions import Key
 from moto import mock_aws
 
 from dhool import authz
@@ -21,7 +22,10 @@ def table(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
     monkeypatch.setenv("TABLE", "dhool-test")
+    monkeypatch.setenv("UPLOADS", "dhool-uploads-test")
     with mock_aws():
+        boto3.client("s3").create_bucket(Bucket="dhool-uploads-test",
+                                         CreateBucketConfiguration={"LocationConstraint": "ap-south-1"})
         boto3.resource("dynamodb").create_table(
             TableName="dhool-test", BillingMode="PAY_PER_REQUEST",
             AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"},
@@ -34,12 +38,12 @@ def table(monkeypatch):
         yield api.table()
 
 
-def call(sub, route, body=None, house_id=None, shot_id=None):
+def call(sub, route, body=None, house_id=None, shot_id=None, member=None):
     event = {
         "routeKey": route,
         "requestContext": {"domainName": "api.invalid",
                            "authorizer": {"jwt": {"claims": {"sub": sub, "token_use": "access"}}}},
-        "pathParameters": {"houseId": house_id, "shotId": shot_id} if house_id else None,
+        "pathParameters": {"houseId": house_id, "shotId": shot_id, "sub": member} if house_id else None,
         "body": json.dumps(body) if body is not None else None,
     }
     response = api.handler(event, None)
@@ -62,6 +66,8 @@ def join(sub, house_id):
     ("owner", "read", True), ("owner", "create_invite", True),
     ("member", "read", True), ("member", "write", True),
     ("member", "create_invite", False), ("member", "remove_member", False),
+    ("member", "connect_inverter", False), ("member", "delete_house", False), ("member", "leave", True),
+    ("owner", "connect_inverter", True), ("owner", "delete_house", True),
     (None, "read", False), (None, "write", False), ("admin", "read", False),
 ])
 def test_authz_matrix(role, action, allowed):
@@ -88,7 +94,8 @@ def test_stranger_is_denied_and_the_decision_is_logged(house, capsys):
     assert call(STRANGER, "GET /houses/{houseId}/readings", house_id=house)[0] == 403
     assert call(STRANGER, "POST /houses/{houseId}/readings", {"date": "2026-09-30", "kwh": 1}, house)[0] == 403
     last = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
-    assert last == {"authz": "deny", "sub": STRANGER, "house": house, "action": "write", "role": None}
+    assert last == {"authz": "deny", "sub": STRANGER, "house": house, "action": "write", "role": None,
+                    "request_id": None}
 
 
 def test_identity_in_the_body_is_ignored(house):
@@ -154,13 +161,15 @@ def test_connecting_an_inverter_needs_a_working_key_and_keeps_it_server_side(hou
     plant = {"id": "home-00", "kw": 2.0, "lat": 28.6, "lon": 77.2, "tilt": 18.5, "azimuth": 171.0}
     monkeypatch.setattr(api.connectors, "_get", lambda url, key=None: [plant] if key == "inv_goodkey123" else [])
     assert call(STRANGER, "POST /houses/{houseId}/inverter", {"api_key": "inv_goodkey123"}, house)[0] == 403
+    join(MOTHER, house)  # linking replaces the roof's details for everyone, so it is the owner's to do
+    assert call(MOTHER, "POST /houses/{houseId}/inverter", {"api_key": "inv_goodkey123"}, house)[0] == 403
     assert call(FATHER, "POST /houses/{houseId}/inverter", {"api_key": "inv_wrongkey99"}, house)[0] == 404
     assert call(FATHER, "POST /houses/{houseId}/inverter", {"api_key": "bad key\r\nX-Evil: 1"}, house)[0] == 404
     assert call(FATHER, "POST /houses/{houseId}/inverter", {}, house)[0] == 404
     assert call(FATHER, "POST /houses/{houseId}/inverter", {"api_key": "inv_goodkey123"}, house) == (
         200, {"house_id": house, "plant_id": "home-00"})
     body = call(FATHER, "GET /houses/{houseId}", house_id=house)[1]
-    assert (body["kw"], body["tilt"]) == (2, 18.5)
+    assert (body["kw"], body["tilt"], body["linked"]) == (2, 18.5, True)
     assert "inv_goodkey123" not in json.dumps(body)  # the key is never sent back to a browser
     assert table.get_item(Key={"pk": f"HOUSE#{house}", "sk": "META"})["Item"]["inverter_key"] == "inv_goodkey123"
     assert ANALYSED == [house]
@@ -179,7 +188,6 @@ def test_readings_confirmed_from_a_screenshot_are_saved_together(house):
 
 def test_upload_slot_is_scoped_to_the_house_and_limited(house, monkeypatch):
     monkeypatch.setenv("AWS_REGION", "ap-south-1")
-    monkeypatch.setenv("UPLOADS", "dhool-uploads-test")
     assert call(STRANGER, "POST /houses/{houseId}/screenshots", {"content_type": "image/png"}, house)[0] == 403
     assert call(FATHER, "POST /houses/{houseId}/screenshots", {"content_type": "application/pdf"}, house)[0] == 400
     assert call(FATHER, "POST /houses/{houseId}/screenshots", {"content_type": "image/webp"}, house)[0] == 400
@@ -270,6 +278,134 @@ def test_the_cost_of_a_wash_is_a_setting_of_the_house(house):
         assert call(FATHER, "POST /houses/{houseId}/settings", bad, house)[0] == 400
     assert call(FATHER, "POST /houses/{houseId}/settings", {"wash_cost_rs": 350}, house) == (200, {"wash_cost_rs": 350})
     assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["wash_cost_rs"] == 350 and ANALYSED == [house]
+
+
+def test_the_tariff_is_a_setting_too_and_either_figure_can_be_sent(house):
+    route = "POST /houses/{houseId}/settings"
+    assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["tariff_rs"] == 7
+    for bad in ({"tariff_rs": 0}, {"tariff_rs": 31}, {"tariff_rs": 8, "wash_cost_rs": -1}):
+        assert call(FATHER, route, bad, house)[0] == 400
+    assert call(FATHER, route, {"tariff_rs": 8.5}, house) == (200, {"tariff_rs": 8.5})
+    assert call(FATHER, route, {"tariff_rs": 6, "wash_cost_rs": 200}, house) == (200, {"tariff_rs": 6, "wash_cost_rs": 200})
+    body = call(FATHER, "GET /houses/{houseId}", house_id=house)[1]
+    assert (body["tariff_rs"], body["wash_cost_rs"]) == (6, 200) and ANALYSED == [house, house]
+
+
+def test_the_sixth_wrong_code_locks_joining_for_an_hour(house, table):
+    for _ in range(5):
+        assert call(MOTHER, "POST /join", {"code": "NOSUCH"})[0] == 404
+    assert call(MOTHER, "POST /join", {"code": "NOSUCH"}) == (429, {"error": "Too many wrong codes. Try again in an hour."})
+    assert join(MOTHER, house)[0] == 429  # a right code is refused too while locked
+    assert join(STRANGER, house)[0] == 200  # the count is each person's own
+    # an hour on, before DynamoDB has removed the count
+    table.update_item(Key={"pk": f"JOINFAIL#{MOTHER}", "sk": "META"}, UpdateExpression="SET expiresAt = :t",
+                      ExpressionAttributeValues={":t": int(time.time()) - 1})
+    assert join(MOTHER, house)[0] == 200
+
+
+def test_the_location_is_kept_to_two_decimals(table, monkeypatch):
+    _, body = call(FATHER, "POST /houses", {**HOUSE, "lat": 28.613939, "lon": 77.209021})
+    home = call(FATHER, "GET /houses/{houseId}", house_id=body["house_id"])[1]
+    assert (home["lat"], home["lon"], home["linked"]) == (28.61, 77.21, False)
+    plant = {"id": "home-00", "kw": 2.0, "lat": 26.91243, "lon": 75.78727, "tilt": 18.5, "azimuth": 171.0}
+    monkeypatch.setattr(api.connectors, "_get", lambda url, key=None: [plant])
+    call(FATHER, "POST /houses/{houseId}/inverter", {"api_key": "inv_goodkey123"}, body["house_id"])
+    home = call(FATHER, "GET /houses/{houseId}", house_id=body["house_id"])[1]
+    assert (home["lat"], home["lon"]) == (26.91, 75.79)
+
+
+def test_members_are_listed_with_when_they_joined_and_which_one_is_you(house, table):
+    join(MOTHER, house)
+    table.put_item(Item={"pk": f"HOUSE#{house}", "sk": "MEMBER#sub-old", "role": "member"})  # joined before dates were kept
+    members = {m["sub"]: m for m in call(MOTHER, "GET /houses/{houseId}", house_id=house)[1]["members"]}
+    assert [members[s]["me"] for s in (FATHER, MOTHER, "sub-old")] == [False, True, False]
+    assert members[MOTHER]["joined_at"] > 1_700_000_000 and members["sub-old"]["joined_at"] is None
+    assert members[FATHER]["role"] == "owner"
+
+
+SUBSCRIPTION = {"endpoint": "https://fcm.googleapis.com/fcm/send/abc:APA91b-x_y", "keys": {"p256dh": "BPA" + "x" * 84, "auth": "y" * 22}}
+
+
+def test_a_push_subscription_is_kept_only_for_a_real_push_service(house, table):
+    route = "POST /houses/{houseId}/push"
+    assert call(STRANGER, route, {"subscription": SUBSCRIPTION, "lang": "hi"}, house)[0] == 403
+    for endpoint in ("https://evil.example/fcm/send/abc", "http://fcm.googleapis.com/fcm/send/abc",
+                     "https://fcm.googleapis.com@evil.example/x", "https://fcm.googleapis.com.evil.example/x",
+                     "https://169.254.169.254/latest/meta-data/", "https://fcm.googleapis.com", None, 7,
+                     "https://fcm.googleapis.com/x\nhttps://evil.example/", "https://push.apple.com.evil.example/x"):
+        status, body = call(FATHER, route, {"subscription": {**SUBSCRIPTION, "endpoint": endpoint}, "lang": "en"}, house)
+        assert (status, body) == (400, {"error": "This browser's notifications are not supported."}), endpoint
+    for bad in ({"subscription": {**SUBSCRIPTION, "keys": {"p256dh": "x"}}}, {"subscription": {**SUBSCRIPTION, "keys": {"p256dh": "x" * 500, "auth": "y"}}},
+                {"subscription": SUBSCRIPTION, "lang": "fr"}, {"subscription": "x"}, {}):
+        assert call(FATHER, route, bad, house)[0] == 400
+    for good in ("https://updates.push.services.mozilla.com/wpush/v2/gAAAA", "https://web.push.apple.com/QOx-1",
+                 "https://wns2-par02p.notify.windows.com/w/?token=BQYAAAD%2b"):
+        assert call(FATHER, route, {"subscription": {**SUBSCRIPTION, "endpoint": good}}, house)[0] == 201
+    assert call(FATHER, route, {"subscription": SUBSCRIPTION, "lang": "hi"}, house) == (201, {"subscribed": True})
+    assert call(FATHER, route, {"subscription": SUBSCRIPTION, "lang": "hi"}, house)[0] == 201  # the same phone again: one item
+    kept = [i for i in table.query(KeyConditionExpression=Key("pk").eq(f"HOUSE#{house}") & Key("sk").begins_with("PUSH#"))["Items"]
+            if i["endpoint"] == SUBSCRIPTION["endpoint"]]
+    assert len(kept) == 1 and (kept[0]["lang"], kept[0]["by"], kept[0]["auth"]) == ("hi", FATHER, "y" * 22)
+    assert call(FATHER, "DELETE /houses/{houseId}/push", {"endpoint": SUBSCRIPTION["endpoint"]}, house) == (200, {"subscribed": False})
+    assert "Item" not in table.get_item(Key={"pk": kept[0]["pk"], "sk": kept[0]["sk"]})
+
+
+def everything_of(table, house):
+    return table.query(KeyConditionExpression=Key("pk").eq(f"HOUSE#{house}"))["Items"]
+
+
+def test_only_the_owner_deletes_the_house_and_nothing_of_it_is_left(house, table):
+    join(MOTHER, house)
+    call(FATHER, "POST /houses/{houseId}/readings", {"readings": [{"date": f"2026-09-{d:02d}", "kwh": 10} for d in range(1, 31)],
+                                                     "source": "screenshot"}, house)
+    call(MOTHER, "POST /houses/{houseId}/actions", {"type": "wash", "date": "2026-09-30"}, house)
+    call(MOTHER, "POST /houses/{houseId}/push", {"subscription": SUBSCRIPTION}, house)
+    _, invite = call(FATHER, "POST /houses/{houseId}/invites", house_id=house)
+    bucket = boto3.resource("s3").Bucket("dhool-uploads-test")
+    bucket.put_object(Key=f"houses/{house}/{'ab' * 16}.png", Body=b"x")
+    bucket.put_object(Key=f"houses/aaaaaaaaaaaa/{'ab' * 16}.png", Body=b"x")  # a neighbour's
+    _, other = call(STRANGER, "POST /houses", HOUSE)
+
+    assert call(MOTHER, "DELETE /houses/{houseId}", house_id=house)[0] == 403
+    assert call(STRANGER, "DELETE /houses/{houseId}", house_id=house)[0] == 403
+    assert len(everything_of(table, house)) == 35
+    assert call(FATHER, "DELETE /houses/{houseId}", house_id=house) == (200, {"deleted": house})
+
+    assert everything_of(table, house) == []
+    assert call(FATHER, "GET /me")[1]["houses"] == [] and call(MOTHER, "GET /me")[1]["houses"] == []
+    assert [i["sk"] for i in table.query(KeyConditionExpression=Key("pk").eq("HOUSES"))["Items"]] == [other["house_id"]]
+    assert [o.key for o in bucket.objects.all()] == [f"houses/aaaaaaaaaaaa/{'ab' * 16}.png"]
+    assert call(FATHER, "GET /houses/{houseId}", house_id=house)[0] == 403
+    assert call(STRANGER, "POST /join", {"code": invite["code"]})[0] == 404  # the code outlived the house
+    assert everything_of(table, house) == []
+    assert call(STRANGER, "GET /houses/{houseId}", house_id=other["house_id"])[0] == 200  # the neighbour is untouched
+
+
+def test_the_owner_removes_a_member_who_then_has_no_access_or_alerts(house, table):
+    route = "DELETE /houses/{houseId}/members/{sub}"
+    join(MOTHER, house), join(STRANGER, house)
+    call(MOTHER, "POST /houses/{houseId}/push", {"subscription": SUBSCRIPTION}, house)
+    call(FATHER, "POST /houses/{houseId}/push", {"subscription": {**SUBSCRIPTION, "endpoint": "https://web.push.apple.com/father"}}, house)
+    assert call(STRANGER, route, house_id=house, member=MOTHER)[0] == 403  # a member cannot remove someone else
+    assert call(MOTHER, route, house_id=house, member=FATHER)[0] == 403
+    assert call("sub-outsider", route, house_id=house, member="sub-outsider")[0] == 403
+    assert call(FATHER, route, house_id=house, member=MOTHER) == (200, {"removed": MOTHER})
+    assert call(MOTHER, "GET /houses/{houseId}", house_id=house)[0] == 403
+    assert call(MOTHER, "GET /houses/{houseId}/verdict", house_id=house)[0] == 403
+    assert call(MOTHER, "GET /me")[1]["houses"] == []
+    pushes = [i for i in everything_of(table, house) if i["sk"].startswith("PUSH#")]
+    assert [i["by"] for i in pushes] == [FATHER]
+    assert {m["sub"] for m in call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["members"]} == {FATHER, STRANGER}
+
+
+def test_a_member_can_leave_and_the_owner_cannot(house):
+    route = "DELETE /houses/{houseId}/members/{sub}"
+    join(MOTHER, house)
+    assert call(FATHER, route, house_id=house, member=FATHER) == (
+        400, {"error": "The owner cannot leave. Delete the home instead."})
+    assert call(FATHER, "GET /me")[1]["houses"][0]["role"] == "owner"
+    assert call(MOTHER, route, house_id=house, member=MOTHER) == (200, {"removed": MOTHER})
+    assert call(MOTHER, "GET /houses/{houseId}", house_id=house)[0] == 403 and call(MOTHER, "GET /me")[1]["houses"] == []
 
 
 def test_the_log_lists_what_dhool_advised_and_what_the_household_did(house, table):
