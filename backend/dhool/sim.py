@@ -57,7 +57,7 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
         washes = set(rng.choice(len(days), size=rng.integers(0, 4), replace=False))
         clean_mm = config.CLEAN_RAIN_MM
         if i >= n_homes:
-            meta["problem"], rate, washes = "dust_source", rng.uniform(0.008, 0.012), set()
+            meta["problem"], rate, washes = "dust_source", rng.uniform(0.012, 0.016), set()
         if hidden:
             meta["problem"] = str(wild.choice(["dust", "string_fault", "shading", "inverter_trips"], p=[0.7, 0.12, 0.1, 0.08]))
             rate, clean_mm = wild.uniform(0.001, 0.008), wild.uniform(3, 10)

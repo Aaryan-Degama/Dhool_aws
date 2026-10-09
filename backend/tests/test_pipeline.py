@@ -35,7 +35,7 @@ def test_inverter_api_shows_one_plant_per_key_and_never_leaks_what_was_planted()
     assert [d["date"] for d in daily] == ["2026-04-01", "2026-04-02", "2026-04-03"] and set(daily[0]) == {"date", "kwh"}
     assert mock("GET /mock/v1/plants/{plantId}/daily", "home-05", key=key)[0] == 403  # someone else's plant
     fleet = json.loads(mock("GET /mock/fleet/daily")[1])
-    assert len(fleet) == 30 and set(fleet["home-05"]) == {"kw", "readings"}
+    assert len(fleet) == 33 and set(fleet["home-05"]) == {"kw", "readings"}
     page = mock("GET /mock/app", query={"plant": "home-05"})[1]
     assert mock_inverter.api_key("home-05") in page and "__DATA__" not in page
     assert not any(word in json.dumps(fleet) + body + page for word in ("fault", "soiling", "problem", "cause"))
