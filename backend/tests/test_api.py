@@ -231,3 +231,16 @@ def test_reading_a_screenshot_runs_in_the_background_and_trusts_nothing(house, t
 def test_a_screenshot_that_could_not_be_read_says_so(house, table, item):
     table.put_item(Item={"pk": f"HOUSE#{house}", "sk": "SHOT#" + "ab" * 16, "at": int(time.time()), **item})
     assert call(FATHER, "GET /houses/{houseId}/screenshots/{shotId}", house_id=house, shot_id="ab" * 16) == (200, {"status": "unreadable"})
+
+
+def test_a_wash_or_visit_is_recorded_for_the_house_and_can_be_taken_back(house, table):
+    route = "POST /houses/{houseId}/actions"
+    assert call(STRANGER, route, {"type": "wash", "date": "2026-09-30"}, house)[0] == 403
+    for bad in ({"type": "paint", "date": "2026-09-30"}, {"type": "wash", "date": "2999-01-01"}, {"type": "wash"}):
+        assert call(FATHER, route, bad, house)[0] == 400
+    join(MOTHER, house)
+    assert call(MOTHER, route, {"type": "wash", "date": "2026-09-30"}, house) == (201, {"date": "2026-09-30"})
+    item = table.get_item(Key={"pk": f"HOUSE#{house}", "sk": "ACTION#2026-09-30"})["Item"]
+    assert (item["type"], item["by"]) == ("wash", MOTHER) and ANALYSED == [house]
+    assert call(FATHER, route, {"date": "2026-09-30", "remove": True}, house)[0] == 201
+    assert "Item" not in table.get_item(Key={"pk": f"HOUSE#{house}", "sk": "ACTION#2026-09-30"})

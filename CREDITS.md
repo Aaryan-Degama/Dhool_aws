@@ -9,6 +9,7 @@ written (3 Oct 2026).
 |---|---|---|
 | [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct), GGUF build by the Qwen team ([Qwen/Qwen3-VL-2B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF), 4-bit `Q4_K_M` and `mmproj-Q8_0`, revision `52d6c8f`) | Reading the numbers off inverter-app screenshots | Apache-2.0 |
 | [Open-Meteo](https://open-meteo.com) weather, forecast and air-quality APIs | Sunlight, temperature, wind and rain for the physics; rain forecast; dust and PM2.5; the weather behind the app | Data under CC BY 4.0; free API for non-commercial use |
+| [NREL PVDAQ public datasets](https://data.openei.org/submissions/4568): PVOutput.org residential systems, daily energy | Checking the method on nine real rooftops (`backend/dhool/realcheck.py`). Read at run time, not redistributed here | CC BY 4.0 |
 
 ## Code
 

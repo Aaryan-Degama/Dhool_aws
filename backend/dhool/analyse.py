@@ -16,10 +16,11 @@ def _days(readings):
     return series.sort_index()
 
 
-def analyse(meta, readings, weather, pm25=None, fleet=None):
+def analyse(meta, readings, weather, pm25=None, fleet=None, actions=()):
     """meta: the house (kw, lat, lon, tilt, azimuth). readings: {"YYYY-MM-DD": kwh}.
     weather: hourly frame covering the first reading through a week past the last (the forecast).
     fleet: other homes nearby, {id: {"kw": ..., "readings": {...}}}, for the neighbour comparison.
+    actions: washes and vendor visits the homeowner reported, [{"date": "YYYY-MM-DD", "type": "wash" | "visit"}].
     """
     actual = _days(readings)
     expected = expected_daily_kwh(weather, float(meta["lat"]), float(meta["lon"]), float(meta["kw"]),
@@ -39,7 +40,7 @@ def analyse(meta, readings, weather, pm25=None, fleet=None):
         }).reindex(daily.index)
 
     result = verdict(daily, rain[:last], list(rain[last:].iloc[1:8]),
-                     pm25[:last] if pm25 is not None else None, neighbours)
+                     pm25[:last] if pm25 is not None else None, neighbours, actions)
     result["as_of"] = str(last.date())
     start = last - pd.Timedelta(days=CHART_DAYS - 1)
     if "step_date" in result["evidence"]:

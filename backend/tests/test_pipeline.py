@@ -103,3 +103,15 @@ def test_the_nightly_run_survives_a_house_linked_before_api_keys(monkeypatch):
                              "kw": 3, "lat": "28.59", "lon": "77.23", "tilt": 20, "azimuth": 180})
         monkeypatch.setattr(analysis, "_table", None)
         assert analysis.handler({}, None) == {"done": 1, "failed": 0}
+
+
+def test_a_reported_wash_reaches_the_verdict_with_its_before_and_after():
+    weather = clear_weather(67)
+    expected = expected_daily_kwh(weather, META["lat"], META["lon"], META["kw"], META["tilt"], META["azimuth"])
+    dirt = pd.Series([0.004 * (i if i < 50 else i - 50) for i in range(60)], index=expected.index[:60])  # washed on day 50
+    readings = {str(day.date()): round(kwh, 2) for day, kwh in (expected[:60] * 0.93 * (1 - dirt)).items()}
+    result = analyse(META, readings, weather, actions=[{"date": "2026-04-20", "type": "wash"}])
+    check = result["check"]
+    assert (check["status"], check["date"], result["verdict"]) == ("verified", "2026-04-20", "OK")
+    assert check["predicted_pct"] == pytest.approx(check["observed_pct"], abs=4) and check["observed_pct"] > 15
+    json.dumps(result)

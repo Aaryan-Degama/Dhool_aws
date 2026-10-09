@@ -192,6 +192,29 @@ def add_reading(sub, event):
     return 201, {"saved": len(rows)}
 
 
+def record_action(sub, event):
+    """The homeowner washed the panels or the vendor came: {"type": "wash" | "visit", "date"}. Dhool then checks
+    whether output came back. {"date", "remove": true} takes back one recorded by mistake."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    data = _body(event)
+    try:
+        date = datetime.date.fromisoformat(data.get("date", ""))
+    except (TypeError, ValueError):
+        raise HttpError(400, "date must be YYYY-MM-DD")
+    if date > datetime.datetime.now(ZoneInfo(config.TZ)).date():
+        raise HttpError(400, "date cannot be in the future")
+    key = {"pk": f"HOUSE#{house_id}", "sk": f"ACTION#{date}"}
+    if data.get("remove") is True:
+        table().delete_item(Key=key)
+    elif data.get("type") in ("wash", "visit"):
+        table().put_item(Item={**key, "type": data["type"], "by": sub, "at": int(time.time())})
+    else:
+        raise HttpError(400, "type must be wash or visit")
+    _start_analysis(house_id)
+    return 201, {"date": str(date)}
+
+
 def start_upload(sub, event):
     """A short-lived, size-limited upload slot for one screenshot, inside this house's folder."""
     house_id = event["pathParameters"]["houseId"]
@@ -314,6 +337,7 @@ ROUTES = {
     "POST /houses/{houseId}/readings": add_reading,
     "GET /houses/{houseId}/readings": list_readings,
     "POST /houses/{houseId}/inverter": connect_inverter,
+    "POST /houses/{houseId}/actions": record_action,
     "POST /houses/{houseId}/screenshots": start_upload,
     "POST /houses/{houseId}/screenshots/read": read_screenshot,
     "GET /houses/{houseId}/screenshots/{shotId}": screenshot_result,

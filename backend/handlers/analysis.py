@@ -50,7 +50,10 @@ def run_house(house_id):
         print(json.dumps({"analysis": "pm25_unavailable", "house": house_id, "error": str(e)}))
         pm25 = None
 
-    result = analyse(meta, readings, weather, pm25, fleet)
+    # What the homeowner told Dhool they did (washed the panels, had the vendor in), for the before-and-after check.
+    actions = [{"date": i["sk"].split("#", 1)[1], "type": i["type"]} for i in table().query(
+        KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("ACTION#"))["Items"]]
+    result = analyse(meta, readings, weather, pm25, fleet, actions)
     table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"VERDICT#{result['as_of']}",
                            "json": json.dumps(result), "at": int(time.time())})
     print(json.dumps({"analysis": "done", "house": house_id, "as_of": result["as_of"],

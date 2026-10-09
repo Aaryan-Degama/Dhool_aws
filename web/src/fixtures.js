@@ -30,6 +30,13 @@ export const FIXTURES = [
     evidence: { rate_pct_per_day: 0.38, days_since_clean: 24 }, forecast: week(0.91), series: series((i) => 1 - 0.0038 * (i < 66 ? i % 66 : i - 66), [66]) },
   { ...base, verdict: "OK", cause: "ok", actual_kwh: 13.4, loss_pct: 1.2, loss_kwh_per_day: 0.2, loss_rs_per_week: 10,
     reason: "Your roof is producing what it should: within 1% of its normal.", series: series(() => 1, [12, 40, 71]) },
+  { ...base, verdict: "OK", cause: "ok", actual_kwh: 13.5, loss_pct: 0.8, loss_kwh_per_day: 0.1, loss_rs_per_week: 5,
+    reason: "Your roof is producing what it should: within 1% of its normal.", series: series((i) => (i < 80 ? 1 - 0.0015 * i : 1)),
+    check: { type: "wash", date: "2026-09-16", status: "verified", predicted_pct: 12.8, observed_pct: 12.1, days_after: 7 } },
+  { ...base, verdict: "INSPECT", cause: "not_dust", confidence: "medium", actual_kwh: 11.9, loss_pct: 12.4, loss_kwh_per_day: 1.7, loss_rs_per_week: 83,
+    reason: "You washed the panels on 16 Sept, but output is still about 12% below this roof's normal. Dust was not the cause, so have the system inspected.",
+    forecast: week(0.88), series: series((i) => 1 - 0.0014 * i),
+    check: { type: "wash", date: "2026-09-16", status: "not_recovered", predicted_pct: 13.6, observed_pct: 0.9, days_after: 7 } },
   { ...base, verdict: "WAIT", cause: "no_data", confidence: "low", actual_kwh: 12.9, loss_pct: 0, loss_kwh_per_day: 0, loss_rs_per_week: 0,
     reason: "Only 3 days of data so far. Dhool needs about two weeks to learn this roof's normal.", series: series(() => 1).slice(-3) },
 ];

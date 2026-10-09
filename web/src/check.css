@@ -1,0 +1,11 @@
+/* The before-and-after card for a reported wash or vendor visit. Colours come from styles.css. */
+.check { border-left: 4px solid var(--muted); }
+.check-verified { border-left-color: var(--good); }
+.check-not_recovered { border-left-color: var(--fault); }
+.check h2 { margin: 0 0 0.5rem; }
+.check-figures { display: flex; gap: 2rem; margin: 0 0 0.5rem; }
+.check-figures dt { font-size: var(--step--1); color: var(--muted); }
+.check-figures dd { margin: 0; font-size: var(--step-1); font-weight: 700; font-variant-numeric: tabular-nums; }
+.check-verified .check-figures div:last-child dd { color: var(--good); }
+.check-not_recovered .check-figures div:last-child dd { color: var(--fault); }
+.report { display: grid; gap: 0.75rem; margin-top: 0.75rem; }

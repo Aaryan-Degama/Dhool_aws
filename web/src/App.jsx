@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, confirmSignUp, signedIn, signIn, signOut, signUp } from "./api.js";
+import { CheckCard, ReportAction } from "./check.jsx";
 import { API_URL, TARIFF_NOTE } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
 import { setSky, skyOver } from "./sky.js";
@@ -9,6 +10,7 @@ import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, WhyChart }
 const HEADLINE = {
   "INSPECT:fault": "Call your vendor",
   "INSPECT:trips": "Call your vendor",
+  "INSPECT:not_dust": "Call your vendor",
   "CLEAN:dust": "Wash the panels",
   "WAIT:dust": "Wait for the rain",
   "WAIT:haze": "Don't wash. It's haze.",
@@ -185,7 +187,7 @@ function whyLine(v) {
 }
 
 /** The first screen: the roof as a model, the weather around it, and what to do. */
-export function RoofTab({ house, verdict: v, go }) {
+export function RoofTab({ house, verdict: v, go, onAction }) {
   const scene = useRef(null);
   // The scene stays where it first appears while everything after it slides over, like a weather app's
   // backdrop. Sticky needs a "top": measure where the scene sits in the page when it is not stuck.
@@ -275,7 +277,11 @@ export function RoofTab({ house, verdict: v, go }) {
         {v.verdict === "CLEAN" && (
           <p className="note">Wash early in the morning or after sunset, with plain water and a soft cloth. Never on hot panels.</p>
         )}
+        {onAction && (v.verdict === "CLEAN" || v.verdict === "INSPECT") && (
+          <ReportAction key={v.verdict} house={house} type={v.verdict === "CLEAN" ? "wash" : "visit"} onSent={onAction} />
+        )}
       </section>
+      {v.check && <CheckCard check={v.check} house={house} onSent={onAction} />}
 
       <div className="tiles">
         <button className="card tile" onClick={() => go("week")}>
@@ -578,7 +584,7 @@ function Home({ house, onSignOut }) {
           <header className="top"><div><p className="brand">Dhool</p><p className="home-name">{house.name}</p></div></header>
           {setup}
         </>
-      ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} />
+      ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} onAction={awaitVerdict} />
         : tab === "week" ? <WeekTab verdict={verdict} />
         : tab === "why" ? <WhyTab verdict={verdict} />
         : <article className="tab">{setup}</article>}
@@ -591,7 +597,7 @@ function Preview() {
   const house = { name: "Sharma house" };
   return (
     <main className="page preview">
-      {FIXTURES.map((v) => <RoofTab key={v.cause + v.verdict} house={house} verdict={v} go={() => {}} />)}
+      {FIXTURES.map((v, i) => <RoofTab key={i} house={house} verdict={v} go={() => {}} onAction={() => {}} />)}
       <WeekTab verdict={FIXTURES[0]} />
       <WhyTab verdict={FIXTURES[0]} />
       <Nav tab="roof" go={() => {}} />
