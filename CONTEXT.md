@@ -120,6 +120,7 @@ The project's current state. **Update this file whenever something changes** (a 
 2. Real inverter screenshots from the owner: run the reader on them, and fix what it misreads. Then Laya.
 3. CI (GitHub Actions) and the first commit and push.
 4. Verification after a wash or vendor visit ("predicted +X%, observed +Y%"), and the hidden test set with varied simulator settings.
+6. Showcase accounts: one house per email the owner sends, linked to a fault home (`home-00`/`01`), a healthy one, and a dusty one (`home-30`); check the dusty one actually says wash on the day.
 5. Right before recording the video: regenerate the demo data, deploy, and re-run the analysis (`CLAUDE.md`, Commands).
 
 ## Blockers
@@ -135,6 +136,7 @@ The project's current state. **Update this file whenever something changes** (a 
 - Statistics in `DHOOL.md` 2.1 and prior art in 2.12 still need citable sources before the write-up
 
 ## Log
+- **2026-10-09:** Demo inverter gained three homes beside a planted dust source (`home-30` to `home-32`, 1.2–1.6% a day, never washed), because after the monsoon no home showed dust. The simulator now gives each demo home its own weather: with one series for all, a 4.6 mm shower at the centre and 5.2 mm at a home made the analysis and the data disagree on whether rain cleaned the roof. Real rain on 27 Sept washed the three, so today they read OK (3–5% down); in a past dry spell the same home reached CLEAN at 15 dry days (80%, saving ₹390) but read `unclear` at 9–13 days with 13–19% true dust loss. `wash-economics` merged and deployed. Showcase accounts (one email per house, three cases: wash, call vendor, all good) wait for the owner's email list.
 - **2026-10-09:** The owner spoke to AWS Support about the Bedrock block: they will look into it and expect to grant access to a few models. Nothing confirmed yet (no model list, no date). Until it is, the self-hosted reader stays the plan.
 - **2026-10-09:** Wash plan added on branch `wash-economics`: CLEAN only when the saving before the next rain or dust storm beats the cost of a wash; otherwise WAIT with the reason (rain coming, dust storm coming, or not worth it yet). Hidden set rerun: 84%, unchanged.
 - **2026-10-09:** Screenshot reader: memory off the ceiling (3,000 to 2,394 MB live), cold start 3 min 24 s to 14 s, reads about 30% faster, oversized pictures refused, typed entry usable while a screenshot is read. First check on real apps' store screenshots: 6 of 11 values read, 1 invented; real homeowner screenshots still needed.

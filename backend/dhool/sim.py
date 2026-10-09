@@ -28,13 +28,15 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
     several times faster and nobody washes them, so between rains they show the case Dhool is named after.
     They draw after the other homes, so those stay exactly as they were. Rain still cleans them: the weather is real.
 
-    ponytail: one weather series for the whole neighbourhood. Fetch per home if homes spread past a few km.
+    weather is one hourly frame for the whole neighbourhood, or a function (lat, lon) -> frame that gives each
+    home its own. The demo data needs the second: the analysis fetches weather at each home's own spot, and a
+    shower of 4.6 mm at one grid point and 5.2 mm at the next is the difference between a washed roof and not.
     """
     rng = np.random.default_rng(seed)
     wild = np.random.default_rng([seed, 1])  # the hidden set's own draws, so the default homes never change
     haze_per_100 = wild.uniform(0.06, 0.14) if hidden else 0.10
-    rain = weather["rain"].resample("D").sum()
-    days = rain.index
+    local = weather if callable(weather) else lambda lat, lon: weather
+    days = local(lat, lon)["rain"].resample("D").sum().index
     pm25 = pm25.reindex(days).fillna(0.0)
     # Haze dims every roof together: 10% lost per 100 µg/m³ above the threshold, at most 25%.
     haze = (1 - haze_per_100 * (pm25 - config.HAZE_PM25).clip(lower=0) / 100).clip(lower=0.75).to_numpy()
@@ -50,7 +52,9 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
             "azimuth": round(rng.uniform(160, 200), 1),
             "problem": PLANTED.get(i, "dust"),
         }
-        expected = expected_daily_kwh(weather, meta["lat"], meta["lon"], meta["kw"], meta["tilt"], meta["azimuth"])
+        here = local(meta["lat"], meta["lon"])
+        rain = here["rain"].resample("D").sum()
+        expected = expected_daily_kwh(here, meta["lat"], meta["lon"], meta["kw"], meta["tilt"], meta["azimuth"])
 
         # Dust builds at a steady daily rate; heavy rain or a wash resets it, light rain halves it.
         rate = rng.uniform(0.002, 0.005)
@@ -117,7 +121,8 @@ def main(path="data/neighbourhood.json", seed=0):
     end = datetime.date.today() - datetime.timedelta(days=1)
     start = end - datetime.timedelta(days=365)
     # The archive lags about a week; the forecast API serves the recent days, as it does for the analysis.
-    weather = fetch_weather_with_forecast(config.SIM_LAT, config.SIM_LON, start).loc[:str(end)]
+    def weather(lat, lon):
+        return fetch_weather_with_forecast(lat, lon, start).loc[:str(end)]
     pm25 = fetch_pm25(config.SIM_LAT, config.SIM_LON, str(start), str(end))
     homes = simulate(weather, pm25, seed=seed, dusty=3)  # the demo inverter's homes: three more, for the dust case
     out = {
