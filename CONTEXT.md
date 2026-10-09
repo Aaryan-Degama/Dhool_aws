@@ -131,6 +131,13 @@ The project's current state. **Update this file whenever something changes** (a 
 
 - **Heavy dust named within a week of rain (Oct 9; branch `fast-dust` until merged):** the dust rate needed 14 days since the last cleaning, so a roof beside a dust source (over 1% a day) read "unclear" for two weeks after every rain. Now 7 days are enough when the slide itself has already taken 5% or more off output in that time; a gentle slope over a short window is still ignored as possible noise (`SHORT_TREND_DAYS`, `_trend` in `verdict.py`). Replayed on the three dusty demo homes for 20, 22 and 24 May 2026 (8 to 12 days after rain, 11–20% true dust): 8 of 9 now CLEAN, 1 correctly WAIT for rain; all were "unclear" before. Development seeds 94–96%; hidden set rerun once, 84% again (CLEAN 0.95 / 0.74, INSPECT 0.97 / 0.86, OK 0.90 / 0.94, WAIT 0.14 / 0.61). 109 backend tests.
 
+- **Wash cost per home, the sum shown in full, and the log (Oct 9; branch `wash-cost-log` until merged):**
+  - **Cost of a wash is a setting of the house:** `POST /houses/{id}/settings {wash_cost_rs}` (0 to 5,000) stores it on the house item and re-runs the analysis; `GET /houses/{id}` returns it (₹50 until set). Setup tab: "What does one wash cost you?". `wash_plan(..., cost=)` and `verdict(..., wash_cost=)` use it. A paid cleaner at ₹350 turns many CLEAN verdicts into "Not worth washing yet".
+  - **The reason spells out both totals**, as the owner asked: before a dust storm, "Wash now and again after it: ₹700. Wait and wash once after it: ₹200 lost and ₹350 for the wash, ₹550. Waiting is ₹150 cheaper." The storm's later wash is paid either way, so the rule is unchanged: wash now only if what is lost before the storm (or the rain) is more than one wash costs. The owner's two examples (₹200 and ₹600 against a ₹350 wash) are a test.
+  - **Log:** `GET /houses/{id}/history` returns what Dhool advised (one line per change of advice, from the last 45 daily verdicts) and each wash or visit reported, with whether it worked. Why tab: "What Dhool said, and what you did" (`web/src/plan.jsx`). Headline wording moved to `web/src/words.js` so the card and the log use the same lines.
+  - **Forecast reach:** rain 7 days, dust storms about 5 to 7 (the air-quality forecast goes no further). A storm 15 days out cannot be seen.
+  - 115 backend tests. Detection is unchanged, so accuracy figures stand. Checked in the dev preview only (log card, headlines), **not against the live backend**.
+
 ## Next
 1. Connect the repo to Amplify Hosting (needs the user in the console, see Blockers), then check the app by hand on the live URL and in the Android emulator.
 2. Real inverter screenshots from the owner: run the reader on them, and fix what it misreads. For Laya: 20 to 30 real vendor replies to score it on, and a decision on whether the app reads pasted replies at all.
@@ -153,6 +160,7 @@ The project's current state. **Update this file whenever something changes** (a 
 
 ## Log
 - **2026-10-09:** The vendor-reply reader now runs Laya v3.2 (int8, ONNX Runtime): about 250 ms a reply and 1.8 GB on Lambda, down from 0.4 s and 2.6 GB with v3.
+- **2026-10-09:** Per-home wash cost, both totals shown in the wash-or-wait reason, and a log of advice and actions; branch `wash-cost-log`.
 - **2026-10-09:** Laya v3 integrated and deployed: the homeowner pastes the vendor's reply under "Call your vendor" and Dhool sorts it into four kinds with the next step; its own Lambda container, 0.4 s warm. Not yet tried on a real vendor reply.
 - **2026-10-09:** Bedrock work waits for access; the owner may use a teammate's AWS account for it. The pending Bedrock items are listed in `CLAUDE.md` ("Pending on Bedrock").
 - **2026-10-09:** Fast dust: a steep slide now counts as dust a week after rain instead of two (the dusty demo homes read "unclear" otherwise). Hidden set rerun: 84%.
