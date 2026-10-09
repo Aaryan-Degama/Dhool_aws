@@ -2,6 +2,8 @@
 # WRITTEN BY CLAUDE (an AI model), not collected from real vendors. Good enough to teach the labels;
 # any score on the "test" rows is a score on the same author's writing, not on real replies.
 # Replace or extend with real replies before claiming anything about them.
+# A real vendor's reply goes in as a row with "split": "real" (take out names, phone numbers and addresses first);
+# `scripts/laya-tune.py eval <model>` then scores those rows on their own. Never give a real reply any other split.
 # label: visit_scheduled | asking_details | refused | unclear.  lang: en | hi (Devanagari) | hing (Hindi in Latin letters).
 {"text": "Ok sir kal subah 11 baje aata hu", "label": "visit_scheduled", "lang": "hing", "split": "train"}
 {"text": "Technician bhej raha hu aaj shaam tak", "label": "visit_scheduled", "lang": "hing", "split": "train"}

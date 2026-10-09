@@ -10,8 +10,8 @@ export const HI = {
   "Wash after the dust storm": "आँधी के बाद धोइए",
   "Not worth washing yet": "अभी धोना फ़ायदे का नहीं",
   "Don't wash. It's haze.": "मत धोइए। यह धुंध है।",
-  "Wait and watch": "रुकिए और देखिए",
-  "Still learning your roof": "आपकी छत को समझ रहा है",
+  "Wait and watch": "इंतज़ार कीजिए और नज़र रखिए",
+  "Still learning your roof": "अभी आपकी छत को समझ रहा है",
   "Your solar is working": "आपका सोलर ठीक चल रहा है",
 
   // How sure
@@ -61,7 +61,7 @@ export const HI = {
   "Namaste,": "नमस्ते,",
   "Our rooftop solar system ({name}) is producing much less than it should.": "हमारा रूफ़टॉप सोलर सिस्टम ({name}) जितनी बिजली बनानी चाहिए उससे काफ़ी कम बना रहा है।",
   "In the week to {date} it made about {made} units a day, where it normally makes {normal} in that weather.":
-    "{date} तक के हफ़्ते में इसने रोज़ लगभग {made} यूनिट बनाई, जबकि ऐसे मौसम में यह आम तौर पर {normal} यूनिट बनाता है।",
+    "{date} तक के हफ़्ते में इसने रोज़ लगभग {made} यूनिट बनाईं, जबकि ऐसे मौसम में यह आम तौर पर {normal} यूनिट बनाता है।",
   "Please send someone to inspect it under the maintenance that comes with the installation.": "कृपया इंस्टॉलेशन के साथ मिली मेंटेनेंस के तहत किसी को जाँच के लिए भेजिए।",
   "Thank you.": "धन्यवाद।",
 
@@ -103,7 +103,7 @@ export const HI = {
   "at ₹7 a unit": "₹7 प्रति यूनिट की दर से",
   "{sure} Reading from {date}.": "{sure} रीडिंग {date} की है।",
   "Daily output from {from} to {to}. On the last day the roof should have made {expected} units and made {made}.":
-    "{from} से {to} तक रोज़ का बिजली उत्पादन। आख़िरी दिन छत को {expected} यूनिट बनानी चाहिए थी और उसने {made} बनाई।",
+    "{from} से {to} तक रोज़ का बिजली उत्पादन। आख़िरी दिन छत को {expected} यूनिट बनानी चाहिए थीं; बनीं: {made}।",
   "no reading": "कोई रीडिंग नहीं",
   "Rain that washes panels": "पैनल धोने वाली बारिश",
   "No forecast yet. It appears with the next reading.": "अभी अनुमान नहीं। अगली रीडिंग के साथ आ जाएगा।",
@@ -136,7 +136,7 @@ export const HI = {
   "A screenshot of your inverter app showing the units made each day: today's figure, or a list of days. Dhool reads the numbers printed on it; it does not guess from charts. Try it with a screen saved from the {app}.":
     "आपके इन्वर्टर ऐप का स्क्रीनशॉट जिसमें हर दिन बनी यूनिट दिखें: आज का आँकड़ा, या दिनों की सूची। Dhool उस पर छपे नंबर पढ़ता है; चार्ट देखकर अंदाज़ा नहीं लगाता। {app} से सेव की गई स्क्रीन के साथ आज़माइए।",
   "Dhool read {days} from your screenshot. Check them against it. Correct any number that is wrong, or clear a box to leave that day out.":
-    "Dhool ने आपके स्क्रीनशॉट से {days} पढ़े। उन्हें स्क्रीनशॉट से मिलाइए। जो नंबर ग़लत हो उसे ठीक कीजिए, या किसी दिन को छोड़ने के लिए उसका खाना ख़ाली कर दीजिए।",
+    "Dhool ने आपके स्क्रीनशॉट से {days} की रीडिंग पढ़ी। इसे स्क्रीनशॉट से मिलाइए। जो नंबर ग़लत हो उसे ठीक कीजिए, या किसी दिन को छोड़ने के लिए उसका बॉक्स ख़ाली कर दीजिए।",
   "1 day": "1 दिन",
   "{n} days": "{n} दिन",
   "Readings found in the screenshot": "स्क्रीनशॉट में मिली रीडिंग",
@@ -166,7 +166,7 @@ export const HI = {
   "Works for 7 days. Anyone who joins sees this home's readings and verdicts.": "7 दिन तक चलता है। जो भी जुड़ेगा, वह इस घर की रीडिंग और सलाह देख सकेगा।",
   "Join our home on Dhool with this code: {code}": "इस कोड से Dhool पर हमारे घर से जुड़िए: {code}",
   "Send on WhatsApp": "WhatsApp पर भेजिए",
-  "Get a family code": "परिवार का कोड लीजिए",
+  "Get a family code": "परिवार का कोड बनाइए",
   "Language": "भाषा",
   "Sign out": "साइन आउट",
 

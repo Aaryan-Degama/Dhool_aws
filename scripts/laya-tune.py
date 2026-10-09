@@ -205,7 +205,9 @@ if __name__ == "__main__":
     else:
         agent = (laya.load(args.model, device="cpu") if args.model
                  else laya.load(BASE[0], subfolder=BASE[1], device="cpu", revision=BASE_REVISION))
-    for split in ("test", "test2", "test3"):  # each later set was written after earlier mistakes were seen
+    # Each later set was written after earlier mistakes were seen. "real" is for replies from real vendors, added to
+    # the data file with "split": "real": scored once some exist, and never trained on (training reads "train" only).
+    for split in ("test", "test2", "test3") + (("real",) if rows("real") else ()):
         print(split, "replies,", args.model or "shipped multilingual checkpoint")
         evaluate(agent, split)
     print("peak memory %d MB" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024))

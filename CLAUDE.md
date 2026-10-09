@@ -42,21 +42,19 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 - `README.md` and `WRITEUP.md` (the live URL and the video link are still blank in both).
 
 **Pending, needs the owner**
-1. Public URL: connect the repo to Amplify Hosting in a region other than Mumbai. Dhool is not on Amplify; the only Amplify app on the account is Slate's. Then put the URL in `README.md` and `WRITEUP.md`.
-2. Read the Hindi through once (`web/src/hi.js`, `backend/dhool/reasons.py`): it was written by Claude and no native speaker has checked it.
-3. Real inverter screenshots (a today screen and a daily list).
-4. Emails for the showcase accounts, and which case each shows (wash, call the vendor, all good).
-5. 
-6. Twenty to thirty real vendor replies, to score Laya honestly.
-7. A license for the repo (there is no `LICENSE` file).
+1. Public URL: connect the repo to Amplify Hosting in Singapore (ap-southeast-1), monorepo root `web`. Dhool is not on Amplify; the only Amplify app on the account is Slate's (Mumbai). When the link exists: put it in `README.md` and `WRITEUP.md`, check it signed out with the showcase accounts, and tighten the two `AllowOrigins` in `template.yaml` to it.
+2. Read the Hindi through once, on the review page (https://claude.ai/artifact/JByxFCkVnqs5HfEXQST4L1, private to the owner): it was written by Claude, checked twice by Claude, and no native speaker has read it.
+3. Real inverter screenshots (a today screen and a daily list) and 20 to 30 real vendor replies: none exist yet. Commands, below, say what to do when they arrive.
+4. 
+5. A license for the repo (there is no `LICENSE` file).
+6. Whether the showcase logins are printed in the public README for judges or only given in the submission form.
 
 **Pending, to build or check**
 1. The 3-minute video.
-2. Right before recording: refresh the demo data (Commands, below) and confirm a dusty home still says "wash". On 7 Oct all three did (`home-30` to `home-32`, 10 dry days since the last rain); rain of 5 mm would turn them back to "all good".
-3. The phone keyboard over the forms: the emulator check on 7 Oct could not bring the keyboard up from a script, so this was not seen.
-4. Screenshot upload against the live backend in Hindi (the flow itself was verified on 3 Oct, in English).
+2. Right before recording: refresh the demo data (Commands, below) and confirm the wash showcase account still says "wash". Rain of 5 mm turns the dusty homes back to "all good".
+3. **Known limit:** a phone screenshot of the demo inverter *page* (demo banner and home picker above the screen) is refused by the reader ("could not read"). The files from its "Save this screen as an image" button read exactly (1 of 1 and 15 of 15 values live on 7 Oct). Use the button in the video; a real inverter app has no such banner, but real-app reading is weak anyway (6 of 11).
 
-**Checked on 7 Oct** (scripted Chrome at phone width against the live backend, English and Hindi; and the Android emulator): the three cases (fault, wash, all good), the vendor-reply box, wash and visit report with undo, the wash-cost field, the log, the language choice. No sideways scrolling or clipped text in either language.
+**Checked on 7 Oct** (scripted Chrome at phone width against the live backend, English and Hindi; and the Android emulator): the three cases (fault, wash, all good), the vendor-reply box, wash and visit report with undo, the wash-cost field, the log, the language choice, screenshot upload in Hindi, and every form with the phone keyboard up (the field stays visible; the nav bar stays under the keyboard). No sideways scrolling or clipped text in either language. Not seen with the keyboard: the family-code box on "Add your home" (it is the same field component).
 
 **Costs:** charges were effectively zero on 3 Oct. Two model Lambdas are pinged every 5 minutes to stay loaded, and about 14 GB of container images sit in ECR. The `Dhool-laya` worktree can be removed; its v1 and v2 model folders are also in the release.
 
@@ -84,10 +82,12 @@ _All confirmed unless a line says otherwise._
 - Score the verdict rules against the simulator: `cd backend && ../.venv/bin/python -m dhool.evaluate <seed>` (seeds 0–2 are development data). The hidden test set is `... -m dhool.evaluate hidden`: never tune against it; after any rule change rerun it and report the number as it comes.
 - Real-rooftop check (nine NREL PVDAQ homes, downloads to `~/.cache/dhool` on first run): `cd backend && ../.venv/bin/python -m dhool.realcheck`. Run it after any rule change: the simulator is far cleaner than real data.
 - Deploy settings are in `samconfig.toml`: stack `dhool-aws`, region `ap-south-1`.
-- Live endpoints, pool IDs and demo account password: `.env` (gitignored, never commit)
+- Live endpoints, pool IDs, the demo accounts and the three showcase accounts (`SHOWCASE_USERS`, one home each: wash on `home-30`, call the vendor on `home-01`, all good on `home-05`): `.env` (gitignored, never commit)
 - Screenshot reader weights (1.5 GB, pinned and hash-checked): `./scripts/fetch-model.sh` (`./scripts/build.sh` runs it first). Keep the weights out of `backend/`: SAM would pack them into the zip Lambdas.
 - Measure the reader (accuracy, time, memory) in its Lambda image, as the Lambda sees it: `docker run --rm --cpuset-cpus=0,1 --memory=3008m --memory-swap=3008m -v "$PWD/scripts:/scripts:ro" -v "$PWD/vision:/vision:ro" -v <image dir>:/imgs:ro -e MODEL_DIR=/opt/models -e LLAMA_SERVER=/opt/llama-server --entrypoint python3 visionfunction:latest /scripts/eval-vision.py /imgs/<image> ...`. Demo screens carry their answer key; for a real screenshot write `<image>.json` beside it (see the script's header). Run sets one at a time: parallel runs slow each other.
 - The vendor-reply reader's image needs `messages/models/vendor-replies-v3.2-int8/` (335 MB, from `scripts/laya-tune.py quantize` on v3 or a copy of the folder; checksum in `checkpoints.md`), readable by everyone: `chmod -R a+rX messages/models`. Lambda does not run as the file's owner, and a local `docker run` (root) will not show the problem.
+- When real inverter screenshots arrive: keep them outside the repo (they show a real home), write `<image>.json` beside each with the numbers printed on it, and run the reader measurement above on them. Report the count as it comes; do not tune the questions on the same screenshots you then quote.
+- When real vendor replies arrive: add each to `messages/vendor-replies.jsonl` with `"split": "real"` (names, phone numbers and addresses taken out), then `scripts/laya-tune.py eval messages/models/vendor-replies-v3`: the `real` rows are scored on their own and are never trained on.
 - Laya (vendor-reply sorter; its own environment, never in `.venv` or CI): `uv venv --python 3.12 .venv-laya && uv pip install -p .venv-laya --index-url https://download.pytorch.org/whl/cpu torch && uv pip install -p .venv-laya "laya[onnx]"`. Score the shipped checkpoint: `.venv-laya/bin/python scripts/laya-tune.py eval`. Fine-tune and score (about 45 minutes on the laptop CPU for 1,000 replies, needs about 5 GB free): `.venv-laya/bin/python scripts/laya-tune.py train --out messages/models/vendor-replies-v<N>`. Data in `messages/vendor-replies.jsonl`, weights in `messages/models/` (not in git). Every fine-tuned model gets a new folder and a section in `checkpoints.md`; never overwrite an old one.
 - `backend/requirements-analysis.txt` holds the heavy pvlib dependencies for the analysis container. Do not add a `backend/requirements.txt`: SAM would pack those into the small API Lambda zip.
 - Run one function locally: `sam local invoke <FunctionName>`
@@ -95,7 +95,7 @@ _All confirmed unless a line says otherwise._
 - On the owner's phone over the Wi-Fi: `npm run build && npx vite preview --host 0.0.0.0 --port 4173` in `web/`, then open `http://<laptop Wi-Fi address>:4173` (the laptop's is in `ip -4 addr show wlp1s0`). Serves the built files only, never the dev server. A rebuild is picked up without a restart.
 - Web tests (the weather-to-sky rule; every line of the app has its Hindi): `npm test` in `web/`. Add `?sky=day|cloud|rain|storm|snow|sand|night` to the address to force a sky, `&dark=1` for its night version, and `?lang=hi|en` to force a language.
 - Design decisions live in `DESIGN.md`; read it before changing the UI.
-- Android emulator (AVD `dhool`, Android 15): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
+- Android emulator (AVD `dhool`, Android 15; it needs its window, `-no-window` crashes on this machine): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 
 ## Bedrock is out (7 Oct 2026)
 _AWS Support rejected the request to enable Bedrock inference on the owner's account. Do not plan or build anything on Bedrock._
