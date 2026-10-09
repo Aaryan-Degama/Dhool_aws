@@ -20,7 +20,7 @@ written (3 Oct 2026).
 | [Pillow](https://python-pillow.github.io) 12.3.0 | Shrinking screenshots for the vision model, and refusing oversized ones | MIT-CMU |
 | [laya](https://github.com/NandhaKishorM/laya) 0.3.24 Python package, and its CPU fine-tuning script `notebooks/laya_finetune_typed_decisions_mps.py`, which `scripts/laya-tune.py` is adapted from | Running, fine-tuning and calibrating Laya | Apache-2.0 |
 | Laya's `scripts/export_onnx.py` (commit `c829d5a`), whose int8 step `scripts/laya-tune.py` adapts; [ONNX](https://github.com/onnx/onnx) 1.23 and [ONNX Runtime](https://github.com/microsoft/onnxruntime) 1.30 | Exporting the fine-tuned Laya to ONNX, shrinking it to int8 and running it | Apache-2.0, Apache-2.0, MIT |
-| PyTorch 2.14 (CPU), Transformers 5.18 | Fine-tuning Laya on a laptop | BSD-3-Clause, Apache-2.0 |
+| PyTorch 2.14 (CPU), Transformers 5.18 | Fine-tuning Laya on a laptop, and running it in its Lambda container | BSD-3-Clause, Apache-2.0 |
 | [pvlib](https://github.com/pvlib/pvlib-python) 0.16.1 | Solar position, sunlight on the panel, cell temperature, expected output | BSD-3-Clause |
 | pandas 3.0.6, NumPy 2.5.3 (with SciPy and h5py pulled in by pvlib) | Time series for the physics and the verdict rules | BSD-3-Clause |
 | boto3 | AWS calls from the Lambdas | Apache-2.0 |
