@@ -209,3 +209,16 @@ def test_a_wash_that_changed_nothing_means_it_was_not_dust():
 
 def test_no_reported_action_means_no_check():
     assert verdict(home(np.ones(120)), NO_RAIN, DRY_WEEK)["check"] is None
+
+
+def test_heavy_dust_is_named_within_days_of_the_rain_that_cleaned_the_roof():
+    """Beside a dust source a roof loses over 1% a day: ten days after rain it is 14% down and should be washed."""
+    v = verdict(home(dust(0.014, reset_day=110) * np.where(np.arange(120) < 110, 0, 1) + np.where(np.arange(120) < 110, 1, 0)),
+                rain_on(110), DRY_WEEK)
+    assert (v["verdict"], v["cause"]) == ("CLEAN", "dust") and 10 <= v["loss_pct"] <= 16
+
+
+def test_a_gentle_wobble_over_a_week_is_not_called_dust():
+    factor = np.ones(120)
+    factor[112:] = 1 - 0.003 * np.arange(8)  # 2% over the last week: a week is too short to trust that
+    assert verdict(home(factor), rain_on(111), DRY_WEEK)["verdict"] == "OK"

@@ -32,7 +32,8 @@ OK_LOSS = 0.05         # losses under this are not worth acting on
 MIN_DUST_RATE = 0.001  # share of output lost per day before a decline counts as dust
 TREND_DAYS = 30        # the dust rate is also read off just these recent days, so one missed wash cannot hide it
 LONG_TREND_DAYS = 120  # ...and off the whole spell since cleaning, so a hazy fortnight cannot hide it either
-MIN_TREND_DAYS = 14    # fewer days than this give no usable rate
+MIN_TREND_DAYS = 14    # days for a rate to be trusted on its own
+SHORT_TREND_DAYS = 7   # fewer than MIN_TREND_DAYS still count when the slide is steep: see _trend
 MIN_AFTER = 3          # clear days needed after a wash, visit or rain before its effect can be measured
 MIN_RECOVERY = 0.02    # a wash or repair that brought back less than this did nothing measurable
 
@@ -84,11 +85,16 @@ def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=co
 def _trend(window, baseline):
     """Share of normal output lost per day over these days (positive = declining). Robust to odd days:
     the median slope over every pair of days (Theil-Sen), not a least-squares line."""
-    if len(window) < MIN_TREND_DAYS:
+    if len(window) < SHORT_TREND_DAYS:
         return 0.0
     x, y = (window.index - window.index[0]).days.to_numpy(), window.to_numpy()
     i, j = np.triu_indices(len(x), 1)
-    return -float(np.median((y[j] - y[i]) / (x[j] - x[i]))) / baseline
+    rate = -float(np.median((y[j] - y[i]) / (x[j] - x[i]))) / baseline
+    # A week or two of days gives a shaky rate: a gentle one could be noise. A slide that has by itself
+    # taken off an actionable share of output in that time (heavy dust, days after rain) is not.
+    if len(window) < MIN_TREND_DAYS and rate * x[-1] < OK_LOSS:
+        return 0.0
+    return rate
 
 
 def check_action(ratio, baseline, action):
@@ -260,7 +266,7 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
             "this roof's normal. Dust was not the cause, so have the system inspected.", loss=loss)
 
     # 7. Dust: a steady decline since the panels were last cleaned by rain or by hand.
-    if len(since) >= MIN_TREND_DAYS:
+    if len(since) >= SHORT_TREND_DAYS:
         days = int((since.index[-1] - since.index[0]).days)
         if rate >= MIN_DUST_RATE:
             normal_kwh = baseline * float(daily["expected"].tail(7).mean())
