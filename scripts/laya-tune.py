@@ -1,8 +1,8 @@
 """Measure and fine-tune Laya (multilingual) on reading a vendor's reply to an inspection request.
 
     .venv-laya/bin/python scripts/laya-tune.py eval                 # the shipped checkpoint, untouched
-    .venv-laya/bin/python scripts/laya-tune.py train                # writes messages/models/vendor-replies
-    .venv-laya/bin/python scripts/laya-tune.py eval messages/models/vendor-replies
+    .venv-laya/bin/python scripts/laya-tune.py train                # writes messages/models/vendor-replies-v2
+    .venv-laya/bin/python scripts/laya-tune.py eval messages/models/vendor-replies-v2
 
 The training loop is adapted from Laya's own CPU script (notebooks/laya_finetune_typed_decisions_mps.py,
 Apache-2.0, https://github.com/NandhaKishorM/laya); see CREDITS.md. Changes: our data, frozen token
@@ -26,7 +26,7 @@ from laya.common import QTYPES, build_model, build_sequence, collate_items, ece_
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "messages" / "vendor-replies.jsonl"
-OUT = ROOT / "messages" / "models" / "vendor-replies"
+OUT = ROOT / "messages" / "models" / "vendor-replies-v2"  # one folder per version; see checkpoints.md
 BASE = ("convaiinnovations/laya", "multilingual")
 # Pinned: the checkpoint this was measured on.
 BASE_REVISION = "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851"
@@ -172,5 +172,6 @@ if __name__ == "__main__":
         args.model = args.out
     agent = (laya.load(args.model, device="cpu") if args.model
              else laya.load(BASE[0], subfolder=BASE[1], device="cpu", revision=BASE_REVISION))
-    print("test replies,", args.model or "shipped multilingual checkpoint")
-    evaluate(agent)
+    for split in ("test", "test2"):  # test2 was written after v1's mistakes on test were seen
+        print(split, "replies,", args.model or "shipped multilingual checkpoint")
+        evaluate(agent, split)
