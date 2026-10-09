@@ -23,7 +23,7 @@ Hackathon project for Environmental Hacks (WeMakeDevs × AWS, Oct 8 – 11, 2026
 4. **Ship the smallest thing that works.** Pick a working vertical slice over breadth.
 5. Every piece of third-party code gets a credit and needs a compatible license.
 
-## Status (3 Oct 2026; keep this current, details and numbers are in `CONTEXT.md`)
+## Status (7 Oct 2026; keep this current, details and numbers are in `CONTEXT.md`)
 
 All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1).
 
@@ -44,14 +44,13 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 2. Real inverter screenshots (a today screen and a daily list).
 3. Emails for the showcase accounts, and which case each shows (wash, call the vendor, all good).
 4. 
-5. Bedrock access, or a role in the teammate's account (see "Pending on Bedrock").
-6. Twenty to thirty real vendor replies, to score Laya honestly.
+5. Twenty to thirty real vendor replies, to score Laya honestly.
 
 **Pending, to build or check**
 1. The wash case on the day: the dusty homes read "all good" after the 27 Sept rain. Regenerate the data on or after 5 Oct and confirm one says "wash" before relying on it.
 2. Browser checks against the live backend: the wash and visit cards, the wash-cost field, the log card and the vendor-reply box were only seen with a stubbed backend or in the dev preview.
 3. Android emulator re-check since the redesign.
-4. Hindi strings: the app is English only.
+4. Hindi strings: the app is English only. With Bedrock gone, Hindi means hand-written fixed strings, not a model.
 5. README, write-up and the 3-minute video.
 6. Refresh the demo data right before recording (Commands, below).
 
@@ -94,17 +93,16 @@ _All confirmed unless a line says otherwise._
 - Design decisions live in `DESIGN.md`; read it before changing the UI.
 - Android emulator (AVD `dhool`, Android 15): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 
-## Pending on Bedrock (do these when access arrives)
-_Bedrock inference is blocked on the owner's account (AWS Support is looking into it, see `CONTEXT.md` Blockers). The owner may use a teammate's AWS account for Bedrock until then. Nothing below is built; the app works without it._
+## Bedrock is out (7 Oct 2026)
+_AWS Support rejected the request to enable Bedrock inference on the owner's account. Do not plan or build anything on Bedrock._
 
-Before building anything: confirm which account and region, which models were granted, and that one real `InvokeModel` / `Converse` call succeeds. Do not assume a model id.
+What that settles:
+1. **Screenshot reading** stays on the self-hosted Qwen3-VL-2B reader (6 of 11 on real-app screens). The safety net is the confirm-and-correct screen and typed entry, not a better model.
+2. **Explanations and the vendor message** stay fixed templates (`verdict.py` reasons, `vendorMessage` in `App.jsx`). Hindi is hand-written strings.
+3. **The Strands agent** (`DHOOL.md` 2.9) is dropped for good. SAM CLI is the AWS open-source tool the rules ask for.
+4. **Vendor replies** are sorted by Laya, already live.
 
-1. **Screenshot reading with a Bedrock vision model.** The self-hosted reader got 6 of 11 values on real-app screens. Score a Bedrock model on the same screens with the same answer keys (`scripts/eval-vision.py` format) before switching. Keep the same contract: narrow questions, the API drops impossible values, the homeowner confirms every number. Keep the self-hosted reader as the fallback.
-2. **Explanations and the vendor message in Hindi and English.** Today these are fixed English templates (`verdict.py` reasons, `vendorMessage` in `App.jsx`). A model may only reword numbers and facts the analysis already produced; it never produces a number or the verdict.
-3. **Strands agent** (`DHOOL.md` 2.9), dropped because it needs a hosted model: tools `read_screenshot`, `get_verdict`, `explain_evidence`, `draft_vendor_request`, `verify_recovery`. Typed tools, not free chat. Build only if 1 and 2 are done and time remains.
-4. **Sorting free-text homeowner messages** falls to Bedrock only if Laya is cut; Laya's vendor-reply sorter is already wired in.
-
-If the model lives in a teammate's account: call it cross-account through a role the teammate creates for this purpose (the Lambda assumes it; scope it to `bedrock:InvokeModel` on the chosen models). Never put the teammate's access keys in code, in `.env` committed files, in Lambda environment variables in the template, or in chat. Say in the write-up that Bedrock runs in a second team account and why.
+Say in the write-up that Bedrock and Textract were unavailable on this account and that the models are self-hosted on Lambda for that reason. `DHOOL.md` still describes the original Bedrock design; it is the plan as first written, not what is built.
 
 ## Conventions
 - **Definition of done:** pure logic in `backend/dhool/` → tests pass → deployed → verified on the live URL → commit → push.
