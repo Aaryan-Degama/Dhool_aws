@@ -127,3 +127,14 @@ def test_a_dust_storm_forecast_after_the_last_reading_reaches_the_wash_plan():
     assert analyse(META, readings, weather)["verdict"] == "CLEAN"
     result = analyse(META, readings, weather, dust_storms=storms)
     assert (result["verdict"], result["evidence"]["wait_for"]) == ("WAIT", "dust_storm")
+
+
+def test_the_homes_own_tariff_reaches_the_verdict():
+    weather = clear_weather(67)
+    expected = expected_daily_kwh(weather, META["lat"], META["lon"], META["kw"], META["tilt"], META["azimuth"])
+    dirt = pd.Series([0.004 * i for i in range(60)], index=expected.index[:60])
+    readings = {str(day.date()): round(kwh, 2) for day, kwh in (expected[:60] * 0.93 * (1 - dirt)).items()}
+    usual, dear = analyse(META, readings, weather), analyse({**META, "tariff_rs": "10.5"}, readings, weather)  # as stored
+    assert (usual["tariff_rs"], dear["tariff_rs"]) == (config.TARIFF_RS, 10.5)
+    assert dear["loss_rs_per_week"] == pytest.approx(1.5 * usual["loss_rs_per_week"], abs=1)
+    json.dumps(dear)

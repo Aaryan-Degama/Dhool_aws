@@ -17,7 +17,7 @@ def _days(readings):
 
 
 def analyse(meta, readings, weather, pm25=None, fleet=None, actions=(), dust_storms=None):
-    """meta: the house (kw, lat, lon, tilt, azimuth). readings: {"YYYY-MM-DD": kwh}.
+    """meta: the house (kw, lat, lon, tilt, azimuth; wash_cost_rs and tariff_rs if the owner set them). readings: {"YYYY-MM-DD": kwh}.
     weather: hourly frame covering the first reading through a week past the last (the forecast).
     fleet: other homes nearby, {id: {"kw": ..., "readings": {...}}}, for the neighbour comparison.
     dust_storms: daily True/False, a dust storm forecast that day (expected.fetch_dust_storms).
@@ -43,7 +43,8 @@ def analyse(meta, readings, weather, pm25=None, fleet=None, actions=(), dust_sto
     result = verdict(daily, rain[:last], list(rain[last:].iloc[1:8]),
                      pm25[:last] if pm25 is not None else None, neighbours, actions,
                      list(dust_storms[dust_storms.index > last].iloc[:7]) if dust_storms is not None else (),
-                     float(meta["wash_cost_rs"]) if meta.get("wash_cost_rs") is not None else None)
+                     float(meta["wash_cost_rs"]) if meta.get("wash_cost_rs") is not None else None,
+                     float(meta["tariff_rs"]) if meta.get("tariff_rs") is not None else None)
     result["as_of"] = str(last.date())
     start = last - pd.Timedelta(days=CHART_DAYS - 1)
     if "step_date" in result["evidence"]:

@@ -67,20 +67,23 @@ def normal(ratio):
     return float(ratio.rolling(7, min_periods=4).median().quantile(0.9))
 
 
-def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=config.CLEAN_RAIN_MM, cost=None):
+def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=config.CLEAN_RAIN_MM, cost=None,
+              tariff=None):
     """Is washing worth it today? A wash wins back today's dust loss every day until something undoes it:
     rain (which would have cleaned the panels for free) or a dust storm (which dirties them again).
 
     loss: share of normal output lost to dust now. rate: share lost per extra day. normal_kwh: what the roof
     makes in a day when clean. rain_forecast: mm for the coming days, tomorrow first. dust_storms: True for
     each coming day with a dust storm forecast. cost: what one wash costs this household, in ₹.
+    tariff: what this household pays per kWh, in ₹ (config.TARIFF_RS if not given).
     Returns {"wash", "saving_rs", "wait_for", "in_days"}.
 
     A storm means washing again afterwards whatever is done today, so that later wash cancels out: wash now
     only if what would be missed before the storm is more than one wash costs. Rain is the same sum.
     """
     cost = config.WASH_COST_RS if cost is None else cost
-    per_day = loss * normal_kwh * config.TARIFF_RS
+    tariff = config.TARIFF_RS if tariff is None else tariff
+    per_day = loss * normal_kwh * tariff
     rain = next((i + 1 for i, mm in enumerate(rain_forecast) if mm >= clean_mm), None)
     storm = next((i + 1 for i, hit in enumerate(dust_storms) if hit), None)
     end = min((d for d in (rain, storm) if d), default=None)
@@ -90,7 +93,7 @@ def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=co
     if not plan["wash"]:
         plan["wait_for"] = "rain" if end and end == rain else "dust_storm" if end else "not_worth_it"
         if not end and rate > 0:  # how long until the dust is costing enough to repay a wash
-            worth = cost / (normal_kwh * config.TARIFF_RS * config.DRY_SPELL_DAYS)
+            worth = cost / (normal_kwh * tariff * config.DRY_SPELL_DAYS)
             plan["in_days"] = max(1, int(np.ceil((worth - loss) / rate)))
     elif end:
         plan["wait_for"] = None
@@ -150,7 +153,8 @@ def _result(f, verdict, cause, confidence, reason, loss=0.0, level=None, **evide
         "actual_kwh": made,
         "loss_pct": round(100 * loss, 1),
         "loss_kwh_per_day": lost,
-        "loss_rs_per_week": round(lost * 7 * config.TARIFF_RS),
+        "loss_rs_per_week": round(lost * 7 * f.tariff),
+        "tariff_rs": f.tariff,  # the ₹ per kWh every rupee figure here was worked out at
         "evidence": evidence,
         "check": f.check,  # the latest wash or visit the homeowner reported, and whether it worked
     }
@@ -283,8 +287,8 @@ def _dust(f):
     days = int((since.index[-1] - since.index[0]).days)
     normal_kwh = f.baseline * float(f.daily["expected"].tail(7).mean())
     cost = round(config.WASH_COST_RS if f.wash_cost is None else f.wash_cost)
-    plan = wash_plan(loss, rate, normal_kwh, f.rain_forecast, f.dust_storms, cost=cost)
-    per_day = round(loss * normal_kwh * config.TARIFF_RS)
+    plan = wash_plan(loss, rate, normal_kwh, f.rain_forecast, f.dust_storms, cost=cost, tariff=f.tariff)
+    per_day = round(loss * normal_kwh * f.tariff)
     saved = plan["saving_rs"]
     on = f.ratio.index[-1] + pd.Timedelta(days=plan["in_days"] or 0)
     evidence = {"rate_pct_per_day": round(100 * rate, 2), "days_since_clean": days,
@@ -311,19 +315,22 @@ def _dust(f):
     return _result(f, "WAIT", "dust", "medium", reason, loss=loss, **evidence)
 
 
-def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), dust_storms=(), wash_cost=None):
+def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), dust_storms=(), wash_cost=None,
+            tariff=None):
     """daily: DataFrame[expected, actual] indexed by day, oldest first.
     rain: daily mm, same index. rain_forecast: mm for the coming days, tomorrow first.
     pm25: daily mean µg/m³ (optional). neighbours: DataFrame of actual/expected ratios, one column per
     nearby home (optional). actions: what the homeowner reported, [{"date": "YYYY-MM-DD", "type": "wash" | "visit"}].
     dust_storms: True for each coming day with a dust storm forecast, tomorrow first (optional).
     wash_cost: what one wash costs this household in ₹ (optional; config.WASH_COST_RS if not given).
+    tariff: what this household pays per kWh in ₹ (optional; config.TARIFF_RS if not given).
     """
     ratio = _ratio(daily)
     valid = ratio.dropna()
     # The figures every rule reads, prepared once here.
     f = SimpleNamespace(daily=daily, ratio=ratio, valid=valid, pm25=pm25, neighbours=neighbours, baseline=1.0,
-                        check=None, rain_forecast=rain_forecast, dust_storms=dust_storms, wash_cost=wash_cost)
+                        check=None, rain_forecast=rain_forecast, dust_storms=dust_storms, wash_cost=wash_cost,
+                        tariff=config.TARIFF_RS if tariff is None else tariff)
     if len(valid) < MIN_DAYS:
         return _result(f, "WAIT", "no_data", "low", say("no_data", n=len(valid)))
 

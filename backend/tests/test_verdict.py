@@ -292,6 +292,16 @@ def test_a_dearer_wash_turns_wash_now_into_not_worth_it_yet():
     assert "₹2000" in v["reason"]
 
 
+def test_a_higher_tariff_raises_what_the_dust_costs_not_what_a_wash_costs():
+    series, rain = home(dust(0.004, reset_day=80)), rain_on(80)
+    usual, dear = verdict(series, rain, DRY_WEEK), verdict(series, rain, DRY_WEEK, tariff=14)
+    assert (usual["tariff_rs"], dear["tariff_rs"]) == (7.0, 14)
+    assert dear["evidence"]["saving_rs"] == pytest.approx(2 * usual["evidence"]["saving_rs"], abs=1)
+    assert dear["loss_rs_per_week"] == pytest.approx(2 * usual["loss_rs_per_week"], abs=1)
+    assert f"₹{dear['evidence']['saving_rs']} " in dear["reason"] and "₹50" in dear["reason"]
+    assert dear["evidence"]["wash_cost_rs"] == usual["evidence"]["wash_cost_rs"] == 50
+
+
 def test_every_reason_reads_in_hindi_with_the_same_figures_as_the_english():
     import re
     import string
