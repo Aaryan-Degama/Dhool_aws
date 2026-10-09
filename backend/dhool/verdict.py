@@ -5,13 +5,20 @@ and the numbers behind it. The rules, in order:
 
 1. Sudden drop that never recovers, and the area did not drop with it  -> fault  -> INSPECT
 2. Sharp one-day dips that come back, several in a month               -> trips  -> INSPECT
-3. Within a few percent of this roof's own normal                      -> OK
-4. Air is hazy and the area dropped together                           -> haze   -> WAIT
-5. Slow steady decline since the last rain or wash                     -> dust   -> CLEAN,
+3. Rain or a reported wash in the last day or two, too soon to measure  -> OK
+4. Within a few percent of this roof's own normal                      -> OK
+5. Air is hazy and the area dropped together                           -> haze   -> WAIT
+6. The homeowner washed the panels and output did not come back        -> not dust -> INSPECT
+7. Slow steady decline since the last rain or wash                     -> dust   -> CLEAN,
    or WAIT if rain is about to wash the panels for free
-6. Anything else                                                       -> WAIT, low confidence
+8. Anything else                                                       -> WAIT, low confidence
+
+"Now" is measured since the panels were last cleaned (rain, a wash the homeowner reported, or a jump
+in the data), and moved forward along the recent trend: a week's median describes the roof about
+three days ago, which hides the newest dust and, right after rain, still shows the old dirt.
 """
 import numpy as np
+import pandas as pd
 
 from . import config
 
@@ -24,6 +31,11 @@ DIP = 0.75             # one day this far below the days around it is a sharp di
 OK_LOSS = 0.05         # losses under this are not worth acting on
 MIN_DUST_RATE = 0.001  # share of output lost per day before a decline counts as dust
 RAIN_SOON_DAYS = 2
+TREND_DAYS = 30        # the dust rate is also read off just these recent days, so one missed wash cannot hide it
+LONG_TREND_DAYS = 120  # ...and off the whole spell since cleaning, so a hazy fortnight cannot hide it either
+MIN_TREND_DAYS = 14    # fewer days than this give no usable rate
+MIN_AFTER = 3          # clear days needed after a wash, visit or rain before its effect can be measured
+MIN_RECOVERY = 0.02    # a wash or repair that brought back less than this did nothing measurable
 
 
 def _ratio(daily):
@@ -38,14 +50,51 @@ def _steps(ratio, how="median"):
     return after / before
 
 
-def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
+def normal(ratio):
+    """A roof's own normal: its best weeks. Weekly medians, not single days, so a noisy roof's lucky days
+    do not set a normal it can never reach."""
+    return float(ratio.rolling(7, min_periods=4).median().quantile(0.9))
+
+
+def _trend(window, baseline):
+    """Share of normal output lost per day over these days (positive = declining). Robust to odd days:
+    the median slope over every pair of days (Theil-Sen), not a least-squares line."""
+    if len(window) < MIN_TREND_DAYS:
+        return 0.0
+    x, y = (window.index - window.index[0]).days.to_numpy(), window.to_numpy()
+    i, j = np.triu_indices(len(x), 1)
+    return -float(np.median((y[j] - y[i]) / (x[j] - x[i]))) / baseline
+
+
+def check_action(ratio, baseline, action):
+    """Did a wash or a vendor visit work? Compares the week before it with the clear days after it.
+    predicted: what a full return to this roof's normal would add. observed: what came back."""
+    day = pd.Timestamp(action["date"], tz=ratio.index.tz)
+    before = ratio[:day - pd.Timedelta(days=1)].dropna().tail(7)
+    after = ratio[day + pd.Timedelta(days=1):].dropna().head(7)
+    if len(before) < MIN_AFTER:
+        return None  # nothing to compare with
+    level = float(before.median())
+    predicted = baseline / level - 1
+    out = {"type": action["type"], "date": action["date"], "status": "waiting",
+           "predicted_pct": round(100 * predicted, 1), "observed_pct": None, "days_after": len(after)}
+    if len(after) >= MIN_AFTER:
+        observed = float(after.median()) / level - 1
+        out["observed_pct"] = round(100 * observed, 1)
+        out["status"] = ("was_fine" if predicted < MIN_RECOVERY
+                         else "verified" if observed >= max(MIN_RECOVERY, predicted / 2) else "not_recovered")
+    return out
+
+
+def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=()):
     """daily: DataFrame[expected, actual] indexed by day, oldest first.
     rain: daily mm, same index. rain_forecast: mm for the coming days, tomorrow first.
     pm25: daily mean µg/m³ (optional). neighbours: DataFrame of actual/expected ratios, one column per
-    nearby home (optional).
+    nearby home (optional). actions: what the homeowner reported, [{"date": "YYYY-MM-DD", "type": "wash" | "visit"}].
     """
     ratio = _ratio(daily)
     valid = ratio.dropna()
+    check = None
 
     def result(verdict, cause, confidence, reason, loss=0.0, level=None, **evidence):
         # The figures the homeowner sees, a day on average over the last 7 days with a reading: what this
@@ -65,6 +114,7 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
             "loss_kwh_per_day": lost,
             "loss_rs_per_week": round(lost * 7 * config.TARIFF_RS),
             "evidence": evidence,
+            "check": check,  # the latest wash or visit the homeowner reported, and whether it worked
         }
 
     if len(valid) < MIN_DAYS:
@@ -72,26 +122,56 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
         return result("WAIT", "no_data", "low",
                       f"Only {len(valid)} days of data so far. Dhool needs about two weeks to learn this roof's normal.")
 
-    baseline = float(valid.quantile(0.9))  # this roof's own normal: its best recent days
-    recent = float(valid.tail(7).median())
-    loss = max(0.0, 1 - recent / baseline)
+    baseline = normal(ratio)
     step = _steps(ratio)  # medians: robust for deciding whether a change happened
     sharp = _steps(ratio, "mean")  # means peak exactly on the day of the change: used to date it
     area_step = _steps(neighbours).median(axis=1).reindex(ratio.index) if neighbours is not None else None
 
-    # 1. Fault: a sudden drop that the area did not share and that never recovered.
-    sudden = (step <= STEP_DROP) & (sharp == sharp.rolling(15, center=True, min_periods=1).min())
+    # When were the panels last cleaned, or the system last worked on? Rain is known from the weather, a
+    # wash or visit from the homeowner, and an unreported wash shows as a jump in the data a few days later.
+    rained = rain.reindex(ratio.index).fillna(0) >= config.CLEAN_RAIN_MM
+    washed = (step >= WASH_JUMP) & (sharp == sharp.rolling(15, center=True, min_periods=1).max())
     if area_step is not None:
-        sudden &= ~(area_step <= AREA_DROP)
-    elif pm25 is not None:
+        washed &= ~(area_step >= WASH_JUMP)  # the whole area jumping up is haze lifting, not a wash
+    told = pd.Series(False, index=ratio.index)
+    actions = sorted((a for a in actions if pd.Timestamp(a["date"], tz=ratio.index.tz) in told.index), key=lambda a: a["date"])
+    for action in actions:
+        told[pd.Timestamp(action["date"], tz=ratio.index.tz)] = True
+    cleaned = rained | washed | told
+    last_clean = cleaned[cleaned].index[-1] if cleaned.any() else None
+    since = (ratio[last_clean:] if last_clean is not None else ratio).dropna()
+    measured = since if len(since) >= MIN_AFTER else valid  # too soon after a cleaning: fall back to the week
+    week = measured.tail(7)
+    rate = max(_trend(since.tail(TREND_DAYS), baseline), _trend(since.tail(LONG_TREND_DAYS), baseline))
+    lag = (week.index[-1] - week.index[len(week) // 2]).days  # how old the week's median is
+    recent = float(week.median()) - max(0.0, rate) * baseline * lag
+    loss = max(0.0, 1 - recent / baseline)
+    if actions:
+        check = check_action(ratio, baseline, actions[-1])
+
+    # 1. Fault: a sudden drop that the area did not share and that never recovered.
+    # With neighbours, a roof's change is judged against theirs: a drop the whole area shares cancels out,
+    # and a drop hidden by the area rising (rain rinsing everyone else's dust) still shows.
+    if area_step is not None:
+        own = step / area_step
+        own_sharp = sharp / _steps(neighbours, "mean").median(axis=1).reindex(ratio.index)
+    else:
+        own, own_sharp = step, sharp
+    # How much this roof's week-on-week level wanders when nothing is wrong (weather the forecast missed,
+    # mostly). A drop has to stand well clear of that: on a steady roof 10% is enough, on a noisy one it is not.
+    wander = float(1.4826 * (np.log(own.dropna()) - np.log(own.dropna()).median()).abs().median()) if own.notna().sum() >= 14 else 0.0
+    step_drop = min(STEP_DROP, 1 - 4 * wander)
+    stays_down = min(STAYS_DOWN, 1 - 3 * wander)
+    sudden = (own <= step_drop) & (own_sharp == own_sharp.rolling(15, center=True, min_periods=1).min())
+    if area_step is None and pm25 is not None:
         hazy_week = pm25.reindex(ratio.index)[::-1].rolling(7, min_periods=1).mean()[::-1] >= config.HAZE_PM25
         sudden &= ~hazy_week
     for day in step[sudden].index:
         pre, post = ratio[:day].iloc[:-1].dropna(), ratio[day:].dropna()
         if len(pre) < 7 or len(post) < 4:
             continue
-        level_before = float(pre.quantile(0.9))
-        if post.rolling(7, min_periods=4).median().max() / level_before > STAYS_DOWN:
+        level_before = normal(pre)
+        if post.rolling(7, min_periods=4).median().max() / level_before > stays_down:
             continue  # it came back, so not a lasting fault
         drop = 1 - float(post.tail(7).median()) / level_before
         confidence = "high" if len(post) >= 14 and neighbours is not None else "medium" if len(post) >= 7 else "low"
@@ -103,24 +183,34 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
             loss=max(loss, drop), level=max(baseline, level_before),  # the bigger loss is against the higher level
             step_date=str(day.date()), drop_pct=round(100 * drop, 1), days_down=len(post))
 
-    # 2. Trips: sharp one-day dips that recover, which the area did not share.
+    # 2. Trips: sharp one-day dips that recover, which the area did not share. Only with neighbours: on its
+    # own, a roof's one-day dip is usually a cloud the weather data missed, and daily totals cannot tell.
     dips = (ratio / ratio.rolling(7, center=True, min_periods=4).median() <= DIP).tail(30)
     if neighbours is not None:
         area_dip = (neighbours / neighbours.rolling(7, center=True, min_periods=4).median()).median(axis=1) <= 0.9
         dips &= ~area_dip.reindex(dips.index, fill_value=False)
-    if dips.sum() >= 2:
+    if neighbours is not None and dips.sum() >= 2:
         return result(
-            "INSPECT", "trips", "medium" if neighbours is not None else "low",
+            "INSPECT", "trips", "medium",
             f"Output dropped sharply on {int(dips.sum())} separate days in the last 30 and came back each time. "
             "This can be the inverter shutting down for part of the day.",
             loss=loss, dip_days=[str(d.date()) for d in dips[dips].index])
 
-    # 3. Near this roof's normal.
+    # 3. Just cleaned: rain or a reported wash in the last day or two. The week's median still shows the dirt
+    # from before, so say what is known and measure again once clear days come in.
+    if last_clean is not None and len(since) < MIN_AFTER and (rained | told)[last_clean]:
+        loss = 0.0
+        by = "Rain" if rained[last_clean] else "Your wash" if actions[-1]["type"] == "wash" else "The vendor's visit"
+        return result("OK", "ok", "medium",
+                      f"{by} on {last_clean:%-d %b} should have brought the panels back. Dhool will confirm it "
+                      "over the next few clear days.", cleaned_on=str(last_clean.date()))
+
+    # 4. Near this roof's normal.
     if loss < OK_LOSS:
         return result("OK", "ok", "high",
                       f"Your roof is producing what it should: within {max(loss, 0.01):.0%} of its normal.", loss=loss)
 
-    # 4. Haze: bad air, and the area fell together in the last few days.
+    # 5. Haze: bad air, and the area fell together in the last few days.
     if pm25 is not None and len(valid) >= 10:
         pm_now = float(pm25.tail(3).mean())
         if pm_now >= config.HAZE_PM25:
@@ -136,16 +226,16 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
                     "Washing won't help, so save the water.",
                     loss=loss, pm25=round(pm_now), area_drop_pct=round(100 * (1 - fell), 1))
 
-    # 5. Dust: a steady decline since the panels were last cleaned by rain or by hand.
-    rained = rain.reindex(ratio.index).fillna(0) >= config.CLEAN_RAIN_MM
-    washed = (step >= WASH_JUMP) & (sharp == sharp.rolling(15, center=True, min_periods=1).max())
-    if area_step is not None:
-        washed &= ~(area_step >= WASH_JUMP)  # the whole area jumping up is haze lifting, not a wash
-    cleaned = rained | washed
-    since = (ratio[cleaned[cleaned].index[-1]:] if cleaned.any() else ratio).dropna()
-    if len(since) >= 5:
+    # 6. The homeowner washed the panels and output stayed down: whatever this is, it is not dust.
+    if check and check["type"] == "wash" and check["status"] == "not_recovered":
+        return result(
+            "INSPECT", "not_dust", "medium",
+            f"You washed the panels on {pd.Timestamp(check['date']):%-d %b}, but output is still about {loss:.0%} below "
+            "this roof's normal. Dust was not the cause, so have the system inspected.", loss=loss)
+
+    # 7. Dust: a steady decline since the panels were last cleaned by rain or by hand.
+    if len(since) >= MIN_TREND_DAYS:
         days = int((since.index[-1] - since.index[0]).days)
-        rate = -float(np.polyfit((since.index - since.index[0]).days, since.to_numpy(), 1)[0]) / baseline
         if rate >= MIN_DUST_RATE:
             evidence = {"rate_pct_per_day": round(100 * rate, 2), "days_since_clean": days}
             if any(mm >= config.CLEAN_RAIN_MM for mm in rain_forecast[:RAIN_SOON_DAYS]):
@@ -161,7 +251,8 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None):
                 f"{len(rain_forecast)} days, so washing will pay off.",
                 loss=loss, **evidence)
 
-    # 6. Something is off but the pattern is not clear. Say so, and don't send anyone up to the roof.
+    # 8. Something is off but the pattern is not clear. Say so, and don't send anyone up to the roof.
     return result("WAIT", "unclear", "low",
                   f"Output is about {loss:.0%} below this roof's normal, but the pattern is not clear yet. "
-                  "Dhool will check again as more days come in.", loss=loss)
+                  "Dhool will check again as more days come in.", loss=loss,
+                  rate_pct_per_day=round(100 * rate, 2), days_measured=len(since))

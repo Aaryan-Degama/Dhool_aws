@@ -127,3 +127,60 @@ def test_unclear_loss_defaults_to_wait():
     factor[40:] = 0.93  # a small lasting loss: too small to call a fault, no slope to call dust
     v = verdict(home(factor), NO_RAIN, DRY_WEEK)
     assert (v["verdict"], v["cause"], v["confidence"]) == ("WAIT", "unclear", "low")
+
+
+def test_today_is_measured_along_the_trend_not_three_days_ago():
+    """24 days of dust at 0.3% a day is 7.2% today, about 6.3% against a normal that itself carries a few
+    days of dust. A week's median alone describes three days ago and would read 5.4%."""
+    rains = [0, 32, 64, 95]
+    since_rain = np.array([d - max(r for r in rains if r <= d) for d in range(120)])
+    rain = NO_RAIN.copy()
+    rain.iloc[rains] = 20.0
+    v = verdict(home(1 - 0.003 * since_rain), rain, DRY_WEEK)
+    assert (v["verdict"], v["cause"]) == ("CLEAN", "dust") and 5.8 <= v["loss_pct"] <= 7.5
+
+
+def test_rain_yesterday_is_ok_until_clear_days_confirm_it():
+    v = verdict(home(dust(0.003, reset_day=119)), rain_on(119), DRY_WEEK)  # 12% of dust until the last day's rain
+    assert (v["verdict"], v["confidence"], v["evidence"]) == ("OK", "medium", {"cleaned_on": str(DAYS[119].date())})
+
+
+def test_a_fault_is_found_even_when_rain_lifts_the_whole_area_that_week():
+    lifted = dust(0.003, reset_day=90)  # everyone's dust is rinsed off on day 90...
+    neighbours = pd.DataFrame({f"n{i}": home(lifted, seed=10 + i).eval("actual / expected") for i in range(6)})
+    v = verdict(home(lifted * fault_from(90)), rain_on(90), DRY_WEEK, neighbours=neighbours)  # ...the day a string dies
+    assert (v["verdict"], v["cause"]) == ("INSPECT", "fault")
+
+
+def test_a_noisy_healthy_roof_alone_is_not_sent_to_the_vendor():
+    """Real roofs scatter 3 to 8% a day around the physics, with whole weeks the weather data gets wrong."""
+    rng = np.random.default_rng(3)
+    factor = rng.normal(1.0, 0.05, 120) * np.repeat(rng.normal(1.0, 0.04, 18), 7)[:120]
+    factor[[60, 75, 97, 110]] *= 0.6  # clouds the forecast missed, not inverter trips
+    assert verdict(home(factor), NO_RAIN, DRY_WEEK)["verdict"] != "INSPECT"
+
+
+WASH = [{"date": str(DAYS[100].date()), "type": "wash"}]
+
+
+def test_a_wash_that_worked_is_verified():
+    v = verdict(home(dust(0.004, reset_day=100)[:110], days=DAYS[:110]), NO_RAIN[:110], DRY_WEEK, actions=WASH)
+    check = v["check"]
+    assert (check["status"], check["type"], check["date"]) == ("verified", "wash", WASH[0]["date"])
+    assert check["predicted_pct"] == pytest.approx(60, abs=6) and check["observed_pct"] == pytest.approx(58, abs=6)
+    assert v["verdict"] == "OK"
+
+
+def test_a_wash_is_waiting_until_three_clear_days_follow():
+    v = verdict(home(dust(0.004, reset_day=100)[:102], days=DAYS[:102]), NO_RAIN[:102], DRY_WEEK, actions=WASH)
+    assert (v["check"]["status"], v["check"]["observed_pct"], v["verdict"]) == ("waiting", None, "OK")
+
+
+def test_a_wash_that_changed_nothing_means_it_was_not_dust():
+    factor = np.linspace(1.0, 0.85, 120)  # a slow slide that washing does not touch
+    v = verdict(home(factor), NO_RAIN, DRY_WEEK, actions=WASH)
+    assert (v["verdict"], v["cause"], v["check"]["status"]) == ("INSPECT", "not_dust", "not_recovered")
+
+
+def test_no_reported_action_means_no_check():
+    assert verdict(home(np.ones(120)), NO_RAIN, DRY_WEEK)["check"] is None
