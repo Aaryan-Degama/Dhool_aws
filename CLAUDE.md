@@ -62,17 +62,17 @@ _Code lives in the `Dhool_aws` repo._
 
 ```
 template.yaml              SAM: user pool, HTTP API + JWT authorizer, table, bucket, functions, nightly schedule
-backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, connectors, authz, config)
+backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, analyse, connectors, authz, config; evaluate and realcheck score the rules)
 backend/handlers/          thin I/O wrappers: api, analysis (pvlib container, nightly), mock_inverter (demo inverter cloud)
 vision/                    the screenshot reader: Qwen3-VL-2B on CPU through llama.cpp, a Lambda container (weights in vision/models/, not in git)
 backend/tests/             pytest
 messages/                  the vendor-reply reader: Laya fine-tuned on vendor-replies.jsonl, a Lambda container (weights in messages/models/, not in git)
-web/                       React + Vite PWA, deployed by Amplify Hosting from `main`
-.github/workflows/ci.yml   pytest + sam validate on every push
+web/                       React + Vite PWA, deployed by Amplify Hosting from `main` (App.jsx; words.js headlines; check.jsx wash and visit check; plan.jsx wash cost and log)
+.github/workflows/ci.yml   pytest, the web test and the web build on every push
 ```
 
 ## Commands
-_Deploy commands are planned; confirm each one when that code exists._
+_All confirmed unless a line says otherwise._
 
 - Setup: `uv venv --python 3.12 .venv && uv pip install -p .venv -r backend/requirements-dev.txt`
 - Test: `.venv/bin/pytest`
@@ -117,3 +117,10 @@ If the model lives in a teammate's account: call it cross-account through a role
 - A model may read (screenshots), never decide. Whatever it reads is untrusted: the API drops values that cannot be true for the roof, and the homeowner confirms or corrects every number before it is saved. Ask the reader narrow questions; a broad "list everything" made it invent rows.
 - Deployment-specific values (tariff, thresholds, default tilt and azimuth, region) live in `config.py`.
 - Serverless and scale-to-zero only.
+- **Washing is a money decision, in one place.** `wash_plan()` in `verdict.py` says CLEAN only when what the dust costs before the next forecast rain or dust storm is more than one wash costs (the house's `wash_cost_rs`, ₹50 until the owner sets it). Do not add a second wash rule elsewhere; the reason text must show the rupees on both sides.
+- **Changing a verdict rule:** find the mechanism first (which estimate is wrong and why), not a threshold that scores better. Then run, in order: the tests, `dhool.evaluate` on seeds 0–2, `dhool.realcheck`, and `dhool.evaluate hidden` once. Report the hidden number as it comes in `CONTEXT.md`; never tune against it or keep the better of two runs.
+- **Thresholds that separate a fault from noise scale with the roof's own data** (how much its weekly level wanders). A fixed percentage tuned on the simulator raised INSPECT in 57% of months on real, healthy roofs.
+- The answer key in `evaluate.py` applies the same wash plan to the true dust, so the score measures detection, not the policy.
+- What the homeowner reports (a wash, a vendor visit) is an `ACTION#<date>` item, treated by the rules as a known cleaning or repair and checked before against after. The log (`GET /houses/{id}/history`) is built from the stored daily verdicts and these items; nothing else writes to it.
+- Verdict headlines are in `web/src/words.js` only; the card and the log both read them from there.
+- **Two sessions, one stack.** When another session is working in this checkout, work in your own `git worktree` on a branch, push the branch, and let the session that owns the checkout merge and deploy: a deploy from a second copy overwrites what the first has live.
