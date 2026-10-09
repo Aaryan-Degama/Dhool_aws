@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, confirmSignUp, signedIn, signIn, signOut, signUp } from "./api.js";
 import { API_URL, TARIFF_NOTE } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
@@ -186,6 +186,31 @@ function whyLine(v) {
 
 /** The first screen: the roof as a model, the weather around it, and what to do. */
 export function RoofTab({ house, verdict: v, go }) {
+  const scene = useRef(null);
+  // The scene stays where it first appears while everything after it slides over, like a weather app's
+  // backdrop. Sticky needs a "top": measure where the scene sits in the page when it is not stuck.
+  useLayoutEffect(() => {
+    const el = scene.current;
+    const pin = () => {
+      el.style.position = "static";
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.position = "";
+      el.style.top = `${top}px`;
+    };
+    pin();
+    window.addEventListener("resize", pin);
+    return () => window.removeEventListener("resize", pin);
+  }, []);
+  // Once the page moves, the background below the top 30% of the screen blurs in (see .veil).
+  useEffect(() => {
+    let frame = 0;
+    const root = document.documentElement.style;
+    const update = () => { frame = 0; root.setProperty("--scrolled", Math.min(1, window.scrollY / 160).toFixed(3)); };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); root.removeProperty("--scrolled"); };
+  }, []);
   const known = v.cause !== "no_data";
   const running = Math.max(0, Math.round(100 - v.loss_pct));
   const week = v.forecast || [];
@@ -210,7 +235,7 @@ export function RoofTab({ house, verdict: v, go }) {
         )}
       </header>
 
-      <div className="hero"><PanelModel verdict={v} /></div>
+      <div className="hero" ref={scene}><PanelModel verdict={v} /></div>
 
       <dl className="strip card">
         <div>
@@ -264,6 +289,7 @@ export function RoofTab({ house, verdict: v, go }) {
           <span>{whyLine(v)}</span>
         </button>
       </div>
+      <div className="veil" aria-hidden="true" />
     </article>
   );
 }
@@ -306,21 +332,37 @@ function AddData({ house, onSent }) {
   const base = `/houses/${house.house_id}`;
   const [key, setKey] = useState("");
   const [reading, setReading] = useState({ date: today, kwh: "" });
-  const [shot, setShot] = useState(null); // null, { readings, app } once read, or { failed: true }
+  const [shot, setShot] = useState(null); // null, { reading: true }, { rows } once read, or { failed: true }
   const [state, run] = useAction();
+  const here = useRef(true);
+  useEffect(() => () => { here.current = false; }, []);
   const send = (path, body) => (e) => { e?.preventDefault(); run(async () => { await api(base + path, body()); onSent(); }); };
 
   const upload = (file) => run(async () => {
-    setShot(null);
-    const slot = await api(`${base}/screenshots`, { content_type: file.type });
-    const form = new FormData();
-    Object.entries(slot.fields).forEach(([name, value]) => form.append(name, value));
-    form.append("file", file);
-    const sent = await fetch(slot.url, { method: "POST", body: form });
-    if (!sent.ok) throw new Error("The upload did not go through. Check the image is under 5 MB, then try again.");
-    const result = await api(`${base}/screenshots/read`, { key: slot.key });
-    setShot(result.ok ? result : { failed: true });
+    setShot({ reading: true });
+    try {
+      const slot = await api(`${base}/screenshots`, { content_type: file.type });
+      const form = new FormData();
+      Object.entries(slot.fields).forEach(([name, value]) => form.append(name, value));
+      form.append("file", file);
+      const sent = await fetch(slot.url, { method: "POST", body: form });
+      if (!sent.ok) throw new Error("The upload did not go through. Check the image is under 5 MB, then try again.");
+      // A model reads the picture in the background, which takes a minute or so: ask until it has finished.
+      const { shot_id } = await api(`${base}/screenshots/read`, { key: slot.key });
+      for (let asked = 0; asked < 150 && here.current; asked++) {
+        await new Promise((done) => setTimeout(done, 4000));
+        const result = await api(`${base}/screenshots/${shot_id}`);
+        if (result.status === "read") return setShot({ rows: result.readings.map((r) => ({ date: r.date, kwh: String(r.kwh) })) });
+        if (result.status === "unreadable") break;
+      }
+      setShot({ failed: true });
+    } catch (e) {
+      setShot(null);
+      throw e;
+    }
   });
+  const setRow = (date, kwh) => setShot({ rows: shot.rows.map((r) => (r.date === date ? { ...r, kwh } : r)) });
+  const kept = () => shot.rows.filter((r) => r.kwh.trim() !== "").map((r) => ({ date: r.date, kwh: Number(r.kwh) }));
   const demoApp = <a href={`${API_URL}/mock/app`} target="_blank" rel="noreferrer">demo inverter app</a>;
 
   return (
@@ -330,29 +372,48 @@ function AddData({ house, onSent }) {
       <div className="card stack">
         <h2>Upload a screenshot</h2>
         <p className="note">
-          A screenshot of your inverter app's daily generation screen. This demo can read images saved from
-          the {demoApp}; for any other screenshot, type the number in below.
+          A screenshot of your inverter app showing the units made each day: today's figure, or a list of days.
+          Dhool reads the numbers printed on it; it does not guess from charts. Try it with a screen saved
+          from the {demoApp}.
         </p>
-        {shot?.readings ? (
+        {shot?.rows ? (
           <>
-            <p>Dhool read {shot.readings.length} days from {shot.app || "your screenshot"}. Check them before saving.</p>
+            <p>
+              Dhool read {shot.rows.length === 1 ? "1 day" : `${shot.rows.length} days`} from your screenshot. Check
+              them against it. Correct any number that is wrong, or clear a box to leave that day out.
+            </p>
             <ul className="read-list" aria-label="Readings found in the screenshot">
-              {[...shot.readings].reverse().map((r) => <li key={r.date}><span>{day(r.date)}</span><strong>{r.kwh} units</strong></li>)}
+              {[...shot.rows].reverse().map((r) => (
+                <li key={r.date}>
+                  <label htmlFor={`read-${r.date}`}>{day(r.date)}</label>
+                  <input id={`read-${r.date}`} inputMode="decimal" value={r.kwh} onChange={(e) => setRow(r.date, e.target.value)} />
+                  <span>units</span>
+                </li>
+              ))}
             </ul>
-            <button className="primary" disabled={state.busy}
-                    onClick={send("/readings", () => ({ readings: shot.readings, source: "screenshot" }))}>
+            <button className="primary" disabled={state.busy || !kept().length}
+                    onClick={send("/readings", () => ({ readings: kept(), source: "screenshot" }))}>
               These are right. Save them
             </button>
             <button className="link" onClick={() => setShot(null)}>Not right? Choose another image</button>
           </>
+        ) : shot?.reading ? (
+          <p className="working-note" role="status">
+            <span className="spinner" aria-hidden="true" />
+            Reading your screenshot. This takes a minute or two; keep this page open.
+          </p>
         ) : (
           <label className="secondary file">
-            {state.busy ? "Reading…" : "Choose a screenshot"}
-            <input type="file" accept="image/png,image/jpeg,image/webp" disabled={state.busy}
+            Choose a screenshot
+            <input type="file" accept="image/png,image/jpeg" disabled={state.busy}
                    onChange={(e) => { const file = e.target.files[0]; e.target.value = ""; if (file) upload(file); }} />
           </label>
         )}
-        {shot?.failed && <p className="error" role="alert">Dhool could not read that image. Type the number in below.</p>}
+        {shot?.failed && (
+          <p className="error" role="alert">
+            Dhool could not read daily units from that image. Try a screen where the number is printed, or type it in below.
+          </p>
+        )}
       </div>
 
       <form className="card" onSubmit={send("/inverter", () => ({ api_key: key.trim() }))}>

@@ -1,4 +1,5 @@
 """API handler against an in-memory DynamoDB, with events shaped like API Gateway's (HTTP API v2 + JWT authorizer)."""
+import datetime
 import json
 import time
 
@@ -33,12 +34,12 @@ def table(monkeypatch):
         yield api.table()
 
 
-def call(sub, route, body=None, house_id=None):
+def call(sub, route, body=None, house_id=None, shot_id=None):
     event = {
         "routeKey": route,
         "requestContext": {"domainName": "api.invalid",
                            "authorizer": {"jwt": {"claims": {"sub": sub, "token_use": "access"}}}},
-        "pathParameters": {"houseId": house_id} if house_id else None,
+        "pathParameters": {"houseId": house_id, "shotId": shot_id} if house_id else None,
         "body": json.dumps(body) if body is not None else None,
     }
     response = api.handler(event, None)
@@ -181,24 +182,52 @@ def test_upload_slot_is_scoped_to_the_house_and_limited(house, monkeypatch):
     monkeypatch.setenv("UPLOADS", "dhool-uploads-test")
     assert call(STRANGER, "POST /houses/{houseId}/screenshots", {"content_type": "image/png"}, house)[0] == 403
     assert call(FATHER, "POST /houses/{houseId}/screenshots", {"content_type": "application/pdf"}, house)[0] == 400
+    assert call(FATHER, "POST /houses/{houseId}/screenshots", {"content_type": "image/webp"}, house)[0] == 400
     status, slot = call(FATHER, "POST /houses/{houseId}/screenshots", {"content_type": "image/png"}, house)
-    assert status == 201 and slot["key"].startswith(f"houses/{house}/") and slot["key"].endswith(".png")
+    assert status == 201 and api.SHOT_KEY.fullmatch(slot["key"]).group(1) == house and slot["key"].endswith(".png")
     assert slot["url"] == "https://dhool-uploads-test.s3.ap-south-1.amazonaws.com/"
     assert slot["fields"]["key"] == slot["key"] and slot["fields"]["Content-Type"] == "image/png"
 
 
-def test_reading_a_screenshot_drops_what_cannot_be_true_and_saves_nothing(house, monkeypatch):
-    seen = []
-    result = {"ok": True, "app": "Inverter Cloud (demo)", "readings": [
-        {"date": "2026-09-29", "kwh": 12.4}, {"date": "2026-09-28", "kwh": 11.9},
-        {"date": "2026-09-27", "kwh": 500}, {"date": "not a date", "kwh": 3}, "junk", {"date": "2999-01-01", "kwh": 3}]}
-    monkeypatch.setattr(api, "_read_image", lambda key: seen.append(key) or result)
-    assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": "houses/someone-else/x.png"}, house)[0] == 400
-    assert call(STRANGER, "POST /houses/{houseId}/screenshots/read", {"key": f"houses/{house}/x.png"}, house)[0] == 403
-    assert seen == []
-    assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": f"houses/{house}/x.png"}, house) == (200, {
-        "ok": True, "app": "Inverter Cloud (demo)",
-        "readings": [{"date": "2026-09-28", "kwh": 11.9}, {"date": "2026-09-29", "kwh": 12.4}]})
-    assert call(FATHER, "GET /houses/{houseId}/readings", house_id=house)[1]["readings"] == []
-    monkeypatch.setattr(api, "_read_image", lambda key: {"ok": False})
-    assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": f"houses/{house}/x.png"}, house) == (200, {"ok": False})
+def test_reading_a_screenshot_runs_in_the_background_and_trusts_nothing(house, table, monkeypatch):
+    started = []
+    monkeypatch.setattr(api, "_start_reading", lambda *args: started.append(args))
+    key = f"houses/{house}/{'ab' * 16}.png"
+    shot = "ab" * 16
+    # only this house's own uploads can be read, and only by its members
+    for bad in ("houses/aaaaaaaaaaaa/" + "ab" * 16 + ".png", f"houses/{house}/../x.png", f"houses/{house}/short.png", 7, None):
+        assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": bad}, house)[0] == 400
+    assert call(STRANGER, "POST /houses/{houseId}/screenshots/read", {"key": key}, house)[0] == 403
+    assert started == []
+
+    assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": key}, house) == (202, {"shot_id": shot, "status": "reading"})
+    assert started == [(house, shot, key)]
+    result = lambda who=FATHER: call(who, "GET /houses/{houseId}/screenshots/{shotId}", house_id=house, shot_id=shot)
+    assert result() == (200, {"status": "reading"})
+    assert result(STRANGER)[0] == 403
+    assert call(FATHER, "GET /houses/{houseId}/screenshots/{shotId}", house_id=house, shot_id="cd" * 16)[0] == 404
+
+    # the reader (a model) writes what it thinks it saw; the API keeps only what can be true for this 3 kW roof
+    said = {"reader": "test", "readings": [
+        {"date": "2026-09-29", "kwh": 12.4}, {"date": "2026-09-28", "kwh": 11.9}, {"date": "TODAY", "kwh": 9.5},
+        {"date": "2026-09-27", "kwh": 372.1}, {"date": "not a date", "kwh": 3}, "junk", {"date": "2999-01-01", "kwh": 3}]}
+    uploaded = int(datetime.datetime(2026, 10, 1, 12, tzinfo=datetime.timezone.utc).timestamp())
+    table.update_item(Key={"pk": f"HOUSE#{house}", "sk": f"SHOT#{shot}"},
+                      UpdateExpression="SET #s = :s, #r = :r, seconds = :t, #a = :a",
+                      ExpressionAttributeNames={"#s": "status", "#r": "result", "#a": "at"},
+                      ExpressionAttributeValues={":s": "read", ":r": json.dumps(said), ":t": 48, ":a": uploaded})
+    join(MOTHER, house)
+    assert result(MOTHER) == (200, {"status": "read", "seconds": 48, "readings": [
+        {"date": "2026-09-28", "kwh": 11.9}, {"date": "2026-09-29", "kwh": 12.4}, {"date": "2026-10-01", "kwh": 9.5}]})
+    assert call(FATHER, "GET /houses/{houseId}/readings", house_id=house)[1]["readings"] == []  # nothing saved yet
+
+
+@pytest.mark.parametrize("item", [
+    {"status": "failed", "result": json.dumps({"readings": [], "error": "boom"})},
+    {"status": "read", "result": json.dumps({"readings": []})},
+    {"status": "read", "result": json.dumps({"readings": [{"date": "2026-09-27", "kwh": 372.1}]})},
+    {"status": "reading", "at": 1},  # started long ago and never finished
+])
+def test_a_screenshot_that_could_not_be_read_says_so(house, table, item):
+    table.put_item(Item={"pk": f"HOUSE#{house}", "sk": "SHOT#" + "ab" * 16, "at": int(time.time()), **item})
+    assert call(FATHER, "GET /houses/{houseId}/screenshots/{shotId}", house_id=house, shot_id="ab" * 16) == (200, {"status": "unreadable"})

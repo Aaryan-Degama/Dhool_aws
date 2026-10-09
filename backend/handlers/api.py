@@ -7,6 +7,7 @@ import base64
 import datetime
 import json
 import os
+import re
 import secrets
 import time
 import uuid
@@ -25,7 +26,10 @@ INVITE_TTL_S = 7 * 24 * 3600
 MAX_KWH_PER_KW = 12  # no roof makes more than this per installed kW in a day
 MAX_READINGS = 120   # in one request: a screenshot's history chart, not a bulk import
 MAX_UPLOAD_BYTES = 5_000_000
-IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg"}
+SHOT_KEY = re.compile(r"houses/([0-9a-f]{12})/([0-9a-f]{32})\.(?:png|jpg)")
+SHOT_TTL_S = 24 * 3600         # a screenshot's reading result is kept for a day
+READING_TIMEOUT_S = 15 * 60    # after this long with no result, the reader is taken to have failed
 
 _table = None
 
@@ -194,7 +198,7 @@ def start_upload(sub, event):
     authorize(sub, house_id, "write")
     content_type = _body(event).get("content_type")
     if content_type not in IMAGE_TYPES:
-        raise HttpError(400, "The screenshot must be a PNG, JPEG or WebP image")
+        raise HttpError(400, "The screenshot must be a PNG or JPEG image")
     key = f"houses/{house_id}/{uuid.uuid4().hex}.{IMAGE_TYPES[content_type]}"
     region = os.environ["AWS_REGION"]
     s3 = boto3.client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
@@ -205,32 +209,50 @@ def start_upload(sub, event):
     return 201, {"key": key, "url": post["url"], "fields": post["fields"]}
 
 
-def _read_image(key):
-    """Ask the vision service what the screenshot says. Today that is the dummy reader (handlers/vision_dummy.py)."""
-    response = boto3.client("lambda").invoke(FunctionName=os.environ["VISION_FUNCTION"], Payload=json.dumps({"key": key}))
-    result = json.loads(response["Payload"].read())
-    return result if isinstance(result, dict) and not response.get("FunctionError") else {}
+def _start_reading(house_id, shot_id, key):
+    """Hand the screenshot to the reader (the vision model, in its own Lambda). It works in the background."""
+    boto3.client("lambda").invoke(FunctionName=os.environ["VISION_FUNCTION"], InvocationType="Event",
+                                  Payload=json.dumps({"house_id": house_id, "shot_id": shot_id, "key": key}))
 
 
 def read_screenshot(sub, event):
-    """What the reader found in an uploaded screenshot, for the homeowner to confirm. Nothing is saved here."""
+    """Start reading an uploaded screenshot. Reading takes about a minute, so the app asks for the result after."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
     key = _body(event).get("key")
-    if not isinstance(key, str) or not key.startswith(f"houses/{house_id}/"):
+    match = SHOT_KEY.fullmatch(key) if isinstance(key, str) else None
+    if not match or match.group(1) != house_id:
         raise HttpError(400, "Upload the screenshot first")
-    result = _read_image(key)
+    shot_id, now = match.group(2), int(time.time())
+    table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"SHOT#{shot_id}", "status": "reading", "key": key,
+                           "by": sub, "at": now, "expiresAt": now + SHOT_TTL_S})
+    _start_reading(house_id, shot_id, key)
+    return 202, {"shot_id": shot_id, "status": "reading"}
+
+
+def screenshot_result(sub, event):
+    """What the reader found in a screenshot, for the homeowner to confirm or correct. Nothing is saved here."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "read")
+    item = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"SHOT#{event['pathParameters']['shotId']}"}).get("Item")
+    if not item:
+        raise HttpError(404, "No such screenshot")
+    if item["status"] == "reading":  # still working, unless it has been far too long
+        return 200, {"status": "reading" if time.time() - int(item["at"]) < READING_TIMEOUT_S else "unreadable"}
     limit = _house_meta(house_id)["kw"] * MAX_KWH_PER_KW
+    uploaded = datetime.datetime.fromtimestamp(int(item["at"]), ZoneInfo(config.TZ)).date()
     readings = {}
-    for item in (result.get("readings") or [])[:MAX_READINGS] if result.get("ok") else []:
-        try:  # whatever read the picture is not trusted: drop anything that cannot be true for this roof
-            date, kwh = _reading(item, limit)
+    for entry in (json.loads(item.get("result") or "{}").get("readings") or [])[:MAX_READINGS]:
+        if isinstance(entry, dict) and entry.get("date") == "TODAY":  # a screen with no date on it
+            entry = {**entry, "date": str(uploaded)}
+        try:  # a model read the picture and it is not trusted: drop anything that cannot be true for this roof
+            date, kwh = _reading(entry, limit)
         except HttpError:
             continue
         readings[str(date)] = kwh
     if not readings:
-        return 200, {"ok": False}
-    return 200, {"ok": True, "app": str(result.get("app", ""))[:60],
+        return 200, {"status": "unreadable"}
+    return 200, {"status": "read", "seconds": item.get("seconds"),
                  "readings": [{"date": d, "kwh": readings[d]} for d in sorted(readings)]}
 
 
@@ -294,6 +316,7 @@ ROUTES = {
     "POST /houses/{houseId}/inverter": connect_inverter,
     "POST /houses/{houseId}/screenshots": start_upload,
     "POST /houses/{houseId}/screenshots/read": read_screenshot,
+    "GET /houses/{houseId}/screenshots/{shotId}": screenshot_result,
     "GET /houses/{houseId}/verdict": get_verdict,
 }
 

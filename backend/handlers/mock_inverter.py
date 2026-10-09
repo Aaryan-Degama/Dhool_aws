@@ -3,8 +3,9 @@
 It has the three things a real brand has, all serving the simulated neighbourhood
 (data/neighbourhood.json, written by `python -m dhool.sim`):
 
-- an owner's app page   GET /mock/app                    today's units, a 30-day chart, the owner's API
-                                                         key, and a button that saves the screen as an image
+- an owner's app page   GET /mock/app                    two screens (today with a 30-day chart, and a
+                                                         daily list), the owner's API key, and a button that
+                                                         saves the screen as an image
 - a keyed API           GET /mock/v1/plants              one API key sees one plant
                         GET /mock/v1/plants/{id}/daily
 - a fleet feed          GET /mock/fleet/daily            every plant, for the neighbour comparison
@@ -56,7 +57,8 @@ def _app_page(query):
     plant_id = query.get("plant") if query.get("plant") in homes() else next(iter(homes()))
     home = homes()[plant_id]
     data = {"app": "Inverter Cloud (demo)", "plant": plant_id, "kw": home["meta"]["kw"], "key": api_key(plant_id),
-            "plants": list(homes()), "readings": _daily(home)[-30:]}
+            "plants": list(homes()), "readings": _daily(home)[-30:],
+            "view": "list" if query.get("view") == "list" else "today", "older": query.get("page") == "2"}
     page = (HERE / "mock_app.html").read_text().replace("__DATA__", json.dumps(data).replace("<", "\\u003c"))
     return {"statusCode": 200, "headers": {"content-type": "text/html; charset=utf-8"}, "body": page}
 

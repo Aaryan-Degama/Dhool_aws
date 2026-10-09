@@ -18,6 +18,9 @@
   input { font-family: ui-monospace, monospace; font-size: .9rem; background: #f4f6f8; }
   #screen svg { width: 100%; height: auto; display: block; border-radius: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
   small { color: #5a6876; }
+  nav { display: flex; gap: .5rem; flex-wrap: wrap; }
+  nav a { flex: 1; text-align: center; padding: .6rem .5rem; border-radius: 10px; border: 1.5px solid #0f8a5f; color: #0f8a5f; font-weight: 700; text-decoration: none; }
+  nav a[aria-current] { background: #0f8a5f; color: #fff; }
 </style>
 </head>
 <body>
@@ -26,6 +29,8 @@
   <form class="box" method="get">
     <label for="plant">Signed in as the owner of</label>
     <select id="plant" name="plant" onchange="this.form.submit()"></select>
+    <input type="hidden" name="view" id="view">
+    <nav id="tabs"></nav>
   </form>
   <div id="screen"></div>
   <div class="box">
@@ -46,8 +51,33 @@ const days = DATA.readings, last = days[days.length - 1];
 const fmt = (iso, opts) => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", opts);
 const total = days.reduce((sum, d) => sum + d.kwh, 0);
 
+// The fifteen days printed on the list screen: the newest fifteen, or the fifteen before them.
+const listed = () => (DATA.older ? days.slice(0, 15) : days.slice(-15)).slice().reverse();
+
+function listScreen() {
+  const rows = listed().map((d, i) => {
+    const y = 470 + i * 88;
+    return `<line x1="100" x2="980" y1="${y - 58}" y2="${y - 58}" stroke="#e3e8ed" stroke-width="2"/>
+      <text x="100" y="${y}" font-size="42" fill="#17212b">${d.date}</text>
+      <text x="980" y="${y}" font-size="42" font-weight="700" fill="#17212b" text-anchor="end">${d.kwh.toFixed(2)}</text>`;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920" font-family="system-ui, sans-serif">
+    <rect width="1080" height="1920" fill="#f4f6f8"/>
+    <rect width="1080" height="210" fill="#0f8a5f"/>
+    <text x="60" y="100" font-size="54" font-weight="700" fill="#fff">Inverter Cloud</text>
+    <text x="60" y="160" font-size="34" fill="#d3f0e4">${DATA.plant} · ${DATA.kw} kW system · demo</text>
+    <rect x="50" y="260" width="980" height="1540" rx="34" fill="#fff"/>
+    <text x="100" y="335" font-size="38" font-weight="700" fill="#17212b">Daily generation</text>
+    <text x="100" y="392" font-size="32" fill="#5a6876">Date</text>
+    <text x="980" y="392" font-size="32" fill="#5a6876" text-anchor="end">kWh</text>
+    ${rows}
+    <text x="540" y="1860" font-size="30" fill="#8a96a3" text-anchor="middle">Simulated data for the Dhool demo</text>
+  </svg>`;
+}
+
 // The app screen is one SVG, so what is shown is exactly what gets saved.
 function screen() {
+  if (DATA.view === "list") return listScreen();
   const max = Math.max(...days.map((d) => d.kwh)) * 1.1 || 1;
   const x0 = 90, w = 900, base = 1560, h = 560, bw = w / days.length;
   const bars = days.map((d, i) => {
@@ -76,8 +106,9 @@ function screen() {
   </svg>`;
 }
 
-// PNG files can carry text. The demo embeds the day's numbers in the saved image, which is what Dhool's
-// stand-in screenshot reader reads until the real vision model replaces it.
+// PNG files can carry text. The demo embeds, in each saved image, the numbers that are printed on that
+// screen. Dhool's reader never sees this (it re-encodes the picture first); it is the answer key used to
+// measure how accurately the reader reads the picture.
 const CRC = Array.from({ length: 256 }, (_, n) => { for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; });
 const crc32 = (bytes) => { let c = ~0; for (const b of bytes) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return ~c >>> 0; };
 function withText(png, keyword, text) {
@@ -99,15 +130,20 @@ async function save() {
   canvas.getContext("2d").drawImage(image, 0, 0);
   const blob = await new Promise((done) => canvas.toBlob(done, "image/png"));
   const png = withText(new Uint8Array(await blob.arrayBuffer()), "dhool-demo",
-                       JSON.stringify({ app: DATA.app, plant: DATA.plant, readings: days }));
+                       JSON.stringify({ app: DATA.app, plant: DATA.plant, view: DATA.view, readings: DATA.view === "list" ? listed() : [{ date: last.date, kwh: Number(last.kwh.toFixed(1)) }] }));
   const link = Object.assign(document.createElement("a"), {
-    href: URL.createObjectURL(new Blob([png], { type: "image/png" })), download: `inverter-cloud-${DATA.plant}-${last.date}.png` });
+    href: URL.createObjectURL(new Blob([png], { type: "image/png" })), download: `inverter-cloud-${DATA.plant}-${DATA.view}${DATA.older ? "-older" : ""}-${last.date}.png` });
   link.click();
 }
 
 document.getElementById("screen").innerHTML = screen();
 document.getElementById("key").value = DATA.key;
 document.getElementById("plant").innerHTML = DATA.plants.map((p) => `<option${p === DATA.plant ? " selected" : ""}>${p}</option>`).join("");
+document.getElementById("view").value = DATA.view;
+const link = (label, query, current) => `<a href="?plant=${DATA.plant}&${query}"${current ? ' aria-current="page"' : ""}>${label}</a>`;
+document.getElementById("tabs").innerHTML = link("Today", "view=today", DATA.view === "today")
+  + link("Daily list", "view=list", DATA.view === "list" && !DATA.older)
+  + (DATA.view === "list" ? link("Older days", "view=list&page=2", DATA.older) : "");
 document.getElementById("save").onclick = save;
 document.getElementById("copy").onclick = (e) => navigator.clipboard.writeText(DATA.key).then(() => { e.target.textContent = "Copied"; });
 </script>

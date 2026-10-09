@@ -1,6 +1,6 @@
 # DESIGN.md — how Dhool looks and speaks
 
-Set on Oct 8, reworked on Oct 8 into a premium, car-app style at the owner's request (reference: the
+Set on Oct 8, reworked on Oct 9 into a premium, car-app style at the owner's request (reference: the
 Tesla app). Tokens live in `web/src/styles.css`; change them there, not in components.
 
 ## Idea
@@ -37,6 +37,17 @@ lower rail. Everything else is graphite and quiet.
 
 A verdict is never colour alone: the headline says what to do and the model shows why.
 Surfaces use a 22px radius; things you press or type into use 14px.
+
+## Scrolling: a pinned scene under frosted glass
+Modelled on the phone weather apps the owner showed. On the Roof tab the scene (terrace, city, panels) is
+pinned where it first appears, and everything after it slides over it. Once the page moves, a veil blurs
+the background below the top 30% of the screen; the top stays sharp, so the sky, sun or moon and the
+skyline remain clear. The veil fades in over the first 160 px of scrolling.
+
+Surfaces are frosted glass that mostly shows the sky through: a light white lift over a thin tint of the
+sky's own dark colour (`--glass`), 24 px blur. On glass this light, the verdict colours are too weak as
+text, so headings and figures stay white and the verdict's colour lives in the bolt, the meter and the
+scene. Text sitting straight on the sky has a soft shadow.
 
 ## The sky (`web/src/sky.js`, the "The sky" section of `styles.css`)
 The whole app sits under the weather over the roof. Until a home is loaded the phone's clock picks day or
@@ -86,11 +97,18 @@ bar, each with an icon and a word:
 | Roof | Home name and "running at N% of normal"; the roof model; a strip of four readings (today's weather, next rain, units possible today, date of the last reading); the verdict card (what to do, a glowing meter, money lost, how sure, the reason, the action); two tiles leading to Forecast and Why |
 | Forecast | The next 7 days: weather, likely against possible units |
 | Why | The reason, should-have-made against made, money lost, the 90-day chart |
-| Setup | Connect an inverter or type a reading, family code, sign out |
+| Setup | Upload a screenshot (the model reads it, then the homeowner checks and corrects every number before saving), connect an inverter with its API key, type a reading, family code, sign out |
 
 The meter and the percentage show output against **this roof's own normal** (100 minus the loss), not
 against the physics number, which no roof reaches.
 The bottom bar is hidden until a home has its first verdict.
+
+## Reading a screenshot
+Reading takes a minute or two (a small model on two CPU cores), so the upload screen says so and shows a
+spinner while it waits. What comes back is shown as a list of days with each number in an editable box:
+"Check them against it. Correct any number that is wrong, or clear a box to leave that day out." Nothing
+is saved until the homeowner presses "These are right. Save them". If nothing could be read, the screen
+says so plainly and points to typing the number in.
 
 ## Motion
 One sequence when a verdict arrives: the camera settles onto the roof, the rail lights up column by column,

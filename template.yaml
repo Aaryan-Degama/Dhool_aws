@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Dhool backend. Cognito sign-in, HTTP API, DynamoDB, screenshot uploads, pvlib analysis, demo inverter cloud and dummy screenshot reader.
+Description: Dhool backend. Cognito sign-in, HTTP API, DynamoDB, screenshot uploads read by a vision model, pvlib analysis, demo inverter cloud.
 
 Resources:
   UserPool:
@@ -77,6 +77,7 @@ Resources:
       Events:
         StartUpload: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/screenshots'}}
         ReadScreenshot: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/screenshots/read'}}
+        ScreenshotResult: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/screenshots/{shotId}'}}
         ConnectInverter: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/inverter'}}
         GetVerdict: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/verdict'}}
         Me: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: /me}}
@@ -124,21 +125,38 @@ Resources:
             AllowedMethods: [POST]
             AllowedHeaders: ['*']
 
-  # Reads an uploaded screenshot. Today: the dummy reader. The real vision model goes here, same contract.
+  # Reads an uploaded screenshot with a small vision model on CPU (Qwen3-VL-2B through llama.cpp).
+  # A container image: the weights are 1.5 GB. 3008 MB is the most this account's Lambda may have.
+  # It runs in the background, one screenshot per call, and writes what it read onto the screenshot's item.
   VisionFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: vision
     Properties:
-      CodeUri: backend/
-      Handler: handlers.vision_dummy.handler
-      Runtime: python3.12
-      Timeout: 20
-      MemorySize: 256
+      PackageType: Image
+      Timeout: 900
+      MemorySize: 3008
       Environment:
         Variables:
           UPLOADS: !Ref Uploads
+          TABLE: !Ref Table
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref Uploads
+        - DynamoDBWritePolicy:
+            TableName: !Ref Table
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0  # a failed read is reported once, not retried for another fifteen minutes
+      Events:
+        # Loading the 1.6 GB model into a fresh container takes about four minutes. A ping every five
+        # minutes keeps one container loaded, so a homeowner waits about a minute instead.
+        # ponytail: one warm container; use provisioned concurrency if several people upload at once.
+        KeepWarm:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Input: '{"warm": true}'
 
   # Stands in for an inverter brand: an owner's app page, a keyed API and a fleet feed, all serving the
   # simulated neighbourhood. Outside our sign-in on purpose, as a real brand's service would be.

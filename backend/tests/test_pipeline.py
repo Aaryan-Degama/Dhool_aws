@@ -1,18 +1,14 @@
-"""The demo inverter cloud, the dummy screenshot reader, and the analysis step. No network."""
+"""The demo inverter cloud and the analysis step that turns readings into a verdict. No network."""
 import json
-import struct
-import zlib
 
-import boto3
 import pandas as pd
 import pvlib
-from moto import mock_aws
 import pytest
 
 from dhool import config
 from dhool.analyse import analyse
 from dhool.expected import expected_daily_kwh
-from handlers import mock_inverter, vision_dummy
+from handlers import mock_inverter
 
 META = {"kw": 3, "lat": config.SIM_LAT, "lon": config.SIM_LON, "tilt": 20, "azimuth": 180}
 
@@ -41,31 +37,6 @@ def test_inverter_api_shows_one_plant_per_key_and_never_leaks_what_was_planted()
     page = mock("GET /mock/app", query={"plant": "home-05"})[1]
     assert mock_inverter.api_key("home-05") in page and "__DATA__" not in page
     assert not any(word in json.dumps(fleet) + body + page for word in ("fault", "soiling", "problem", "cause"))
-
-
-def png_with(text=None):
-    """The smallest PNG (header chunk and end chunk), optionally carrying the demo app's text chunk."""
-    def chunk(kind, body):
-        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
-    header = chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
-    extra = chunk(b"tEXt", b"dhool-demo\x00" + text.encode()) if text is not None else b""
-    return b"\x89PNG\r\n\x1a\n" + header + extra + chunk(b"IEND", b"")
-
-
-def test_dummy_reader_reads_demo_images_and_refuses_everything_else(monkeypatch):
-    for name, value in {"AWS_DEFAULT_REGION": "ap-south-1", "AWS_ACCESS_KEY_ID": "t", "AWS_SECRET_ACCESS_KEY": "t", "UPLOADS": "uploads-test"}.items():
-        monkeypatch.setenv(name, value)
-    payload = {"app": "Inverter Cloud (demo)", "plant": "home-05", "readings": [{"date": "2026-09-25", "kwh": 12.4}]}
-    with mock_aws():
-        s3 = boto3.client("s3")
-        s3.create_bucket(Bucket="uploads-test", CreateBucketConfiguration={"LocationConstraint": "ap-south-1"})
-        for key, body in {"demo.png": png_with(json.dumps(payload)), "plain.png": png_with(), "photo.jpg": b"\xff\xd8\xff\xe0 not a png",
-                          "broken.png": png_with("{not json")}.items():
-            s3.put_object(Bucket="uploads-test", Key=key, Body=body)
-        assert vision_dummy.handler({"key": "demo.png"}, None) == {
-            "ok": True, "reader": "dummy", "app": "Inverter Cloud (demo)", "readings": payload["readings"]}
-        for other in ("plain.png", "photo.jpg", "broken.png"):
-            assert vision_dummy.handler({"key": other}, None) == {"ok": False, "reader": "dummy"}
 
 
 def clear_weather(days):

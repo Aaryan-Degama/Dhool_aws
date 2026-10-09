@@ -1,0 +1,41 @@
+# CREDITS.md — what Dhool is built on
+
+Everything here is used under its own licence. Versions are the ones pinned or installed when this was
+written (3 Oct 2026).
+
+## Models and data
+
+| What | Used for | Licence |
+|---|---|---|
+| [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct), GGUF build by the Qwen team ([Qwen/Qwen3-VL-2B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct-GGUF), 4-bit `Q4_K_M` and `mmproj-Q8_0`, revision `52d6c8f`) | Reading the numbers off inverter-app screenshots | Apache-2.0 |
+| [Open-Meteo](https://open-meteo.com) weather, forecast and air-quality APIs | Sunlight, temperature, wind and rain for the physics; rain forecast; dust and PM2.5; the weather behind the app | Data under CC BY 4.0; free API for non-commercial use |
+
+## Code
+
+| What | Used for | Licence |
+|---|---|---|
+| [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server`, release `b11351`, built from source) | Running the vision model on CPU inside Lambda | MIT |
+| [pvlib](https://github.com/pvlib/pvlib-python) 0.16.1 | Solar position, sunlight on the panel, cell temperature, expected output | BSD-3-Clause |
+| pandas 3.0.6, NumPy 2.5.3 (with SciPy and h5py pulled in by pvlib) | Time series for the physics and the verdict rules | BSD-3-Clause |
+| boto3 | AWS calls from the Lambdas | Apache-2.0 |
+| React 19.3, React DOM 19.3 | The web app | MIT |
+| Vite 8.3, @vitejs/plugin-react 6.1 | Building the web app | MIT |
+| pytest 9.1, moto 5.2 | Tests (moto fakes DynamoDB and S3) | MIT, Apache-2.0 |
+| AWS SAM CLI | Building and deploying the backend | Apache-2.0 |
+
+## Fonts
+
+| What | Licence |
+|---|---|
+| [Anek Devanagari](https://fonts.google.com/specimen/Anek+Devanagari) (Ek Type), served by Google Fonts | SIL Open Font License 1.1 |
+
+## AI tools
+
+The hackathon rules ask for every AI coding tool to be listed.
+
+| Tool | What it did |
+|---|---|
+| Claude Code (Anthropic), with Claude Opus models | Wrote most of the code, tests and documentation under the team's direction; ran the deploys and the checks in a browser and the Android emulator |
+| Claude Code design skills (`frontend-design`, `ui-ux-pro-max`) | Design guidance for the web app's look |
+
+Local checks also used Playwright (Apache-2.0) to drive Chrome; it is not part of the repository.
