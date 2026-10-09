@@ -11,7 +11,7 @@ pick one label: `visit_scheduled`, `asking_details`, `refused`, `unclear`.
 **Base model:** [`convaiinnovations/laya`](https://huggingface.co/convaiinnovations/laya), `multilingual`
 subfolder (mmBERT-base, 322M parameters, Apache-2.0), revision `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851`.
 
-**Status:** v3 is deployed (3 Oct 2026) as `MessageFunction`, a Lambda container built from `messages/`, behind `POST /houses/{id}/vendor-reply`. The weights are in that container image in the account's ECR and on the owner's laptop, nowhere else.
+**Status:** v3.2 is deployed (3 Oct 2026; v3 for a few hours before it) as `MessageFunction`, a Lambda container built from `messages/`, behind `POST /houses/{id}/vendor-reply`. The weights are in that container image in the account's ECR and on the owner's laptop, nowhere else.
 
 ### Scores
 
@@ -196,23 +196,8 @@ agent.predict("Sir kal 11 baje aata hu", questions)["answers"]["reply"]["choice"
 
 Score one again: `.venv-laya/bin/python scripts/laya-tune.py eval messages/models/vendor-replies-v3`
 
-### Where the weights are
+### Where the weights are, and the risk
 
-**Every version is on GitHub** as an asset of one release on the `Dhool` repo (files this size cannot go
-in a normal push): https://github.com/Aaryan-Degama/Dhool_aws/releases/tag/laya-models (tag `laya-models`,
-pre-release). The release notes carry the score tables. It is as private as the repo and becomes public
-when the repo does.
-
-| Asset | Version | SHA-256 |
-|---|---|---|
-| `vendor-replies-v3.2-int8.tar.gz` | v3.2, int8 ONNX (the one chosen) | `cec4a720567f4d048c4319f9a39e91bfb987afda4b776a27fd5e6ed9edc99d7a` |
-| `vendor-replies-v3-onnx.tar.gz` | v3, float32 ONNX (the fallback) | `fbc3d113a3e1d8d9e932ea8e9ff43ce71eeff6642ad6b49fcd872afa544631c8` |
-| `vendor-replies-v3.tar.gz` | v3 / v3.1, float16 PyTorch (what the Lambda runs today) | `f09eba48ef4d116341d7dd34f9993c842974f6e97f0a65a9addf88c9099f02b4` |
-| `vendor-replies-v2.tar.gz` | v2 | `a57f8408c5e945798a5b9ec1772fb54a97792175582e19968ac230c16de51acc` |
-| `vendor-replies-v1.tar.gz` | v1 | `b3704b382bb006e8e2640c6e6da1f5dac5c0514f0179e635771d1253b9f7207b` |
-
-```
-gh release download laya-models -p "vendor-replies-v3.2-int8.tar.gz" && tar -xzf vendor-replies-v3.2-int8.tar.gz -C messages/models
-```
-
-The same folders are also on the owner's laptop in `Dhool-laya/messages/models/` (3.5 GB, ignored by git).
+All of these folders (3.5 GB together) live only on the owner's laptop, in the `Dhool-laya` worktree, and are ignored by git.
+If they are deleted, v3 can be retrained in about 45 minutes; v1 and v2 cannot. Copy `messages/models/`
+somewhere else (an S3 bucket, a drive) if any must survive the laptop.

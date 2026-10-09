@@ -1,6 +1,7 @@
 """The vendor-reply reader as a Lambda (container image: the model and PyTorch are too big for a zip).
 
-Laya (Apache-2.0), fine-tuned by us on vendor replies (see checkpoints.md), sorts one WhatsApp reply from a
+Laya (Apache-2.0), fine-tuned by us on vendor replies and shrunk to 8-bit weights (v3.2 in checkpoints.md),
+run by ONNX Runtime, sorts one WhatsApp reply from a
 solar vendor into: visit_scheduled, asking_details, refused, unclear. It only reads; the homeowner sees the
 label and can change it. Its confidence is not returned: wrong answers come at the same confidence as right ones.
 
@@ -18,7 +19,7 @@ _reader = None
 
 
 def _read_piece(offset):
-    with open(f"{MODEL}/model.safetensors", "rb", buffering=0) as f:
+    with open(f"{MODEL}/model.onnx", "rb", buffering=0) as f:
         f.seek(offset)
         f.read(PIECE)
 
@@ -29,11 +30,11 @@ def reader():
     global _reader
     if _reader is None:
         with ThreadPoolExecutor(16) as pool:
-            list(pool.map(_read_piece, range(0, os.path.getsize(f"{MODEL}/model.safetensors"), PIECE)))
-        import laya  # slow to import (PyTorch): only when a container starts
+            list(pool.map(_read_piece, range(0, os.path.getsize(f"{MODEL}/model.onnx"), PIECE)))
+        from laya.onnx_agent import ONNXAgent  # slow to import: only when a container starts
         with open(f"{MODEL}/questions.json", encoding="utf-8") as f:
             questions = json.load(f)  # the exact question the model was tuned on; ask no other
-        _reader = (laya.load(MODEL, device="cpu"), questions)
+        _reader = (ONNXAgent(MODEL, onnx_path=f"{MODEL}/model.onnx"), questions)
     return _reader
 
 
