@@ -71,3 +71,12 @@ def test_haze_drops_every_home_together(homes):
 def test_same_seed_same_neighbourhood(weather, pm25, homes):
     again = simulate(weather, pm25, n_homes=8, seed=1)
     assert again["home-03"]["daily"].equals(homes["home-03"]["daily"])
+
+
+def test_dusty_homes_are_added_without_changing_the_others(weather, pm25, homes):
+    more = simulate(weather, pm25, n_homes=8, seed=1, dusty=2)
+    assert list(more)[:8] == list(homes) and len(more) == 10
+    assert all(more[h]["daily"].equals(homes[h]["daily"]) for h in homes)
+    dusty = more["home-09"]
+    assert dusty["meta"]["problem"] == "dust_source" and dusty["daily"]["soiling"].iloc[RAIN_DAY - 1] > 0.2
+    assert dusty["daily"]["soiling"].iloc[RAIN_DAY] < 0.02  # rain still washes it

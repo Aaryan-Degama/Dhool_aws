@@ -17,12 +17,16 @@ from .expected import expected_daily_kwh, fetch_pm25, fetch_weather_with_forecas
 PLANTED = {0: "string_fault", 1: "string_fault", 2: "shading", 3: "inverter_trips"}
 
 
-def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT, lon=config.SIM_LON):
+def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT, lon=config.SIM_LON, dusty=0):
     """Returns {home_id: {"meta": {...}, "daily": DataFrame[expected, actual, soiling, cause]}}.
 
     hidden=True is the test neighbourhood the rules are never tuned on: every setting the rules could have
     been fitted to is drawn afresh and wider (dust rates, noise, how much rain it takes to clean a roof,
     fault sizes and dates, which homes have a fault at all, haze strength), and readings go missing.
+
+    dusty=N adds N homes after the others, beside a planted dust source (building work next door): dust settles
+    several times faster and nobody washes them, so between rains they show the case Dhool is named after.
+    They draw after the other homes, so those stay exactly as they were. Rain still cleans them: the weather is real.
 
     ponytail: one weather series for the whole neighbourhood. Fetch per home if homes spread past a few km.
     """
@@ -36,7 +40,7 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
     haze = (1 - haze_per_100 * (pm25 - config.HAZE_PM25).clip(lower=0) / 100).clip(lower=0.75).to_numpy()
 
     homes = {}
-    for i in range(n_homes):
+    for i in range(n_homes + dusty):
         meta = {
             "id": f"home-{i:02d}",
             "lat": round(lat + rng.uniform(-0.02, 0.02), 4),
@@ -52,6 +56,8 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
         rate = rng.uniform(0.002, 0.005)
         washes = set(rng.choice(len(days), size=rng.integers(0, 4), replace=False))
         clean_mm = config.CLEAN_RAIN_MM
+        if i >= n_homes:
+            meta["problem"], rate, washes = "dust_source", rng.uniform(0.008, 0.012), set()
         if hidden:
             meta["problem"] = str(wild.choice(["dust", "string_fault", "shading", "inverter_trips"], p=[0.7, 0.12, 0.1, 0.08]))
             rate, clean_mm = wild.uniform(0.001, 0.008), wild.uniform(3, 10)
@@ -113,7 +119,7 @@ def main(path="data/neighbourhood.json", seed=0):
     # The archive lags about a week; the forecast API serves the recent days, as it does for the analysis.
     weather = fetch_weather_with_forecast(config.SIM_LAT, config.SIM_LON, start).loc[:str(end)]
     pm25 = fetch_pm25(config.SIM_LAT, config.SIM_LON, str(start), str(end))
-    homes = simulate(weather, pm25, seed=seed)
+    homes = simulate(weather, pm25, seed=seed, dusty=3)  # the demo inverter's homes: three more, for the dust case
     out = {
         home_id: {"meta": h["meta"],
                   "daily": [{"date": str(day.date()), **row} for day, row in h["daily"].to_dict("index").items()]}
