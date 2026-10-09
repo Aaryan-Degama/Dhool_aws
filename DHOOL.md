@@ -3,6 +3,8 @@
 **Track:** Waste & Energy (rooftop solar)
 **Event:** WeMakeDevs × AWS Environmental Hacks, Oct 8–11, 2026
 
+> **This is the design as first written, kept for the record. It is not what was built.** Bedrock and Textract turned out to be unavailable on the account (AWS Support declined the Bedrock request on 7 Oct 2026), so there is no Strands agent and no Bedrock: screenshots are read by a self-hosted Qwen3-VL-2B and vendor replies by a fine-tuned Laya, both on Lambda, and every explanation is fixed text in English and Hindi. `README.md` describes the product as built; `CONTEXT.md` has the decisions and the log.
+
 ---
 
 ## Section 1 — Brief Description
@@ -38,7 +40,7 @@ After cleaning, the homeowner sends new data and Dhool checks whether output rec
 - A separate study of North Indian rooftops measured soiling losses of about 0.24–0.39% per day depending on season.
 - October, when this hackathon runs, is when the rain stops and dust and smog deposition start climbing.
 
-*Before the write-up: confirm every statistic above traces to a real, citable source.*
+*Sources, confirmed 7 Oct 2026: the household figures are from the PIB release of 4 Aug 2026 (PRID 2294208); the 7.6% figure is from "Determination of soiling loss in Delhi through experimental analysis" (Sādhanā, Indian Academy of Sciences); 0.24–0.39% a day is from "Assessment of soiling impacts and cleaning frequencies of a rooftop BAPV system in composite climates of India" (Solar Energy, 2022); five years of maintenance is clause 12 of the vendor agreement in the MNRE guidelines. The "300 days from November 2022" detail of the Delhi study was not confirmed and is not used in the README or write-up. Links are in `README.md`.*
 
 **But not every drop is dust.** In smog season, output falls everywhere because less sunlight reaches the roof. Washing panels does nothing for that. Faults such as a failed string also look like "low generation" but need an electrician, not a bucket.
 

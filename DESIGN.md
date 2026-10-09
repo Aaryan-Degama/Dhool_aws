@@ -126,6 +126,9 @@ says so plainly and points to typing the number in.
 One sequence when a verdict arrives: the camera settles onto the roof, the rail lights up column by column,
 then the meter fills. Dragging turns the model. Nothing moves under reduced motion.
 
+## Two languages
+English and Hindi, fixed text in both. The app starts in the phone's language. Setup has a "Language · भाषा" card with the two choices, each named in its own language so a reader of only one can find it; the sign-in screen has a small link to the other language, since Setup comes after signing in. Changing it reloads the app. Dates take Hindi month and weekday names; digits stay 0–9 (₹50, 13.6 units). "Dhool" stays in Latin letters in Hindi, because धूल is also the word for dust. Every line goes through `t()`; see `CLAUDE.md`, Conventions. Checked at 390 px and in the emulator: no Hindi line clips or pushes the page sideways.
+
 ## Not done yet
 A service worker for offline use,
 a home switcher for people in two homes.

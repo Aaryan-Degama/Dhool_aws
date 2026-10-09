@@ -21,6 +21,8 @@ Correct answers out of each test set. No test reply was ever trained on.
 - `test2` (40): written after v1's mistakes on `test` had been seen.
 - `test3` (60): written before v3 was trained, heavy on edge cases (visits with a charge or a reschedule,
   questions that sound like visits, polite refusals, wrong numbers, auto-replies, emoji and one-word replies).
+- `real` (none yet): replies from real vendors, added to the data file with `"split": "real"`. The eval command scores
+  them on their own once any exist; they are never trained on. Until then every score here is on replies Claude wrote.
 
 | Model | Trained on | `test` (56) | `test2` (40) | `test3` (60) | All three (156) |
 |---|---|---|---|---|---|

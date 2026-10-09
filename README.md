@@ -10,6 +10,7 @@ Built for [Environmental Hacks](https://www.wemakedevs.org/aws/env) (WeMakeDevs 
 - **Until then:** `cd web && npm install && npm run dev`, then open `http://localhost:5173`. It talks to the deployed backend. Create an account, add a home, and in **Setup** connect the demo inverter: open the "demo inverter app" link, pick a home, and copy its API key.
 - **Homes worth picking in the demo inverter:** `home-00` (a dead string: "Call your vendor"), `home-05` (healthy: "Your solar is working"), `home-30` (beside a dust source: "Wash the panels", when it has not rained lately).
 - **Every screen without signing in:** `http://localhost:5173/#preview` (add `?lang=hi` for Hindi).
+- **Trying the screenshot upload:** in the demo inverter app press "Save this screen as an image" and upload that file. A plain screenshot of the whole demo page, with its demo banner on top, is refused by the reader.
 - **Language:** English and Hindi. The app starts in the phone's language; change it in Setup.
 
 ## The problem
@@ -78,7 +79,7 @@ EventBridge: nightly analysis of every home; keep-warm pings
 | Verdict rules, development neighbourhoods (3 seeds, Delhi) | 93–95% of checks correct (7 Oct; the year of weather it runs on moves with the date, it was 94–96% on 3 Oct) |
 | Verdict rules, hidden test set (Jaipur, Lucknow, Ahmedabad; every simulator setting redrawn and wider; never tuned on) | **84%** over 3,870 checks |
 | Real rooftops (nine NREL PVDAQ homes, about ten years each, no labels) | No accuracy figure. On a single real roof with no neighbours, "wash" and "unclear" are still raised too often. |
-| Screenshot reader, demo inverter screens | 93 of 93 printed values, none invented |
+| Screenshot reader, demo inverter screens | 93 of 93 printed values, none invented (saved screens; a screenshot of the whole demo page is refused) |
 | Screenshot reader, store screenshots of three real inverter apps | 6 of 11 values, 1 invented. The homeowner confirms or corrects every number before it is saved. |
 | Vendor-reply reader (Laya v3.2) | 52 of 60 on the one test set written before training. No real vendor reply has been tried. |
 
