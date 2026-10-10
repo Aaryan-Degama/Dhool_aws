@@ -33,6 +33,9 @@ MAX_UPLOAD_BYTES = 5_000_000
 IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg"}
 SHOT_KEY = re.compile(r"houses/([0-9a-f]{12})/([0-9a-f]{32})\.(?:png|jpg)")
 SHOT_TTL_S = 24 * 3600         # a screenshot's reading result is kept for a day
+# An answer is kept as long as the verdict it is about: VERDICT_TTL_S in analysis.py, which this Lambda cannot
+# import (it pulls in pvlib). test_api.py fails if the two drift apart.
+FEEDBACK_TTL_S = 400 * 24 * 3600
 READING_TIMEOUT_S = 15 * 60    # after this long with no result, the reader is taken to have failed
 REPLY_LABELS = ("visit_scheduled", "asking_details", "refused", "unclear")
 MAX_REPLY_CHARS = 1000
@@ -358,6 +361,22 @@ def record_action(sub, event):
     return 201, {"date": str(date)}
 
 
+def record_feedback(sub, event):
+    """Whether the advice of one day was any use to the household: {"date", "helpful": true | false}. One answer
+    for a home and a day, so a second one replaces the first. It is kept for people to read against the verdicts;
+    no rule reads it, and no new verdict follows from it."""
+    house_id = event["pathParameters"]["houseId"]
+    authorize(sub, house_id, "write")
+    data = _body(event)
+    date, helpful = _date(data), data.get("helpful")
+    if not isinstance(helpful, bool):
+        raise HttpError(400, "helpful must be true or false")
+    now = int(time.time())
+    table().put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.feedback_sk(date), "helpful": helpful,
+                           "by": sub, "at": now, "expiresAt": now + FEEDBACK_TTL_S})
+    return 201, {"date": str(date), "helpful": helpful}
+
+
 def _read_reply(text):
     """Ask the vendor-reply reader (Laya, in its own Lambda) which of the four kinds of reply this is."""
     # Its own client: one try and a short wait. The homeowner is watching, and has the four buttons anyway.
@@ -552,6 +571,7 @@ ROUTES = {
     "GET /houses/{houseId}/readings": list_readings,
     "POST /houses/{houseId}/inverter": connect_inverter,
     "POST /houses/{houseId}/actions": record_action,
+    "POST /houses/{houseId}/feedback": record_feedback,
     "POST /houses/{houseId}/vendor-reply": read_vendor_reply,
     "POST /houses/{houseId}/screenshots": start_upload,
     "POST /houses/{houseId}/screenshots/read": read_screenshot,

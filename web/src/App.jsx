@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Alerts, Auth, DeleteAccount, Family, Homes, Setup, stopPush } from "./account.jsx";
 import { api, signedIn, signOut } from "./api.js";
 import { CheckCard, ReportAction, VendorReply } from "./check.jsx";
@@ -75,6 +75,36 @@ function StaleCard({ house, asOf, today, go }) {
       </p>
       {!house.linked && <button className="secondary" onClick={() => go("setup")}>{t("Add a reading")}</button>}
     </section>
+  );
+}
+
+/**
+ * Was the advice any use? One quiet line at the foot of the verdict card, asked once on this phone for each
+ * day's verdict. The answer belongs to the home (one for a day): the last phone in the family to answer stands.
+ */
+function Useful({ house, date }) {
+  const key = `useful.${house.house_id}`;
+  // ponytail: the phone remembers only the last day it answered for a home. A verdict that moves back to an
+  // earlier day is asked about again, and the server keeps the newer answer. Keep a list if that ever matters.
+  const [stage, setStage] = useState(() => (kept(key) === date ? "answered" : "ask"));
+  const [state, run] = useAction();
+  const label = useId();
+  const send = (helpful) => run(async () => {
+    await api(`/houses/${house.house_id}/feedback`, { date, helpful });
+    keep(key, date);
+    setStage("thanked");
+  });
+  if (stage === "answered") return null;
+  if (stage === "thanked") return <p className="useful" role="status">{t("Thanks for telling Dhool.")}</p>;
+  return (
+    <>
+      <div className="useful" role="group" aria-labelledby={label}>
+        <span id={label}>{t("Was this advice useful?")}</span>
+        <button type="button" disabled={state.busy} onClick={() => send(true)}>{t("Yes")}</button>
+        <button type="button" disabled={state.busy} onClick={() => send(false)}>{t("No")}</button>
+      </div>
+      <ErrorLine error={state.error} />
+    </>
   );
 }
 
@@ -174,6 +204,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
         {onAction && (v.verdict === "CLEAN" || v.verdict === "INSPECT") && (
           <ReportAction key={v.verdict} house={house} type={v.verdict === "CLEAN" ? "wash" : "visit"} onSent={onAction} />
         )}
+        {known && <Useful key={v.as_of} house={house} date={v.as_of} />}
       </section>
       {v.check && <CheckCard check={v.check} house={house} onSent={onAction} />}
 

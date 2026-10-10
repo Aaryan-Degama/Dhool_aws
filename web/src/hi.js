@@ -96,6 +96,10 @@ export const HI = {
   "Message your vendor on WhatsApp": "वेंडर को WhatsApp पर संदेश भेजिए",
   "Wash early in the morning or after sunset, with plain water and a soft cloth. Never on hot panels.":
     "सुबह जल्दी या सूरज ढलने के बाद, सादे पानी और मुलायम कपड़े से धोइए। गरम पैनलों पर कभी नहीं।",
+  "Was this advice useful?": "क्या यह सलाह काम की थी?",
+  "Yes": "हाँ",
+  "No": "नहीं",
+  "Thanks for telling Dhool.": "Dhool को बताने के लिए धन्यवाद।",
   "Next 7 days": "अगले 7 दिन",
   "{likely} of {possible} units likely": "{possible} में से {likely} यूनिट की उम्मीद",
   "No forecast yet": "अभी अनुमान नहीं",

@@ -367,6 +367,10 @@ button:disabled { opacity: 0.55; cursor: progress; }
 .vc-sub { display: flex; justify-content: space-between; gap: 1rem; font-size: var(--step--1); color: var(--muted); }
 .vc-sub strong { font-weight: 600; color: var(--tone); }
 .reason { color: var(--soft); line-height: 1.45; }
+/* Was the advice any use: one quiet line at the foot of the card, under what to do */
+.useful { display: flex; align-items: center; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--line); font-size: var(--step--1); color: var(--muted); }
+.useful span { flex: 1; }
+.useful button { min-width: 3.5rem; min-height: 3rem; padding: 0.25rem 0.75rem; font-size: var(--step--1); font-weight: 600; background: transparent; color: var(--soft); border: 1.5px solid var(--edge); }
 
 /* Two ways further in */
 .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }

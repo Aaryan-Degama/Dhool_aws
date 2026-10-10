@@ -144,6 +144,7 @@ Resources:
         ConnectInverter: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/inverter'}}
         ReadVendorReply: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/vendor-reply'}}
         RecordAction: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/actions'}}
+        RecordFeedback: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/feedback'}}
         GetVerdict: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/verdict'}}
         SaveSettings: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: POST, Path: '/houses/{houseId}/settings'}}
         History: {Type: HttpApi, Properties: {ApiId: !Ref Api, Method: GET, Path: '/houses/{houseId}/history'}}

@@ -103,4 +103,36 @@ test.describe("what the page may talk to", () => {
     await expect(page.getByText("Your solar is working", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Check again" })).toBeVisible();
   });
+
+  test("'was this advice useful' sends the answer for that day's verdict, survives a failed try, and is not asked twice", async ({ page }) => {
+    const sent = [];
+    const house = { house_id: "h1", name: "Sharma house", role: "owner" };
+    const verdict = { ...FIXTURES.find((v) => v.verdict === "OK"), computed_at: 111 };
+    const answers = {
+      "GET /me": { houses: [house] },
+      "GET /houses/h1": { ...house, kw: 3, lat: 28.61, lon: 77.21, tilt: 20, azimuth: 180, wash_cost_rs: 50, tariff_rs: 7, linked: false, members: [] },
+      "GET /houses/h1/verdict": verdict,
+    };
+    await page.addInitScript(() => localStorage.setItem("dhool.tokens", JSON.stringify({ access: "a.e30.c", refresh: "r" })));
+    await page.route(/^https:\/\//, (route) => {
+      const request = route.request(), path = new URL(request.url()).pathname;
+      if (request.method() === "POST") sent.push([path, request.postDataJSON()]);
+      const broken = request.method() === "POST" && sent.length === 1;  // the first answer does not get through
+      return route.fulfill({ status: broken ? 500 : 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" },
+        body: JSON.stringify(broken ? { error: "Something went wrong" } : answers[`${request.method()} ${path}`] ?? {}) });
+    });
+    await page.goto(`${BUILT}/?lang=en`);
+    const question = page.getByRole("group", { name: "Was this advice useful?" });
+    await question.getByRole("button", { name: "No" }).click();
+    await expect(page.getByRole("alert")).toHaveText("Something went wrong");
+    await question.getByRole("button", { name: "Yes" }).click();  // still there to press
+    await expect(page.getByText("Thanks for telling Dhool.")).toBeVisible();
+    await expect(question).toHaveCount(0);
+    expect(sent).toEqual([["/houses/h1/feedback", { date: verdict.as_of, helpful: false }],
+      ["/houses/h1/feedback", { date: verdict.as_of, helpful: true }]]);
+    await page.reload();  // the phone remembers the day it answered for
+    await expect(page.getByText("Your solar is working", { exact: true }).first()).toBeVisible();
+    await expect(question).toHaveCount(0);
+    await expect(page.getByText("Thanks for telling Dhool.")).toHaveCount(0);
+  });
 });

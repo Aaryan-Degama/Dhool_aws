@@ -290,6 +290,36 @@ def test_a_wash_or_visit_is_recorded_for_the_house_and_can_be_taken_back(house, 
     assert "Item" not in table.get_item(Key={"pk": f"HOUSE#{house}", "sk": "ACTION#2026-09-30"})
 
 
+def test_a_member_says_whether_a_days_advice_was_useful_and_it_is_kept_as_long_as_the_verdict(house, table):
+    from handlers import analysis  # here, not at the top: only this test needs the pvlib container's handler
+    route = "POST /houses/{houseId}/feedback"
+    assert call(STRANGER, route, {"date": "2026-09-30", "helpful": True}, house)[0] == 403
+    for bad in ({"helpful": True}, {"date": "2999-01-01", "helpful": True}, {"date": "30/09/2026", "helpful": True},
+                {"date": "2026-09-30"}, {"date": "2026-09-30", "helpful": "yes"}, {"date": "2026-09-30", "helpful": 1},
+                {"date": "2026-09-30", "helpful": None}):
+        assert call(FATHER, route, bad, house)[0] == 400
+    assert not [i for i in everything_of(table, house) if i["sk"].startswith("FEEDBACK#")]  # nothing refused was kept
+    join(MOTHER, house)
+    # She says who she is and names another home in the body. Only the token's sub and the path count.
+    said = {"date": "2026-09-30", "helpful": True, "by": FATHER, "sub": FATHER, "house_id": "aaaaaaaaaaaa"}
+    assert call(MOTHER, route, said, house) == (201, {"date": "2026-09-30", "helpful": True})
+    item = table.get_item(Key={"pk": f"HOUSE#{house}", "sk": "FEEDBACK#2026-09-30"})["Item"]
+    assert (item["helpful"], item["by"]) == (True, MOTHER)
+    assert abs(int(item["expiresAt"]) - (time.time() + 400 * 24 * 3600)) < 60
+    assert api.FEEDBACK_TTL_S == analysis.VERDICT_TTL_S
+    assert ANALYSED == []  # an opinion is not a reading: no new verdict is worked out
+
+
+def test_a_second_answer_for_the_same_day_replaces_the_first(house, table):
+    route = "POST /houses/{houseId}/feedback"
+    join(MOTHER, house)
+    assert call(MOTHER, route, {"date": "2026-09-30", "helpful": True}, house)[0] == 201
+    assert call(FATHER, route, {"date": "2026-09-30", "helpful": False}, house) == (201, {"date": "2026-09-30", "helpful": False})
+    assert call(FATHER, route, {"date": "2026-09-29", "helpful": True}, house)[0] == 201  # another day is another item
+    kept = [(i["sk"], i["helpful"], i["by"]) for i in everything_of(table, house) if i["sk"].startswith("FEEDBACK#")]
+    assert kept == [("FEEDBACK#2026-09-29", True, FATHER), ("FEEDBACK#2026-09-30", False, FATHER)]
+
+
 def test_a_vendor_reply_is_read_for_members_only_and_the_model_is_not_trusted(house, monkeypatch):
     asked = []
     monkeypatch.setattr(api, "_read_reply", lambda text: asked.append(text) or "visit_scheduled")
@@ -467,6 +497,7 @@ def test_only_the_owner_deletes_the_house_and_nothing_of_it_is_left(house, table
     call(FATHER, "POST /houses/{houseId}/readings", {"readings": [{"date": f"2026-09-{d:02d}", "kwh": 10} for d in range(1, 31)],
                                                      "source": "screenshot"}, house)
     call(MOTHER, "POST /houses/{houseId}/actions", {"type": "wash", "date": "2026-09-30"}, house)
+    call(MOTHER, "POST /houses/{houseId}/feedback", {"date": "2026-09-30", "helpful": True}, house)
     call(MOTHER, "POST /houses/{houseId}/push", {"subscription": SUBSCRIPTION}, house)
     _, invite = call(FATHER, "POST /houses/{houseId}/invites", house_id=house)
     bucket = boto3.resource("s3").Bucket("dhool-uploads-test")
@@ -476,7 +507,8 @@ def test_only_the_owner_deletes_the_house_and_nothing_of_it_is_left(house, table
 
     assert call(MOTHER, "DELETE /houses/{houseId}", house_id=house)[0] == 403
     assert call(STRANGER, "DELETE /houses/{houseId}", house_id=house)[0] == 403
-    assert len(everything_of(table, house)) == 37  # with the two family codes it gave out
+    assert len(everything_of(table, house)) == 38  # with the two family codes it gave out
+    assert "FEEDBACK#2026-09-30" in [i["sk"] for i in everything_of(table, house)]
     assert call(FATHER, "DELETE /houses/{houseId}", house_id=house) == (200, {"deleted": house})
 
     assert everything_of(table, house) == []
