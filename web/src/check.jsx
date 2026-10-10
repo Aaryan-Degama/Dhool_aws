@@ -60,8 +60,8 @@ export function ReportAction({ house, type, onSent }) {
   };
   if (!date) {
     return (
-      <button className="secondary" onClick={() => setDate(today)}>
-        {type === "wash" ? t("I washed the panels") : t("The vendor has visited")}
+      <button className="row-link" onClick={() => setDate(today)}>
+        <span>{type === "wash" ? t("I washed the panels") : t("The vendor has visited")}</span>
       </button>
     );
   }

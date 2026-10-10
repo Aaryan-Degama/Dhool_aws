@@ -150,19 +150,31 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
     <article className={`roof ${tone(v)}`}>
       <header className="top">
         <p className="brand">Dhool</p>
-        <div className="top-side">
-          {known && (
-            <p className="running" aria-label={t("Running at {pct}% of this roof's normal", { pct: running })}>
-              <Icon name="bolt" /> {running}%
-            </p>
-          )}
-          <p className="home-name">{house.name}</p>
-        </div>
+        <p className="home-name">{house.name}</p>
       </header>
+
+      {/* The reading, set in the sky over the roof the way a weather app sets the temperature: how the roof is
+          running, then what to do about it. Everything further down supports these three lines. */}
+      <section className="reading">
+        {known && (
+          <>
+            <p className="reading-figure" aria-label={t("Running at {pct}% of this roof's normal", { pct: running })}>
+              {running}<span aria-hidden="true">%</span>
+            </p>
+            <p className="reading-of">{t("of this roof's normal")}</p>
+            <div className="glow-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={running}
+                 aria-label={t("Output compared with this roof's normal")}>
+              <i style={{ width: `${Math.min(100, running)}%` }} />
+            </div>
+          </>
+        )}
+        <h1 className="reading-verdict">{headline(v)}</h1>
+        <p className="reading-sub">{lost}{known && <span>{SURE_SHORT[v.confidence]}</span>}</p>
+      </section>
 
       <div className="hero" ref={scene}><PanelModel verdict={v} /></div>
 
-      <dl className="strip card">
+      <dl className="strip">
         <div>
           <Icon name={today ? skyOf(today, week) : "sun"} />
           <dt>{t("Today")}</dt><dd>{today ? `${today.temp_max}°` : "–"}</dd>
@@ -183,16 +195,6 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
 
       <StaleCard house={house} asOf={v.as_of} today={date} go={go} />
       <section className="card verdict-card">
-        <div className="vc-top">
-          <Icon name="bolt" />
-          <h1>{headline(v)}</h1>
-          {known && <span className="pct">{running}%</span>}
-        </div>
-        <div className="glow-meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={known ? running : 0}
-             aria-label={t("Output compared with this roof's normal")}>
-          <i style={{ width: `${known ? Math.min(100, running) : 0}%` }} />
-        </div>
-        <div className="vc-sub"><strong>{lost}</strong><span>{SURE_SHORT[v.confidence]}</span></div>
         <p className="reason">{reasonOf(v)}</p>
         {v.verdict === "INSPECT" && (
           <a className="primary" href={`https://wa.me/?text=${encodeURIComponent(vendorMessage(house, v))}`}
@@ -201,7 +203,12 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
         {v.verdict === "CLEAN" && (
           <p className="note">{t("Wash early in the morning or after sunset, with plain water and a soft cloth. Never on hot panels.")}</p>
         )}
-        {onAction && v.verdict === "INSPECT" && <VendorReply house={house} />}
+        {onAction && v.verdict === "INSPECT" && (
+          <details className="more">
+            <summary>{t("The vendor replied")}</summary>
+            <VendorReply house={house} />
+          </details>
+        )}
         {onAction && (v.verdict === "CLEAN" || v.verdict === "INSPECT") && (
           <ReportAction key={v.verdict} house={house} type={v.verdict === "CLEAN" ? "wash" : "visit"} onSent={onAction} />
         )}
@@ -209,16 +216,14 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
       </section>
       {v.check && <CheckCard check={v.check} house={house} onSent={onAction} />}
 
-      <div className="tiles">
-        <button className="card tile" onClick={() => go("history")}>
-          <span className="badge"><Icon name="history" /></span>
-          <strong>{t("History")}</strong>
-          <span>{month ? t("{units} units in {month}", { units: month.kwh, month: monthName(month.month) }) : t("Month by month")}</span>
+      <div className="card rows">
+        <button className="row-link" onClick={() => go("history")}>
+          <span>{t("History")}</span>
+          <small>{month ? t("{units} units in {month}", { units: month.kwh, month: monthName(month.month) }) : t("Month by month")}</small>
         </button>
-        <button className="card tile" onClick={() => go("why")}>
-          <span className="badge"><Icon name="why" /></span>
-          <strong>{t("Why")}</strong>
-          <span>{whyLine(v)}</span>
+        <button className="row-link" onClick={() => go("why")}>
+          <span>{t("Why")}</span>
+          <small>{whyLine(v)}</small>
         </button>
       </div>
       <div className="veil" aria-hidden="true" />
@@ -423,7 +428,7 @@ function Home({ house: listed, homes, onSignOut }) {
           : <p className="lede" aria-live="polite">{t("Loading your home…")}</p>
       ) : !has ? (
         <>
-          <header className="top"><p className="brand">Dhool</p><div className="top-side"><p className="home-name">{house.name}</p></div></header>
+          <header className="top"><p className="brand">Dhool</p><p className="home-name">{house.name}</p></header>
           {setup}
         </>
       ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} onAction={awaitVerdict} />

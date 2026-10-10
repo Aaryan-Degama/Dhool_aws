@@ -99,6 +99,8 @@ export const HI = {
   "Wash early in the morning or after sunset, with plain water and a soft cloth. Never on hot panels.":
     "सुबह जल्दी या सूरज ढलने के बाद, सादे पानी और मुलायम कपड़े से धोइए। गरम पैनलों पर कभी नहीं।",
   "Was this advice useful?": "क्या यह सलाह काम की थी?",
+  "of this roof's normal": "इस छत के सामान्य स्तर का",
+  "The vendor replied": "वेंडर का जवाब आया",
   "Yes": "हाँ",
   "No": "नहीं",
   "Thanks for telling Dhool.": "Dhool को बताने के लिए धन्यवाद।",

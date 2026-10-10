@@ -16,7 +16,7 @@ function Reading({ since, onType }) {
   }, []);
   const s = Math.max(0, Math.round((now - since) / 1000));
   return (
-    <div className="reading">
+    <div className="reading-now">
       <span className="spinner" aria-hidden="true" />
       <p role="status">
         {t("Reading your screenshot: about a minute. Stay on this page.")}
