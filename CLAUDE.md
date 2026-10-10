@@ -27,6 +27,8 @@ Hackathon project for Environmental Hacks (WeMakeDevs × AWS, Oct 8 – 11, 2026
 
 All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1).
 
+**On branch `hardening` (10 Oct 2026): not merged, not pushed, not deployed.** A hardening pass; the Log entry of 2026-10-10 in `CONTEXT.md` lists it. Until it is merged and deployed, what is live is the list below.
+
 **Complete and live**
 - Sign-in and family sharing: one house, several logins, joined by a 6-letter code.
 - Verdicts (wash, call the vendor, wait, all good) with a reason, money lost, a chart and a 7-day forecast; re-run nightly (one run per home) and when data arrives. A sunny day at almost nothing is "call the vendor" at once (outage).
@@ -49,7 +51,7 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 2. Read the Hindi through once, on the review page (https://claude.ai/artifact/JByxFCkVnqs5HfEXQST4L1, private to the owner): it was written by Claude, checked twice by Claude, and no native speaker has read it. About 45 lines added on 7 Oct (alerts, family, deletion, tariff, outage) are in `hi.js`, `reasons.py` and `notify.py` and not on that page.
 3. Real inverter screenshots (a today screen and a daily list) and 20 to 30 real vendor replies: none exist yet. Commands, below, say what to do when they arrive.
 4. 
-5. A license for the repo (there is no `LICENSE` file).
+5. Merge and deploy branch `hardening`. (It carries the license, Apache-2.0.)
 6. Whether the showcase logins are printed in the public README for judges or only given in the submission form.
 7. An address for alarms: deploy once with `sam deploy --parameter-overrides AlarmEmail=<address> VapidSubject=mailto:<address>` and click the confirmation email.
 
@@ -81,7 +83,9 @@ web/                       React + Vite PWA, deployed by Amplify Hosting from `m
 _All confirmed unless a line says otherwise._
 
 - Setup: `uv venv --python 3.12 .venv && uv pip install -p .venv -r backend/requirements-dev.txt`
-- Test: `.venv/bin/pytest`
+- Test: `.venv/bin/pytest` (fails under 82% coverage; the number is in `pyproject.toml`: raise it as coverage rises, never lower it)
+- Lint, format, types: `.venv/bin/ruff check .`, `.venv/bin/ruff format .`, `.venv/bin/mypy` (config in `pyproject.toml`; no blanket ignores: a `noqa` or `type: ignore` names its rule and gives its reason on the line). Hooks: `.venv/bin/pre-commit install` once.
+- Browser test: `npm run e2e` in `web/` (Playwright, Chromium; `npx playwright install chromium-headless-shell` once). It runs `/#preview` on the dev server and the built app under the headers in `customHttp.yml`.
 - Generate the simulated neighbourhood (real Open-Meteo weather, a year through yesterday): `cd backend && ../.venv/bin/python -m dhool.sim`, then deploy and run the analysis for every house (`aws lambda invoke --function-name <AnalysisFunction> --payload '{}' out.json`). Do it again right before recording a demo, or the demo inverter's last reading falls behind the live weather.
 - Deploy backend (confirmed): `sam validate && ./scripts/build.sh && sam deploy` (the script is `sam build` plus proxy handling for the container build)
 - Score the verdict rules against the simulator: `cd backend && ../.venv/bin/python -m dhool.evaluate <seed>` (seeds 0–2 are development data). It prints four cases: with neighbours, alone, with weather error, and both. The hidden test set is `... -m dhool.evaluate hidden`: never tune against it; after any rule change rerun it and report the number as it comes.
@@ -118,8 +122,14 @@ Say in the write-up that Bedrock and Textract were unavailable on this account a
 
 ## Conventions
 - **Definition of done:** pure logic in `backend/dhool/` → tests pass → deployed → verified on the live URL → commit → push.
+- **Keys and shared pieces.** Every table key comes from `backend/dhool/keys.py`; the table, the log line, metrics and AWS clients from `backend/handlers/common.py` (`client()` is made once per container, with retries). Do not write a key string or make a boto3 client in a handler.
+- **Weather goes through `expected.get_json`.** The analysis Lambda puts its DynamoDB cache there (`handlers/weather_cache.py`: fresh 3 hours, used up to a day old when Open-Meteo is down). `backend/dhool` itself still makes no AWS call.
+- **An alert is measured against `last_notified` on the house**, written only after a push went out and removed when the advice goes back to all good or wait.
+- **A write that follows slow work checks the home still exists** (the verdict's transaction, the screenshot result's condition), or a deleted home gets a piece back.
+- **A new API route goes in `ROUTES` and in `ApiFunction`'s Events**; a test fails if the two differ. A new DynamoDB operation goes in `TableSystemErrorsAlarm`; a test fails on that too.
+- **The web app's headers are `customHttp.yml`.** A new host the page talks to goes in its `connect-src`, or the browser blocks it; `npm run e2e` runs the built app under those headers.
 - **Identity is server-side.** The caller is the JWT `sub` from the authorizer. Never read a user, house, role or ownership from the request body or query string.
-- **Every handler calls `authorize(sub, house_id, action)`** before touching house data, and logs the decision as one JSON line.
+- **Every handler calls `authorize(sub, house_id, action)`** before touching house data, and logs the decision as one JSON line. (`get_house` reads the member list once and decides from it with `_decide`, which logs the same line.)
 - Data belongs to a house, not a person. Screenshots are reached only through presigned URLs issued after `authorize()`.
 - DynamoDB: `Query`, never `Scan`. Data with a natural lifetime gets a TTL attribute.
 - Every input source goes through a connector that returns the standard reading; the analysis never knows the source.
@@ -133,7 +143,7 @@ Say in the write-up that Bedrock and Textract were unavailable on this account a
 - The answer key in `evaluate.py` applies the same wash plan to the true dust, so the score measures detection, not the policy.
 - What the homeowner reports (a wash, a vendor visit) is an `ACTION#<date>` item, treated by the rules as a known cleaning or repair and checked before against after. The log (`GET /houses/{id}/history`) is built from the stored daily verdicts and these items; nothing else writes to it.
 - Verdict headlines are in `web/src/words.js` only; the card and the log both read them from there.
-- **Two languages, fixed text.** Every line the app shows goes through `t("English")` (`web/src/i18n.js`) and has its Hindi in `web/src/hi.js`; `npm test` fails on a line without one. A verdict's reason is built on the server in both languages from one set of figures (`backend/dhool/reasons.py`, returned as `reason` and `reason_hi`): add the Hindi with the English, never a number in one and not the other. No model translates. "Dhool" stays in Latin letters in Hindi (धूल is also the word for dust).
+- **Two languages, fixed text.** Every line the app shows goes through `t("English")` (`web/src/i18n.js`) and has its Hindi in `web/src/hi.js`; `npm test` fails on a line without one. A verdict's reason is built on the server in both languages from one set of figures (`backend/dhool/reasons.py`, returned as `reason` and `reason_hi`): add the Hindi with the English, never a number in one and not the other. The Hindi is looked up by the English line itself, so each line has one spelling: `npm test` fails when two lines (in `t()` calls, `hi.js` or `ARRIVES`) differ only by capital letters or spacing. No model translates. "Dhool" stays in Latin letters in Hindi (धूल is also the word for dust).
 - **Owner-only:** creating an invite, linking an inverter, removing a member, deleting the home. A member may leave. The path's `sub` in `DELETE .../members/{sub}` says who is removed; who is asking is still only the token.
 - **Push endpoints are untrusted URLs.** The server posts to them, so `api.py` accepts only the known push hosts. Alert text is fixed, in both languages, in `backend/dhool/notify.py` (the one place outside `words.js` and `reasons.py` that words a verdict).
 - **A roof's normal is learned from the roof, with no floor from its size.** Real healthy roofs run as low as 0.67 of the physics; a floor made them faults. Under 0.6 sets `low_normal`, a note and not a verdict.
