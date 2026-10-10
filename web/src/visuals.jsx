@@ -70,20 +70,19 @@ const SKYLINE = (() => {
   };
   const back = row(10, 26, 4, 15), far = row(12, 30, 9, 27), near = row(18, 42, 14, 44);
   for (const b of far) if (next() < 0.16) b.h *= 1.7;  // a few towers stand over the rest
-  // Windows in rows and columns, floor by floor, as on a real block: every pane is drawn (dark by day), and
-  // some are lit after dark. Two paths, not a rect a pane.
+  // A glass front: thin lines for the floors and the mullions between panes (one path), and a few panes lit
+  // after dark (another).
   let panes = "", lit = "";
-  const floors = (b, cell, gapX, gapY, share) => {
-    const cols = Math.floor((b.w - 3) / gapX), rows = Math.floor((b.h - 3) / gapY);
-    const left = b.x + (b.w - (cols - 1) * gapX - cell) / 2;
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const pane = `M${(left + c * gapX).toFixed(1)} ${(SKYLINE_ROOM - b.h + 2.5 + r * gapY).toFixed(1)}h${cell}v${(cell * 1.3).toFixed(1)}h-${cell}z`;
-      panes += pane;
-      if (next() < share) lit += pane;
+  const floors = (b, gapX, gapY, share) => {
+    const top = SKYLINE_ROOM - b.h, cols = Math.max(1, Math.round(b.w / gapX)), w = b.w / cols;
+    for (let y = top + gapY; y < SKYLINE_ROOM; y += gapY) panes += `M${b.x.toFixed(1)} ${y.toFixed(1)}h${b.w.toFixed(1)}`;
+    for (let c = 1; c < cols; c++) panes += `M${(b.x + c * w).toFixed(1)} ${top.toFixed(1)}V${SKYLINE_ROOM}`;
+    for (let y = top; y < SKYLINE_ROOM - gapY; y += gapY) for (let c = 0; c < cols; c++) {
+      if (next() < share) lit += `M${(b.x + c * w + 0.3).toFixed(1)} ${(y + 0.3).toFixed(1)}h${(w - 0.6).toFixed(1)}v${(gapY - 0.6).toFixed(1)}h-${(w - 0.6).toFixed(1)}z`;
     }
   };
-  far.forEach((b) => floors(b, 1, 2.6, 3.2, 0.14));
-  near.forEach((b) => floors(b, 1.5, 3.6, 4.4, 0.22));
+  far.forEach((b) => floors(b, 3.2, 2.6, 0.07));
+  near.forEach((b) => floors(b, 4.6, 3.4, 0.1));
   return { back, far, near, panes, lit };
 })();
 
@@ -208,6 +207,14 @@ export function PanelModel({ verdict }) {
         <linearGradient id={`${id}ground`} gradientUnits="userSpaceOnUse" x1="0" y1={wallBase[0][1]} x2="0" y2={VIEW_H}>
           <stop offset="0" className="pm-ground-far" /><stop offset="0.72" className="pm-ground-near" /><stop offset="1" className="pm-ground-near" stopOpacity="0" />
         </linearGradient>
+        {/* A tower's glass front mirrors the sky: paler toward the top. And one slanting streak of light across it. */}
+        <linearGradient id={`${id}tower`} gradientUnits="userSpaceOnUse" x1="0" y1={FIT.horizon - 46} x2="0" y2={FIT.horizon}>
+          <stop offset="0" className="pm-tower-hi" /><stop offset="1" className="pm-tower-lo" />
+        </linearGradient>
+        <linearGradient id={`${id}shine`} x1="0" y1="0" x2="1" y2="0.7">
+          <stop offset="0.15" stopColor="#fff" stopOpacity="0" /><stop offset="0.3" stopColor="#fff" stopOpacity="0.22" />
+          <stop offset="0.42" stopColor="#fff" stopOpacity="0.05" /><stop offset="0.6" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
         <clipPath id={`${id}floor`}><polygon points={floor} /></clipPath>
         <linearGradient id={`${id}haze`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" className="pm-haze" stopOpacity="0" /><stop offset="0.3" className="pm-haze" stopOpacity="0.5" /><stop offset="0.6" className="pm-haze" stopOpacity="0.82" /><stop offset="1" className="pm-haze" stopOpacity="0.9" />
@@ -239,7 +246,8 @@ export function PanelModel({ verdict }) {
                 <g key={i}>
                   {d > 0 && <polygon className="side" points={`${n(r)},${n(top)} ${n(r + d)},${n(up)} ${n(r + d)},${n(top + b.h + 120)} ${n(r)},${n(top + b.h + 120)}`} />}
                   {d > 0 && <polygon className="roof" points={`${n(b.x)},${n(top)} ${n(b.x + d)},${n(up)} ${n(r + d)},${n(up)} ${n(r)},${n(top)}`} />}
-                  <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} />
+                  <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} fill={d > 0 ? `url(#${id}tower)` : undefined} />
+                  {depth === "near" && <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={b.h.toFixed(1)} fill={`url(#${id}shine)`} />}
                   {b.crown && <rect x={(b.x + b.w * 0.2).toFixed(1)} y={(top - 4).toFixed(1)} width={(b.w * 0.6).toFixed(1)} height="4" />}
                   {depth === "near" && b.tank && !b.crown && <rect x={(b.x + b.w * 0.22).toFixed(1)} y={(top - 4.5).toFixed(1)} width="6.5" height="4.5" rx="1.6" />}
                   {depth !== "back" && b.mast && <rect x={(b.x + b.w * 0.7).toFixed(1)} y={(top - 13).toFixed(1)} width="0.9" height="13" />}
