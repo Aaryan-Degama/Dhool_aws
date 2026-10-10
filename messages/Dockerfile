@@ -2,6 +2,8 @@
 # weights (v3.2), run by ONNX Runtime on CPU in one Lambda.
 #   The weights come from scripts/laya-tune.py into messages/models/ and are not kept in git (checkpoints.md).
 
+# Base image on 10 Oct 2026, to pin when builds must repeat exactly:
+#   public.ecr.aws/lambda/python:3.12@sha256:145350008f3f67d82c0bc6ecd34d9eb0c95aecf11f9b69db6bab7de3d5d3cc61
 FROM public.ecr.aws/lambda/python:3.12
 # PyTorch is here only because the laya package imports it; the model runs in ONNX Runtime.
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.14.1 \
