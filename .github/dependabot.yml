@@ -1,0 +1,21 @@
+# Weekly proposals for everything pinned: Python and npm packages, the base image of the three containers, and the
+# commit each GitHub Action is pinned to. Not covered: the llama.cpp, Leptonica and Tesseract commits in
+# vision/Dockerfile and the tool versions written in ci.yml; those are bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directories: [/backend, /vision, /messages]
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

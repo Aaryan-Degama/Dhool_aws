@@ -1,0 +1,4 @@
+# Findings gitleaks may pass over, one fingerprint a line (commit:file:rule:line).
+
+# "inv_wrongkey99": a made-up inverter key in the test that a wrong key is refused. Not a credential for anything.
+dc843f4607b2b4a3aa76d256886482e97b1607bc:backend/tests/test_api.py:generic-api-key:156
