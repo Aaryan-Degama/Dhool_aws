@@ -294,6 +294,7 @@ p { margin: 0; }
 }
 
 /* Forms */
+[hidden] { display: none !important; }  /* "display: grid" on a form would otherwise show it again */
 form { display: grid; gap: 1rem; }
 .field { display: grid; gap: 0.375rem; min-width: 0; }
 .field > span { font-size: var(--step--1); font-weight: 500; color: var(--muted); }
@@ -507,7 +508,11 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
 .meter b { display: block; height: 100%; border-radius: 1rem; background: var(--current); }
 
 /* Setup */
-.stack { display: grid; gap: 0.875rem; }
+.stack { display: grid; gap: 1rem; }
+/* A switch between a few views of one sheet: a well with the chosen one raised in it. */
+.switch { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.25rem; padding: 0.25rem; border-radius: var(--r-ctl); background: var(--well); }
+.switch button { min-height: 2.75rem; padding: 0.25rem 0.375rem; border-radius: 10px; background: none; color: var(--muted); font-size: var(--step--1); font-weight: 500; line-height: 1.2; }
+.switch button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.16); color: var(--ink); }
 .note a, p a { color: var(--wash); font-weight: 600; }
 .file { position: relative; display: grid; place-items: center; min-height: 3rem; padding: 0.625rem 1rem; border-radius: var(--r-ctl); font-weight: 600; cursor: pointer; }
 .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }  /* still reachable by keyboard */

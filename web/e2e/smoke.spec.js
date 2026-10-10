@@ -112,6 +112,7 @@ test.describe("what the page may talk to", () => {
     });
     await page.clock.install();
     await page.goto(`${BUILT}/?lang=en#/setup`);
+    await page.getByRole("button", { name: "Type a reading" }).click();
     await page.getByLabel("Units made (kWh)").fill("5,5");
     await page.getByRole("button", { name: "Save reading" }).click();
     await expect(page.getByRole("heading", { name: "Working it out" })).toBeVisible();

@@ -33,6 +33,7 @@ export function AddData({ house, onSent }) {
   const base = `/houses/${house.house_id}`;
   const [key, setKey] = useState("");
   const [reading, setReading] = useState({ date: today, kwh: "" });
+  const [way, setWay] = useState("shot");  // which of the three ways in is open: shot, link or type
   const [shot, setShot] = useState(null); // null, { reading: true }, { rows } once read, or { failed: true }
   const [state, run] = useAction();
   const here = useRef(true);
@@ -66,10 +67,10 @@ export function AddData({ house, onSent }) {
     setShot({ failed: true });
   };
   const typeInstead = () => {
-    const box = document.getElementById("typed-kwh");
-    box.scrollIntoView({ block: "center", behavior: "smooth" });
-    box.focus({ preventScroll: true });
+    setWay("type");
+    requestAnimationFrame(() => document.getElementById("typed-kwh")?.focus());  // once its form is on screen
   };
+  const ways = [["shot", t("Screenshot")], ...(house.role === "owner" ? [["link", t("Inverter link")]] : []), ["type", t("Type a reading")]];
   const setRow = (date, kwh) => setShot({ rows: shot.rows.map((r) => (r.date === date ? { ...r, kwh } : r)) });
   const kept = () => shot.rows.filter((r) => r.kwh.trim() !== "").map((r) => ({ date: r.date, kwh: toNumber(r.kwh) }));
   const demoApp = <a href={`${API_URL}/mock/app`} target="_blank" rel="noreferrer" key="app">{t("demo inverter app")}</a>;
@@ -78,8 +79,14 @@ export function AddData({ house, onSent }) {
     <section className="add-data">
       <h1>{t("Add readings")}</h1>
 
+      {/* One sheet, one way in at a time. The others keep what was typed, and a screenshot goes on being read. */}
       <div className="card stack">
-        <h2>{t("Screenshot")}</h2>
+      <div className="switch" role="group" aria-label={t("Add readings")}>
+        {ways.map(([id, name]) => (
+          <button type="button" key={id} aria-pressed={way === id} onClick={() => setWay(id)}>{name}</button>
+        ))}
+      </div>
+      <div className="stack" hidden={way !== "shot"}>
         <p className="note">
           {t("A screenshot of your inverter app showing the units made each day: today's figure, or a list of days. Dhool reads the numbers printed on it; it does not guess from charts. Try it with a screen saved from the {app}.", { app: demoApp })}
         </p>
@@ -125,8 +132,7 @@ export function AddData({ house, onSent }) {
 
       {/* The key reaches a whole inverter account: it is the owner's to give, and the API refuses anyone else. */}
       {house.role === "owner" && (
-        <form className="card" onSubmit={send("/inverter", () => ({ api_key: key.trim() }))}>
-          <h2>{t("Inverter link")}</h2>
+        <form hidden={way !== "link"} onSubmit={send("/inverter", () => ({ api_key: key.trim() }))}>
           <p className="note">
             {t("Dhool then reads every day on its own. Copy your API key from the {app}. It holds simulated homes, not a real inverter brand.", { app: demoApp })}
           </p>
@@ -136,15 +142,15 @@ export function AddData({ house, onSent }) {
         </form>
       )}
 
-      <form className="card" onSubmit={send("/readings", () => ({ date: reading.date, kwh: toNumber(reading.kwh) }))}>
-        <h2>{t("Type a reading")}</h2>
+      <form hidden={way !== "type"} onSubmit={send("/readings", () => ({ date: reading.date, kwh: toNumber(reading.kwh) }))}>
         <div className="row">
           <Field label={t("Date")} type="date" max={today} required value={reading.date} onChange={(e) => setReading({ ...reading, date: e.target.value })} />
           <Field label={t("Units made (kWh)")} id="typed-kwh" inputMode="decimal" required value={reading.kwh} onChange={(e) => setReading({ ...reading, kwh: e.target.value })} />
         </div>
-        <button className="secondary" disabled={state.busy}>{t("Save reading")}</button>
+        <button className="primary" disabled={state.busy}>{t("Save reading")}</button>
       </form>
       <ErrorLine error={state.error} />
+      </div>
     </section>
   );
 }
