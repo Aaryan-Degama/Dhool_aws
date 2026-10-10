@@ -18,7 +18,8 @@ and the numbers behind it. The rules, in order:
 in the data), and moved forward along the recent trend: a week's median describes the roof about
 three days ago, which hides the newest dust and, right after rain, still shows the old dirt.
 """
-from types import SimpleNamespace
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,35 @@ STAY_WANDERS = 3       # ...and climbing back to within this many times of it me
 OUTAGE = 0.10          # a sunny day under this share of the roof's normal: the system was off, not dirty
 AREA_OUT = 0.5         # ...unless the area's median fell under this share of its own recent level that day
 LOW_NORMAL = 0.6       # a roof whose best weeks are under this share of the physics may have been faulty all along
+
+
+@dataclass
+class Facts:
+    """The figures every rule reads, prepared once by verdict(). The first nine are its inputs; the rest it
+    works out in order, so a result returned early (too few readings) leaves the later ones unset."""
+    daily: pd.DataFrame                # expected and actual kWh by day
+    ratio: pd.Series                   # actual / expected on days bright enough to judge
+    valid: pd.Series                   # ratio without its gaps
+    pm25: pd.Series | None
+    neighbours: pd.DataFrame | None    # nearby homes' ratios, one column each
+    rain_forecast: Any                 # mm for the coming days, tomorrow first
+    dust_storms: Any                   # True for each coming day with a dust storm forecast
+    wash_cost: float | None            # ₹ for one wash; None means config.WASH_COST_RS
+    tariff: float                      # ₹ per kWh
+    baseline: float = 1.0              # this roof's normal, as a share of the physics
+    low_normal: bool = False
+    check: dict | None = None          # the latest reported wash or visit, and whether it worked
+    step: pd.Series | None = None      # week-on-week change in the medians
+    sharp: pd.Series | None = None     # ...and in the means, which peak on the day of a change
+    area_step: pd.Series | None = None
+    rained: pd.Series | None = None    # days with enough rain to clean the panels
+    told: pd.Series | None = None      # days the homeowner reported a wash or visit
+    actions: Any = ()                  # those reports that fall within the readings
+    ahead: dict | None = None          # a report dated after the last reading
+    last_clean: pd.Timestamp | None = None
+    since: pd.Series | None = None     # ratio since the last cleaning
+    rate: float | None = None          # share of output lost per day
+    loss: float | None = None          # share of the roof's normal lost now
 
 
 def _ratio(daily):
@@ -331,9 +361,8 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
     ratio = _ratio(daily)
     valid = ratio.dropna()
     # The figures every rule reads, prepared once here.
-    f = SimpleNamespace(daily=daily, ratio=ratio, valid=valid, pm25=pm25, neighbours=neighbours, baseline=1.0, low_normal=False,
-                        check=None, rain_forecast=rain_forecast, dust_storms=dust_storms, wash_cost=wash_cost,
-                        tariff=config.TARIFF_RS if tariff is None else tariff)
+    f = Facts(daily=daily, ratio=ratio, valid=valid, pm25=pm25, neighbours=neighbours, rain_forecast=rain_forecast,
+              dust_storms=dust_storms, wash_cost=wash_cost, tariff=config.TARIFF_RS if tariff is None else tariff)
     if len(valid) < MIN_DAYS:
         return _result(f, "WAIT", "no_data", "low", say("no_data", n=len(valid)))
 
