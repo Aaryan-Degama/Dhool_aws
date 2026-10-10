@@ -94,6 +94,7 @@ def aws(monkeypatch):
                         "UPLOADS": "uploads-test", "TABLE": "dhool-test"}.items():
         monkeypatch.setenv(name, value)
     with mock_aws():
+        vision_handler._aws.clear()
         boto3.client("s3").create_bucket(Bucket="uploads-test", CreateBucketConfiguration={"LocationConstraint": "ap-south-1"})
         boto3.client("s3").put_object(Bucket="uploads-test", Key="houses/h1/s1.jpg", Body=b"picture bytes")
         table = boto3.resource("dynamodb").create_table(
@@ -133,6 +134,15 @@ def test_a_screenshot_whose_home_was_deleted_meanwhile_is_not_written_back(aws, 
     assert vision_handler.handler(EVENT, None)["status"] == "gone"
     assert aws.scan()["Items"] == []
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])["vision"] == "gone"
+
+
+def test_the_reader_keeps_one_s3_client_and_table_between_screenshots(aws, monkeypatch):
+    monkeypatch.setattr(screenshot_reader, "read", lambda image: {"reader": "test", "readings": []})
+    vision_handler.handler(EVENT, None)
+    s3, table = vision_handler._s3(), vision_handler._table()
+    vision_handler.handler(EVENT, None)
+    assert vision_handler._s3() is s3 and vision_handler._table() is table
+    assert s3.meta.config.retries == {"mode": "standard", "total_max_attempts": 4}
 
 
 def test_the_keep_warm_ping_only_loads_the_model(aws, monkeypatch):

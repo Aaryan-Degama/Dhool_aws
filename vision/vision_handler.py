@@ -10,9 +10,24 @@ import os
 import time
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 import reader
+
+_aws = {}  # the S3 client and the table, made on the first screenshot and kept while the container lives
+
+
+def _s3():
+    if "s3" not in _aws:  # a throttled or dropped call is tried again up to three times, with backoff
+        _aws["s3"] = boto3.client("s3", config=Config(retries={"mode": "standard", "max_attempts": 3}))
+    return _aws["s3"]
+
+
+def _table():
+    if "table" not in _aws:
+        _aws["table"] = boto3.resource("dynamodb").Table(os.environ["TABLE"])
+    return _aws["table"]
 
 
 def handler(event, context):
@@ -21,7 +36,7 @@ def handler(event, context):
         return {"status": "warm"}
     started = time.time()
     try:
-        image = boto3.client("s3").get_object(Bucket=os.environ["UPLOADS"], Key=event["key"])["Body"].read()
+        image = _s3().get_object(Bucket=os.environ["UPLOADS"], Key=event["key"])["Body"].read()
         result = reader.read(image)
         status = "read"
     except Exception as e:  # whatever went wrong, the homeowner must not be left waiting on a spinner
@@ -30,7 +45,7 @@ def handler(event, context):
     try:
         # Only onto the screenshot's own item: if the home was deleted while this read, writing would bring
         # back a piece of it that nothing would ever remove.
-        boto3.resource("dynamodb").Table(os.environ["TABLE"]).update_item(
+        _table().update_item(
             Key={"pk": f"HOUSE#{event['house_id']}", "sk": f"SHOT#{event['shot_id']}"},
             UpdateExpression="SET #status = :status, #result = :result, seconds = :seconds",
             ConditionExpression="attribute_exists(pk)",

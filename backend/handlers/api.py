@@ -16,13 +16,13 @@ import uuid
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from dhool import authz, config, connectors
-from handlers.common import query_all
+from handlers import common
+from handlers.common import bucket, client, log, query_all, table
 
 INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I/L
 INVITE_TTL_S = 7 * 24 * 3600
@@ -46,21 +46,6 @@ SETTINGS = {"wash_cost_rs": (0, 5000), "tariff_rs": (1, 30)}
 PUSH_ENDPOINT = re.compile(r"https://(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)+(?:push\.services\.mozilla\.com"
                            r"|notify\.windows\.com|push\.apple\.com))/[A-Za-z0-9._~%:/?=&+-]*")
 MAX_ENDPOINT_CHARS, MAX_PUSH_KEY_CHARS = 2000, 200
-
-_table = None
-_request_id = None  # this invocation's, put on every log line
-
-
-def _log(**fields):
-    print(json.dumps({**fields, "request_id": _request_id}))
-
-
-def table():
-    global _table
-    if _table is None:
-        _table = boto3.resource("dynamodb").Table(os.environ["TABLE"])
-    return _table
-
 
 class HttpError(Exception):
     def __init__(self, status, message):
@@ -98,7 +83,7 @@ def authorize(sub, house_id, action):
     item = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}"}).get("Item")
     role = item["role"] if item else None
     allowed = authz.decide(role, action)
-    _log(authz="allow" if allowed else "deny", sub=sub, house=house_id, action=action, role=role)
+    log(authz="allow" if allowed else "deny", sub=sub, house=house_id, action=action, role=role)
     if not allowed:
         raise HttpError(403, "Not allowed")
     return role
@@ -210,7 +195,7 @@ def join(sub, event):
     if fails and fails["expiresAt"] <= now:  # last hour's count, not yet removed
         table().delete_item(Key=fail_key)
     elif fails and fails["n"] >= JOIN_TRIES:
-        _log(authz="join_locked", sub=sub)
+        log(authz="join_locked", sub=sub)
         raise HttpError(429, "Too many wrong codes. Try again in an hour.")
     invite = table().get_item(Key={"pk": f"INVITE#{code.strip().upper()}", "sk": "META"}).get("Item")
     house = None
@@ -235,7 +220,7 @@ def join(sub, event):
             raise
     else:
         table().put_item(Item={"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "member", "name": house["name"]})
-    _log(authz="join", sub=sub, house=house_id)
+    log(authz="join", sub=sub, house=house_id)
     return 200, {"house_id": house_id}
 
 
@@ -243,7 +228,7 @@ def delete_house(sub, event):
     """The owner deletes the home: its readings, verdicts, screenshots, members and their alerts, for everyone."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "delete_house")
-    boto3.resource("s3").Bucket(os.environ["UPLOADS"]).objects.filter(Prefix=f"houses/{house_id}/").delete()
+    bucket(os.environ["UPLOADS"]).objects.filter(Prefix=f"houses/{house_id}/").delete()
     # Members go last: if this stops half-way the owner is still the owner and can press delete again.
     keys = sorted((i["sk"] for i in _house_keys(house_id)), key=lambda sk: sk.startswith("MEMBER#"))
     with table().batch_writer() as batch:
@@ -254,7 +239,7 @@ def delete_house(sub, event):
                 batch.delete_item(Key={"pk": sk, "sk": "META"})
             batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": sk})
         batch.delete_item(Key={"pk": "HOUSES", "sk": house_id})
-    _log(deleted="house", house=house_id, items=len(keys))
+    log(deleted="house", house=house_id, items=len(keys))
     return 200, {"deleted": house_id}
 
 
@@ -276,7 +261,7 @@ def remove_member(sub, event):
         for item in _house_keys(house_id, "INVITE#"):  # or they could walk back in with a code they still hold
             batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": item["sk"]})
             batch.delete_item(Key={"pk": item["sk"], "sk": "META"})
-    _log(removed="member", house=house_id, member=member)
+    log(removed="member", house=house_id, member=member)
     return 200, {"removed": member}
 
 
@@ -369,8 +354,9 @@ def record_action(sub, event):
 
 def _read_reply(text):
     """Ask the vendor-reply reader (Laya, in its own Lambda) which of the four kinds of reply this is."""
-    client = boto3.client("lambda", config=Config(read_timeout=20, retries={"max_attempts": 0}))
-    out = client.invoke(FunctionName=os.environ["MESSAGE_FUNCTION"], Payload=json.dumps({"text": text}))
+    # Its own client: one try and a short wait. The homeowner is watching, and has the four buttons anyway.
+    reader = client("lambda", key="reply reader", config=Config(read_timeout=20, retries={"max_attempts": 0}))
+    out = reader.invoke(FunctionName=os.environ["MESSAGE_FUNCTION"], Payload=json.dumps({"text": text}))
     return json.loads(out["Payload"].read()).get("label")
 
 
@@ -385,10 +371,10 @@ def read_vendor_reply(sub, event):
     try:
         label = _read_reply(text.strip())
     except Exception as e:  # a reader that is still starting up, or broken: the homeowner picks the label by hand
-        _log(reply_reader="unavailable", house=house_id, error=type(e).__name__)
+        log(reply_reader="unavailable", house=house_id, error=type(e).__name__)
         raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
     if label not in REPLY_LABELS:  # the model's output is not trusted to be one of ours
-        _log(reply_reader="bad_label", house=house_id)
+        log(reply_reader="bad_label", house=house_id)
         raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
     return 200, {"label": label}
 
@@ -402,8 +388,8 @@ def start_upload(sub, event):
         raise HttpError(400, "The screenshot must be a PNG or JPEG image")
     key = f"houses/{house_id}/{uuid.uuid4().hex}.{IMAGE_TYPES[content_type]}"
     region = os.environ["AWS_REGION"]
-    s3 = boto3.client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
-                      config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
+    s3 = client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
+                config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
     post = s3.generate_presigned_post(
         os.environ["UPLOADS"], key, Fields={"Content-Type": content_type},
         Conditions=[{"Content-Type": content_type}, ["content-length-range", 1, MAX_UPLOAD_BYTES]], ExpiresIn=300)
@@ -412,8 +398,8 @@ def start_upload(sub, event):
 
 def _start_reading(house_id, shot_id, key):
     """Hand the screenshot to the reader (the vision model, in its own Lambda). It works in the background."""
-    boto3.client("lambda").invoke(FunctionName=os.environ["VISION_FUNCTION"], InvocationType="Event",
-                                  Payload=json.dumps({"house_id": house_id, "shot_id": shot_id, "key": key}))
+    client("lambda").invoke(FunctionName=os.environ["VISION_FUNCTION"], InvocationType="Event",
+                            Payload=json.dumps({"house_id": house_id, "shot_id": shot_id, "key": key}))
 
 
 def read_screenshot(sub, event):
@@ -459,8 +445,8 @@ def screenshot_result(sub, event):
 
 def _start_analysis(house_id):
     """Ask the analysis Lambda for a fresh verdict. Returns at once; the app polls GET .../verdict."""
-    boto3.client("lambda").invoke(FunctionName=os.environ["ANALYSIS_FUNCTION"], InvocationType="Event",
-                                  Payload=json.dumps({"house_id": house_id}))
+    client("lambda").invoke(FunctionName=os.environ["ANALYSIS_FUNCTION"], InvocationType="Event",
+                            Payload=json.dumps({"house_id": house_id}))
 
 
 def connect_inverter(sub, event):
@@ -571,8 +557,7 @@ ROUTES = {
 
 
 def handler(event, context):
-    global _request_id
-    _request_id = getattr(context, "aws_request_id", None)
+    common.request_id = getattr(context, "aws_request_id", None)
     try:
         route = ROUTES.get(event.get("routeKey"))
         if route is None:
@@ -582,9 +567,9 @@ def handler(event, context):
     except HttpError as e:
         status, payload = e.status, {"error": e.message}
     except Exception as e:  # nothing foreseen: the caller gets a number to quote, the log gets the rest
-        _log(error="unhandled", route=event.get("routeKey"), exception=type(e).__name__, detail=str(e)[:500],
+        log(error="unhandled", route=event.get("routeKey"), exception=type(e).__name__, detail=str(e)[:500],
              trace=traceback.format_exc()[-2000:])
-        status, payload = 500, {"error": "Something went wrong", "request_id": _request_id}
+        status, payload = 500, {"error": "Something went wrong", "request_id": common.request_id}
     return {
         "statusCode": status,
         "headers": {"content-type": "application/json"},

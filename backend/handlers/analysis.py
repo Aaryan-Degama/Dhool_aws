@@ -11,14 +11,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from zoneinfo import ZoneInfo
 
-import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 from dhool import config, connectors, notify
 from dhool.analyse import analyse
 from dhool.expected import fetch_dust_storms, fetch_pm25, fetch_weather_with_forecast
-from handlers.common import query_all
+from handlers import common
+from handlers.common import client, log, query_all, table
 
 # ponytail: this account may run 10 Lambdas at once, and each run also calls the demo inverter (two more).
 # Starting a house every 1.5 s keeps the night under that, and fits about 70 houses in the 120 s timeout.
@@ -28,31 +28,18 @@ NIGHTLY_PAGE = 25       # houses started between looks at the clock
 VERDICT_TTL_S = 400 * 24 * 3600  # a day's verdict is kept a little over a year; the readings behind it are kept
 PUSH_TTL_S = 24 * 3600  # a phone that is off gets the alert within a day or not at all
 
-_table = None
-_request_id = None  # this invocation's, put on every log line
-_vapid = False      # the key that signs notifications: False until looked up, None when there is none
-
-
-def table():
-    global _table
-    if _table is None:
-        _table = boto3.resource("dynamodb").Table(os.environ["TABLE"])
-    return _table
-
-
-def _log(**fields):
-    print(json.dumps({**fields, "request_id": _request_id}))
+_vapid = False  # the key that signs notifications: False until looked up, None when there is none
 
 
 def _vapid_key():
     global _vapid
     if _vapid is False:
         try:
-            _vapid = boto3.client("ssm").get_parameter(
+            _vapid = client("ssm").get_parameter(
                 Name=os.environ.get("VAPID_PARAM", "/dhool/vapid-private-key"), WithDecryption=True)["Parameter"]["Value"]
         except Exception as e:  # no key stored: verdicts go on, notifications are off until it is
             _vapid = None
-            _log(analysis="push_off", error=type(e).__name__)
+            log(analysis="push_off", error=type(e).__name__)
     return _vapid
 
 
@@ -78,8 +65,8 @@ def _notify(house_id, previous, result):
             status = getattr(getattr(e, "response", None), "status_code", None)
             if status in (404, 410):  # the browser dropped this subscription
                 table().delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
-            _log(analysis="push_failed", house=house_id, status=status, error=type(e).__name__)
-    _log(analysis="pushed", house=house_id, sent=sent)
+            log(analysis="push_failed", house=house_id, status=status, error=type(e).__name__)
+    log(analysis="pushed", house=house_id, sent=sent)
 
 
 def run_house(house_id, nightly=False):
@@ -111,13 +98,13 @@ def run_house(house_id, nightly=False):
         try:
             pm25 = pm25.result()
         except Exception as e:  # air quality only sharpens the haze call; the verdict works without it
-            _log(analysis="pm25_unavailable", house=house_id, error=str(e))
+            log(analysis="pm25_unavailable", house=house_id, error=str(e))
             pm25 = None
 
         try:  # a dust storm on the way means "wash after it"; without the forecast the wash plan uses rain alone
             storms = storms.result()
         except Exception as e:
-            _log(analysis="dust_forecast_unavailable", house=house_id, error=str(e))
+            log(analysis="dust_forecast_unavailable", house=house_id, error=str(e))
             storms = None
 
     def items(prefix, **more):
@@ -141,42 +128,41 @@ def run_house(house_id, nightly=False):
         reasons = [r.get("Code") for r in e.response.get("CancellationReasons", [])]
         if e.response["Error"]["Code"] != "TransactionCanceledException" or reasons[:1] != ["ConditionalCheckFailed"]:
             raise
-        _log(analysis="house_gone", house=house_id)
+        log(analysis="house_gone", house=house_id)
         return None
-    _log(analysis="done", house=house_id, as_of=result["as_of"],
+    log(analysis="done", house=house_id, as_of=result["as_of"],
          verdict=result["verdict"], cause=result["cause"], confidence=result["confidence"])
     if nightly:
         try:
             _notify(house_id, json.loads(previous[0]["json"]) if previous else None, result)
         except Exception as e:  # the verdict is saved; a notification that could not go out never fails the run
-            _log(analysis="push_failed", house=house_id, error=type(e).__name__)
+            log(analysis="push_failed", house=house_id, error=type(e).__name__)
     return result["verdict"]
 
 
 def handler(event, context):
-    global _request_id
-    _request_id = getattr(context, "aws_request_id", None)
+    common.request_id = getattr(context, "aws_request_id", None)
     if event.get("house_id"):
         return {"verdict": run_house(event["house_id"], nightly=event.get("nightly") is True)}
     # Nightly: one run of this same function per house, in the background, so a slow or broken house holds up
     # nobody and its failure lands in the failure queue.
     # Pacing makes a long list outlast one invocation: when time runs short, the rest is handed to a fresh one.
-    client, started = boto3.client("lambda"), 0
+    runs, started = client("lambda"), 0
     more = {"ExclusiveStartKey": event["cursor"]} if event.get("cursor") else {}
     while True:
         if started and more and context.get_remaining_time_in_millis() < NIGHTLY_PAGE * NIGHTLY_PACE_S * 1000 + 15_000:
-            client.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
-                          Payload=json.dumps({"cursor": more["ExclusiveStartKey"]}))
-            _log(analysis="nightly_continues", houses=started)
+            runs.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
+                        Payload=json.dumps({"cursor": more["ExclusiveStartKey"]}))
+            log(analysis="nightly_continues", houses=started)
             return {"houses": started, "continues": True}
         page = table().query(KeyConditionExpression=Key("pk").eq("HOUSES"), Limit=NIGHTLY_PAGE, **more)
         for house in page["Items"]:
-            client.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
-                          Payload=json.dumps({"house_id": house["sk"], "nightly": True}))
+            runs.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
+                        Payload=json.dumps({"house_id": house["sk"], "nightly": True}))
             started += 1
             time.sleep(NIGHTLY_PACE_S)
         if "LastEvaluatedKey" not in page:
             break
         more = {"ExclusiveStartKey": page["LastEvaluatedKey"]}
-    _log(analysis="nightly", houses=started)
+    log(analysis="nightly", houses=started)
     return {"houses": started}

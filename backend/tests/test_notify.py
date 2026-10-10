@@ -58,7 +58,7 @@ def test_the_nightly_run_starts_one_background_run_per_house_across_pages(monkey
 
     monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "dhool-AnalysisFunction-abc")
     monkeypatch.setattr(analysis, "table", Table)
-    monkeypatch.setattr(analysis.boto3, "client", lambda name: Lambda())
+    monkeypatch.setattr(analysis, "client", lambda name: Lambda())
     monkeypatch.setattr(analysis, "NIGHTLY_PACE_S", 0)
     clock = type("Context", (), {"aws_request_id": "r", "get_remaining_time_in_millis": lambda self: 100_000})()
     assert analysis.handler({}, clock) == {"houses": 3}
@@ -96,7 +96,7 @@ def home(monkeypatch):
         for name, lang in (("a", "en"), ("b", "hi")):
             table.put_item(Item={"pk": "HOUSE#h1", "sk": f"PUSH#{name}", "endpoint": f"https://web.push.apple.com/{name}",
                                  "p256dh": "p", "auth": "a", "lang": lang, "by": "sub-father"})
-        monkeypatch.setattr(analysis, "_table", None)
+        common._made.clear()
         yield table
 
 

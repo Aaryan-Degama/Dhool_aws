@@ -7,6 +7,7 @@ import time
 import boto3
 import pytest
 from boto3.dynamodb.conditions import Key
+from botocore.config import Config
 from moto import mock_aws
 
 from dhool import authz
@@ -33,7 +34,7 @@ def table(monkeypatch):
                                   {"AttributeName": "sk", "AttributeType": "S"}],
             KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
         )
-        monkeypatch.setattr(api, "_table", None)
+        common._made.clear()
         ANALYSED.clear()
         monkeypatch.setattr(api, "_start_analysis", ANALYSED.append)
         yield api.table()
@@ -360,6 +361,15 @@ def test_a_new_home_never_overwrites_one_whose_id_it_drew(house, table, monkeypa
     assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["name"] == "Sharma house"
     assert call(MOTHER, "GET /houses/{houseId}", house_id=house)[0] == 403
     assert [h["name"] for h in call(MOTHER, "GET /me")[1]["houses"]] == ["Verma house"]
+
+
+def test_aws_clients_are_made_once_and_try_again_with_backoff():
+    first = common.client("lambda")
+    assert common.client("lambda") is first and common.table() is common.table()
+    assert first.meta.config.retries == {"mode": "standard", "total_max_attempts": 4}  # the call and three more tries
+    # The reply reader's own: one try and a short wait, because the homeowner is watching.
+    reply = common.client("lambda", key="reply reader", config=Config(read_timeout=20, retries={"max_attempts": 0}))
+    assert reply is not first and reply.meta.config.retries["total_max_attempts"] == 1
 
 
 def test_lists_longer_than_one_page_come_back_whole(house, table, monkeypatch):
