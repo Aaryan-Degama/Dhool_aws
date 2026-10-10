@@ -146,7 +146,7 @@ The project's current state. **Update this file whenever something changes** (a 
    - Once the app has a public HTTPS address: switch alerts on from a real phone and confirm a push arrives (never seen end to end).
 4. Real inverter screenshots and 20 to 30 real vendor replies from the owner, to score the two readers honestly.
 5. The early-start permission in writing. (The license is on branch `hardening`: Apache-2.0.)
-6. Make the demo usable again on the new stack: regenerate the demo data, create the demo and showcase accounts in the new user pool, link their homes, run the analysis. Then push `main` and connect Amplify.
+6. Change the showcase accounts' password (`scripts/seed-demo.py` again). Make the repo public. Look at the wash case before recording.
 
 ## Blockers
 - **Amplify Hosting in ap-south-1 is full.** Creating a second app there fails with "maximum number of apps in this account"; the one slot is Slate's app. An empty test app in us-east-1 was created and deleted without trouble, so the cap is per region. Host Dhool's web app from another region (Amplify serves through CloudFront, so the region barely matters) or delete Slate's app. Connecting the GitHub repo needs the user to authorise GitHub in the Amplify console; it cannot be done from the CLI without handing AWS a GitHub token.
@@ -161,6 +161,12 @@ The project's current state. **Update this file whenever something changes** (a 
 - Statistics in `DHOOL.md` 2.1 and prior art in 2.12 still need citable sources before the write-up
 
 ## Log
+- **2026-10-10:** **The web app is live: https://main.d18fp2anb76xgh.amplifyapp.com** (Amplify Hosting, Singapore, built from `main`, monorepo root `web`; connected by the owner). `main` is pushed.
+  - *Checked on the live site,* in a headless phone-width Chrome, signed in as each of the three showcase accounts (`web/e2e/live-check.js`): Verma house "Call your vendor" (35% down since 21 May), Iyer house "Your solar is working", Sharma house **"Wait for the rain"**. No console error, nothing blocked by the Content-Security-Policy, no sideways scroll, no stale-reading card. The site sends the headers of `customHttp.yml` and its own font. The API's CORS answers that origin and not another (`WebOrigin` in `samconfig.toml`).
+  - *The showcase accounts were made again* with `scripts/seed-demo.py` on addresses at example.com: wash on `home-30`, vendor on `home-01`, all good on `home-05`. **Their password is a placeholder typed in the open and has to be changed** (run the script again with another). The demo data was regenerated through 9 Oct and deployed.
+  - *The wash case is not showing.* With weather through 9 Oct and rain forecast, `home-30` says "wait for the rain". The other two dusty homes were not looked at. Check on the day of recording.
+  - *The first run of CI on GitHub:* `template` and `test` passed. `scan` failed on a Dockerfile line of this pass and was fixed. CodeQL fails until code scanning is on (the repo is private). Dependabot opened about seven pull requests at once; none is merged.
+  - *Not checked on the live site:* sign-up by email, a screenshot upload, pasting a vendor reply, a push alert on a real phone, Hindi, an installed PWA.
 - **2026-10-10:** **The hardening pass is merged into local `main` and deployed to stack `dhool-aws` (ap-south-1), `UPDATE_COMPLETE`. `main` is not pushed.**
   - *What the account held, found only at deploy time:* `dhool-aws` was a small early stack (API, analysis, table, user pool; no screenshot reader, reply reader, bucket, queue or alarms), with an empty table and no users. The full stack, named `dhool`, shows `DELETE_COMPLETE` on 8 Oct, with its table, user pool, bucket and images. The "Complete and live" list in `CLAUDE.md` described that deleted stack. **The demo homes' house items and the showcase accounts are gone and have to be made again.**
   - *Checked live after the deploy:* `/me` without a token 401, an unknown path 404, `/mock/app` 200, the demo fleet 33 homes; the reply reader labelled a Hinglish reply `visit_scheduled` (113 s cold); the screenshot reader warmed up in 15 s; the nightly entry point ran over 0 houses; failure queue 0; 13 alarms, all OK; the table has deletion protection. The API URL and client ID are the ones in `web/src/config.js`. Not checked: a signed-in call, a screenshot read, an alert, the dashboard page.

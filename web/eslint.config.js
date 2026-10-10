@@ -13,5 +13,5 @@ export default [
   { files: ["src/**/*.{js,jsx}"], languageOptions: { globals: BROWSER, parserOptions: { ecmaFeatures: { jsx: true } } } },
   { files: ["public/sw.js"], languageOptions: { globals: names("self caches fetch URL location") } },
   // Run by Node; the browser test also holds functions that run in the page.
-  { files: ["*.config.js", "e2e/**/*.js", "src/**/*.test.js"], languageOptions: { globals: names("process URL document navigator fetch localStorage") } },
+  { files: ["*.config.js", "e2e/**/*.js", "src/**/*.test.js"], languageOptions: { globals: names("process URL document navigator fetch localStorage console") } },
 ];
