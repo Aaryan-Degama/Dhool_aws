@@ -1,4 +1,5 @@
 """The weather cache around Open-Meteo, against an in-memory DynamoDB. No network."""
+
 import json
 
 import boto3
@@ -15,8 +16,12 @@ ANSWER = {"hourly": {"time": ["2026-10-10T00:00"], "dust": [0.1, 302.0, None]}}
 @pytest.fixture
 def cache(monkeypatch):
     """(get, asked, clock): the cached fetch, the addresses that reached Open-Meteo, and a clock to move."""
-    for name, value in {"AWS_DEFAULT_REGION": "ap-south-1", "AWS_ACCESS_KEY_ID": "t", "AWS_SECRET_ACCESS_KEY": "t",
-                        "TABLE": "dhool-test"}.items():
+    for name, value in {
+        "AWS_DEFAULT_REGION": "ap-south-1",
+        "AWS_ACCESS_KEY_ID": "t",
+        "AWS_SECRET_ACCESS_KEY": "t",
+        "TABLE": "dhool-test",
+    }.items():
         monkeypatch.setenv(name, value)
     asked, clock = [], [1_800_000_000]
 
@@ -25,13 +30,19 @@ def cache(monkeypatch):
         if asked.count("down"):
             raise TimeoutError("no answer")
         return ANSWER
+
     monkeypatch.setattr(weather_cache.time, "time", lambda: clock[0])
     with mock_aws():
         common._made.clear()
         boto3.resource("dynamodb").create_table(
-            TableName="dhool-test", BillingMode="PAY_PER_REQUEST",
-            AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}, {"AttributeName": "sk", "AttributeType": "S"}],
-            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}])
+            TableName="dhool-test",
+            BillingMode="PAY_PER_REQUEST",
+            AttributeDefinitions=[
+                {"AttributeName": "pk", "AttributeType": "S"},
+                {"AttributeName": "sk", "AttributeType": "S"},
+            ],
+            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
+        )
         yield weather_cache.cached(open_meteo), asked, clock
 
 
@@ -44,7 +55,9 @@ def test_an_answer_is_asked_for_once_and_then_served_from_the_table_for_three_ho
     assert get(URL) == ANSWER and asked == [URL, URL]
     item = common.table().scan()["Items"][0]
     assert item["pk"].startswith("WXCACHE#") and len(item["pk"]) == 8 + 64
-    assert item["expiresAt"] == clock[0] + weather_cache.STALE_S  # DynamoDB's TTL removes it a day after the last answer
+    assert (
+        item["expiresAt"] == clock[0] + weather_cache.STALE_S
+    )  # DynamoDB's TTL removes it a day after the last answer
 
 
 def test_places_are_kept_apart_to_the_last_digit_sent(cache):

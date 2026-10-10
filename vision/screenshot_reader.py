@@ -7,6 +7,7 @@ is asked only for numbers printed on the screen: a list of days, or today's figu
 What it returns is never trusted as fact: the API drops any value that cannot be true for the roof, and
 the homeowner confirms or corrects the rest before anything is saved.
 """
+
 import base64
 import io
 import json
@@ -29,9 +30,9 @@ PORT = 8081
 # at 400 instead of 640 a list reads in 47 s instead of 64 and a today screen in 33 s instead of 52, with
 # every demo value still exact.
 IMAGE_TOKENS = 400
-PATCH = 32               # the model's 16-pixel patches, merged two by two
+PATCH = 32  # the model's 16-pixel patches, merged two by two
 MAX_PIXELS = 30_000_000  # no phone screenshot is larger; a small file can unpack to far more than memory holds
-MAX_REPLY_TOKENS = 420   # room for about thirty rows of a list
+MAX_REPLY_TOKENS = 420  # room for about thirty rows of a list
 READER = "qwen3-vl-2b-instruct-q4"
 
 # A small model answers narrow questions far more reliably than one broad one. Asked to "list every daily
@@ -96,7 +97,10 @@ def fit(image):
     if picture.width * picture.height > MAX_PIXELS:
         raise ValueError(f"the picture is {picture.width} x {picture.height} pixels, too large for a screenshot")
     scale = min(1.0, math.sqrt(IMAGE_TOKENS * PATCH * PATCH / (picture.width * picture.height)))
-    size = (max(PATCH, int(picture.width * scale) // PATCH * PATCH), max(PATCH, int(picture.height * scale) // PATCH * PATCH))
+    size = (
+        max(PATCH, int(picture.width * scale) // PATCH * PATCH),
+        max(PATCH, int(picture.height * scale) // PATCH * PATCH),
+    )
     picture.draft("RGB", size)  # a JPEG decodes straight to near the size it is shrunk to
     out = io.BytesIO()
     picture.convert("RGB").resize(size, Image.LANCZOS, reducing_gap=3.0).save(out, "PNG")
@@ -104,9 +108,11 @@ def fit(image):
 
 
 def _call(path, body=None, timeout=5):
-    request = urllib.request.Request(f"http://127.0.0.1:{PORT}{path}",
-                                     data=json.dumps(body).encode() if body is not None else None,
-                                     headers={"Content-Type": "application/json"})
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{PORT}{path}",
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Content-Type": "application/json"},
+    )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.load(response)
 
@@ -125,9 +131,15 @@ def fetch_weights():
     """Read the weights once, in large pieces, sixteen at a time. A fresh Lambda pulls its container image in
     lazily; left to the model server, the same 1.5 GB arrives as small scattered reads, which took about four
     minutes. The data is thrown away here: the point is that the kernel now holds it for the server to map."""
-    paths = [f"{MODEL_DIR}/{name}" for name in ("Qwen3VL-2B-Instruct-Q4_K_M.gguf", "mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf")]
+    paths = [
+        f"{MODEL_DIR}/{name}" for name in ("Qwen3VL-2B-Instruct-Q4_K_M.gguf", "mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf")
+    ]
     with ThreadPoolExecutor(16) as pool:
-        list(pool.map(_read_piece, [(path, offset) for path in paths for offset in range(0, os.path.getsize(path), PIECE)]))
+        list(
+            pool.map(
+                _read_piece, [(path, offset) for path in paths for offset in range(0, os.path.getsize(path), PIECE)]
+            )
+        )
 
 
 def start():
@@ -138,21 +150,46 @@ def start():
     fetch_weights()
     threads = str(len(os.sched_getaffinity(0)))  # the cores this process may actually use: two, in Lambda at 3 GB
     _server = subprocess.Popen(
-        [SERVER, "-m", f"{MODEL_DIR}/Qwen3VL-2B-Instruct-Q4_K_M.gguf", "--mmproj", f"{MODEL_DIR}/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf",
-         "--host", "127.0.0.1", "--port", str(PORT), "--threads", threads, "--threads-batch", threads,
-         # Memory is the tight resource: this account's Lambda tops out at 3008 MB, and at that ceiling the
-         # model's pages get pushed out and reading slows down. Measured in the Lambda image: llama.cpp's
-         # repacked copy of the weights took 646 MB and bought no speed on two cores, so it is off and the
-         # weights are read straight from the mapped file (which the kernel can drop and re-read, where an
-         # out-of-memory kill is final). With that, 400 picture tokens and a context of a picture, a question
-         # and thirty rows, the server's own memory peaks at about 940 MB instead of 1,711.
-         # An 8-bit attention cache would save a little more, but with it the model read a "99%" off one of
-         # Dhool's own screens as today's generation, so the cache stays at full precision.
-         "--no-repack", "--ctx-size", str(math.ceil((IMAGE_TOKENS + 200 + MAX_REPLY_TOKENS) / 256) * 256),
-         "--batch-size", "256", "--ubatch-size", "256", "--parallel", "1", "--image-max-tokens", str(IMAGE_TOKENS),
-         "--cache-ram", "0",  # no saved prompts between screenshots: every one is new, and memory here is tight
-         "--no-webui", "--no-slots"],
-        env={**os.environ, "HOME": "/tmp"})
+        [
+            SERVER,
+            "-m",
+            f"{MODEL_DIR}/Qwen3VL-2B-Instruct-Q4_K_M.gguf",
+            "--mmproj",
+            f"{MODEL_DIR}/mmproj-Qwen3VL-2B-Instruct-Q8_0.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(PORT),
+            "--threads",
+            threads,
+            "--threads-batch",
+            threads,
+            # Memory is the tight resource: this account's Lambda tops out at 3008 MB, and at that ceiling the
+            # model's pages get pushed out and reading slows down. Measured in the Lambda image: llama.cpp's
+            # repacked copy of the weights took 646 MB and bought no speed on two cores, so it is off and the
+            # weights are read straight from the mapped file (which the kernel can drop and re-read, where an
+            # out-of-memory kill is final). With that, 400 picture tokens and a context of a picture, a question
+            # and thirty rows, the server's own memory peaks at about 940 MB instead of 1,711.
+            # An 8-bit attention cache would save a little more, but with it the model read a "99%" off one of
+            # Dhool's own screens as today's generation, so the cache stays at full precision.
+            "--no-repack",
+            "--ctx-size",
+            str(math.ceil((IMAGE_TOKENS + 200 + MAX_REPLY_TOKENS) / 256) * 256),
+            "--batch-size",
+            "256",
+            "--ubatch-size",
+            "256",
+            "--parallel",
+            "1",
+            "--image-max-tokens",
+            str(IMAGE_TOKENS),
+            "--cache-ram",
+            "0",  # no saved prompts between screenshots: every one is new, and memory here is tight
+            "--no-webui",
+            "--no-slots",
+        ],
+        env={**os.environ, "HOME": "/tmp"},
+    )
     for _ in range(600):  # the first load reads 1.5 GB of weights: allow up to five minutes
         if _server.poll() is not None:
             raise RuntimeError(f"the model server stopped with exit code {_server.returncode}")
@@ -171,17 +208,34 @@ def prime():
     global _primed
     start()
     if not _primed:
-        _call("/v1/chat/completions", timeout=600, body={"max_tokens": 1, "messages": [{"role": "user", "content": "Hello"}]})
+        _call(
+            "/v1/chat/completions",
+            timeout=600,
+            body={"max_tokens": 1, "messages": [{"role": "user", "content": "Hello"}]},
+        )
         _primed = True
 
 
 def ask(picture, question, max_tokens):
     """One question about the picture; the model's raw answer."""
-    reply = _call("/v1/chat/completions", timeout=840, body={
-        "temperature": 0, "max_tokens": max_tokens, "cache_prompt": True,
-        "messages": [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": picture}},
-                                                  {"type": "text", "text": question}]}],
-    })
+    reply = _call(
+        "/v1/chat/completions",
+        timeout=840,
+        body={
+            "temperature": 0,
+            "max_tokens": max_tokens,
+            "cache_prompt": True,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": picture}},
+                        {"type": "text", "text": question},
+                    ],
+                }
+            ],
+        },
+    )
     return (reply["choices"][0]["message"]["content"] or "").strip()
 
 

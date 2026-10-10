@@ -18,6 +18,7 @@ and the numbers behind it. The rules, in order:
 in the data), and moved forward along the recent trend: a week's median describes the roof about
 three days ago, which hides the newest dust and, right after rain, still shows the old dirt.
 """
+
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -28,57 +29,58 @@ import pandas as pd
 from . import config
 from .reasons import say
 
-MIN_DAYS = 14          # days of data needed to learn a roof's normal
-STEP_DROP = 0.90       # a week's median this far below the week before is a sudden drop
-STAYS_DOWN = 0.92      # ...and it is a fault if output never climbs back above this share of before
-AREA_DROP = 0.95       # neighbours' median falling this far means the whole area dropped
-WASH_JUMP = 1.05       # a week's median this far above the week before means the panels got cleaned
-DIP = 0.75             # one day this far below the days around it is a sharp dip
-OK_LOSS = 0.05         # losses under this are not worth acting on
+MIN_DAYS = 14  # days of data needed to learn a roof's normal
+STEP_DROP = 0.90  # a week's median this far below the week before is a sudden drop
+STAYS_DOWN = 0.92  # ...and it is a fault if output never climbs back above this share of before
+AREA_DROP = 0.95  # neighbours' median falling this far means the whole area dropped
+WASH_JUMP = 1.05  # a week's median this far above the week before means the panels got cleaned
+DIP = 0.75  # one day this far below the days around it is a sharp dip
+OK_LOSS = 0.05  # losses under this are not worth acting on
 MIN_DUST_RATE = 0.001  # share of output lost per day before a decline counts as dust
-TREND_DAYS = 30        # the dust rate is also read off just these recent days, so one missed wash cannot hide it
+TREND_DAYS = 30  # the dust rate is also read off just these recent days, so one missed wash cannot hide it
 LONG_TREND_DAYS = 120  # ...and off the whole spell since cleaning, so a hazy fortnight cannot hide it either
-MIN_TREND_DAYS = 14    # days for a rate to be trusted on its own
-SHORT_TREND_DAYS = 7   # fewer than MIN_TREND_DAYS still count when the slide is steep: see _trend
-MIN_AFTER = 3          # clear days needed after a wash, visit or rain before its effect can be measured
-MIN_RECOVERY = 0.02    # a wash or repair that brought back less than this did nothing measurable
-DARK_DAY = 0.3         # a day expecting under this share of the median day is too dark to judge
+MIN_TREND_DAYS = 14  # days for a rate to be trusted on its own
+SHORT_TREND_DAYS = 7  # fewer than MIN_TREND_DAYS still count when the slide is steep: see _trend
+MIN_AFTER = 3  # clear days needed after a wash, visit or rain before its effect can be measured
+MIN_RECOVERY = 0.02  # a wash or repair that brought back less than this did nothing measurable
+DARK_DAY = 0.3  # a day expecting under this share of the median day is too dark to judge
 HAZE_AREA_DROP = 0.96  # with neighbours to read it off, haze needs the area's median down only this far
-AREA_DIP = 0.90        # the area's median this far below the days around it is a cloud, not this roof tripping
-STEP_WANDERS = 4       # a sudden drop must be this many times the roof's own week-on-week wander
-STAY_WANDERS = 3       # ...and climbing back to within this many times of it means it recovered
-OUTAGE = 0.10          # a sunny day under this share of the roof's normal: the system was off, not dirty
-AREA_OUT = 0.5         # ...unless the area's median fell under this share of its own recent level that day
-LOW_NORMAL = 0.6       # a roof whose best weeks are under this share of the physics may have been faulty all along
+AREA_DIP = 0.90  # the area's median this far below the days around it is a cloud, not this roof tripping
+STEP_WANDERS = 4  # a sudden drop must be this many times the roof's own week-on-week wander
+STAY_WANDERS = 3  # ...and climbing back to within this many times of it means it recovered
+OUTAGE = 0.10  # a sunny day under this share of the roof's normal: the system was off, not dirty
+AREA_OUT = 0.5  # ...unless the area's median fell under this share of its own recent level that day
+LOW_NORMAL = 0.6  # a roof whose best weeks are under this share of the physics may have been faulty all along
 
 
 @dataclass
 class Facts:
     """The figures every rule reads, prepared once by verdict(). The first nine are its inputs; the rest it
     works out in order, so a result returned early (too few readings) leaves the later ones unset."""
-    daily: pd.DataFrame                # expected and actual kWh by day
-    ratio: pd.Series                   # actual / expected on days bright enough to judge
-    valid: pd.Series                   # ratio without its gaps
+
+    daily: pd.DataFrame  # expected and actual kWh by day
+    ratio: pd.Series  # actual / expected on days bright enough to judge
+    valid: pd.Series  # ratio without its gaps
     pm25: pd.Series | None
-    neighbours: pd.DataFrame | None    # nearby homes' ratios, one column each
-    rain_forecast: Any                 # mm for the coming days, tomorrow first
-    dust_storms: Any                   # True for each coming day with a dust storm forecast
-    wash_cost: float | None            # ₹ for one wash; None means config.WASH_COST_RS
-    tariff: float                      # ₹ per kWh
-    baseline: float = 1.0              # this roof's normal, as a share of the physics
+    neighbours: pd.DataFrame | None  # nearby homes' ratios, one column each
+    rain_forecast: Any  # mm for the coming days, tomorrow first
+    dust_storms: Any  # True for each coming day with a dust storm forecast
+    wash_cost: float | None  # ₹ for one wash; None means config.WASH_COST_RS
+    tariff: float  # ₹ per kWh
+    baseline: float = 1.0  # this roof's normal, as a share of the physics
     low_normal: bool = False
-    check: dict | None = None          # the latest reported wash or visit, and whether it worked
-    step: pd.Series | None = None      # week-on-week change in the medians
-    sharp: pd.Series | None = None     # ...and in the means, which peak on the day of a change
+    check: dict | None = None  # the latest reported wash or visit, and whether it worked
+    step: pd.Series | None = None  # week-on-week change in the medians
+    sharp: pd.Series | None = None  # ...and in the means, which peak on the day of a change
     area_step: pd.Series | None = None
-    rained: pd.Series | None = None    # days with enough rain to clean the panels
-    told: pd.Series | None = None      # days the homeowner reported a wash or visit
-    actions: Any = ()                  # those reports that fall within the readings
-    ahead: dict | None = None          # a report dated after the last reading
+    rained: pd.Series | None = None  # days with enough rain to clean the panels
+    told: pd.Series | None = None  # days the homeowner reported a wash or visit
+    actions: Any = ()  # those reports that fall within the readings
+    ahead: dict | None = None  # a report dated after the last reading
     last_clean: pd.Timestamp | None = None
-    since: pd.Series | None = None     # ratio since the last cleaning
-    rate: float | None = None          # share of output lost per day
-    loss: float | None = None          # share of the roof's normal lost now
+    since: pd.Series | None = None  # ratio since the last cleaning
+    rate: float | None = None  # share of output lost per day
+    loss: float | None = None  # share of the roof's normal lost now
 
 
 def _ratio(daily):
@@ -99,9 +101,16 @@ def normal(ratio: pd.Series) -> float:
     return float(ratio.rolling(7, min_periods=4).median().quantile(0.9))
 
 
-def wash_plan(loss: float, rate: float, normal_kwh: float, rain_forecast: Iterable[float],
-              dust_storms: Iterable[bool] = (), clean_mm: float = config.CLEAN_RAIN_MM, cost: float | None = None,
-              tariff: float | None = None) -> dict[str, Any]:
+def wash_plan(
+    loss: float,
+    rate: float,
+    normal_kwh: float,
+    rain_forecast: Iterable[float],
+    dust_storms: Iterable[bool] = (),
+    clean_mm: float = config.CLEAN_RAIN_MM,
+    cost: float | None = None,
+    tariff: float | None = None,
+) -> dict[str, Any]:
     """Is washing worth it today? A wash wins back today's dust loss every day until something undoes it:
     rain (which would have cleaned the panels for free) or a dust storm (which dirties them again).
 
@@ -153,19 +162,30 @@ def check_action(ratio: pd.Series, baseline: float, action: dict[str, str]) -> d
     """Did a wash or a vendor visit work? Compares the week before it with the clear days after it.
     predicted: what a full return to this roof's normal would add. observed: what came back."""
     day = pd.Timestamp(action["date"], tz=ratio.index.tz)
-    before = ratio[:day - pd.Timedelta(days=1)].dropna().tail(7)
-    after = ratio[day + pd.Timedelta(days=1):].dropna().head(7)
+    before = ratio[: day - pd.Timedelta(days=1)].dropna().tail(7)
+    after = ratio[day + pd.Timedelta(days=1) :].dropna().head(7)
     if len(before) < MIN_AFTER:
         return None  # nothing to compare with
     level = float(before.median())
     predicted = baseline / level - 1
-    out = {"type": action["type"], "date": action["date"], "status": "waiting",
-           "predicted_pct": round(100 * predicted, 1), "observed_pct": None, "days_after": len(after)}
+    out = {
+        "type": action["type"],
+        "date": action["date"],
+        "status": "waiting",
+        "predicted_pct": round(100 * predicted, 1),
+        "observed_pct": None,
+        "days_after": len(after),
+    }
     if len(after) >= MIN_AFTER:
         observed = float(after.median()) / level - 1
         out["observed_pct"] = round(100 * observed, 1)
-        out["status"] = ("was_fine" if predicted < MIN_RECOVERY
-                         else "verified" if observed >= max(MIN_RECOVERY, predicted / 2) else "not_recovered")
+        out["status"] = (
+            "was_fine"
+            if predicted < MIN_RECOVERY
+            else "verified"
+            if observed >= max(MIN_RECOVERY, predicted / 2)
+            else "not_recovered"
+        )
     return out
 
 
@@ -180,8 +200,11 @@ def _result(f, verdict, cause, confidence, reason, loss=0.0, level=None, over=No
     made = round(float(week["actual"].mean()), 2)
     lost = 0.0 if cause == "no_data" else round(max(0.0, normal - made), 2)  # no normal known yet
     return {
-        "verdict": verdict, "cause": cause, "confidence": confidence,
-        "reason": reason["en"], "reason_hi": reason["hi"],
+        "verdict": verdict,
+        "cause": cause,
+        "confidence": confidence,
+        "reason": reason["en"],
+        "reason_hi": reason["hi"],
         "normal_share": round(share, 3),  # this roof's normal as a share of the physics, for the chart and forecast
         "expected_kwh": normal,
         "actual_kwh": made,
@@ -198,6 +221,7 @@ def _result(f, verdict, cause, confidence, reason, loss=0.0, level=None, over=No
 # One function per rule. Each reads the figures `verdict()` prepared (`f`) and returns a result, or None
 # for "not this one".
 
+
 def _outage(f):
     """0. Outage: the latest day or days with good sun (dark days are already blanked) made almost nothing.
     Nothing gradual does that: the inverter is off, tripped or showing an error."""
@@ -211,9 +235,16 @@ def _outage(f):
         return None
     off = f.valid.tail(days)
     return _result(
-        f, "INSPECT", "outage", "high",
+        f,
+        "INSPECT",
+        "outage",
+        "high",
         say("outage", when=say("outage_on" if days == 1 else "outage_since", day=off.index[0])),
-        loss=1 - float(off.mean()) / f.baseline, over=days, outage_days=days, since=str(off.index[0].date()))
+        loss=1 - float(off.mean()) / f.baseline,
+        over=days,
+        outage_days=days,
+        since=str(off.index[0].date()),
+    )
 
 
 def _fault(f):
@@ -246,10 +277,17 @@ def _fault(f):
         drop = 1 - float(post.tail(7).median()) / level_before
         confidence = "high" if len(post) >= 14 and f.neighbours is not None else "medium" if len(post) >= 7 else "low"
         return _result(
-            f, "INSPECT", "fault", confidence,
+            f,
+            "INSPECT",
+            "fault",
+            confidence,
             say("fault", drop=drop, day=day, days=len(post)),
-            loss=max(f.loss, drop), level=max(f.baseline, level_before),  # the bigger loss is against the higher level
-            step_date=str(day.date()), drop_pct=round(100 * drop, 1), days_down=len(post))
+            loss=max(f.loss, drop),
+            level=max(f.baseline, level_before),  # the bigger loss is against the higher level
+            step_date=str(day.date()),
+            drop_pct=round(100 * drop, 1),
+            days_down=len(post),
+        )
 
 
 def _trips(f):
@@ -262,23 +300,38 @@ def _trips(f):
     dips &= ~area_dip.reindex(dips.index, fill_value=False)
     if dips.sum() >= 2:
         return _result(
-            f, "INSPECT", "trips", "medium",
+            f,
+            "INSPECT",
+            "trips",
+            "medium",
             say("trips", n=int(dips.sum())),
-            loss=f.loss, dip_days=[str(d.date()) for d in dips[dips].index])
+            loss=f.loss,
+            dip_days=[str(d.date()) for d in dips[dips].index],
+        )
 
 
 def _just_cleaned(f):
     """3. Just cleaned: rain or a reported wash in the last day or two. The week's median still shows the dirt
     from before, so say what is known and measure again once clear days come in."""
     if f.ahead:
-        return _result(f, "OK", "ok", "medium",
-                       say("just_cleaned", by=say("by_wash" if f.ahead["type"] == "wash" else "by_visit"),
-                           day=pd.Timestamp(f.ahead["date"])), cleaned_on=f.ahead["date"])
+        return _result(
+            f,
+            "OK",
+            "ok",
+            "medium",
+            say(
+                "just_cleaned",
+                by=say("by_wash" if f.ahead["type"] == "wash" else "by_visit"),
+                day=pd.Timestamp(f.ahead["date"]),
+            ),
+            cleaned_on=f.ahead["date"],
+        )
     last_clean = f.last_clean
     if last_clean is not None and len(f.since) < MIN_AFTER and (f.rained | f.told)[last_clean]:
         by = say("by_rain" if f.rained[last_clean] else "by_wash" if f.actions[-1]["type"] == "wash" else "by_visit")
-        return _result(f, "OK", "ok", "medium", say("just_cleaned", by=by, day=last_clean),
-                       cleaned_on=str(last_clean.date()))
+        return _result(
+            f, "OK", "ok", "medium", say("just_cleaned", by=by, day=last_clean), cleaned_on=str(last_clean.date())
+        )
 
 
 def _ok(f):
@@ -300,9 +353,15 @@ def _haze(f):
         fell = float(f.valid.tail(3).median() / f.valid.iloc[-10:-3].median())
     if fell <= (HAZE_AREA_DROP if f.neighbours is not None else AREA_DROP):
         return _result(
-            f, "WAIT", "haze", "medium" if f.neighbours is not None else "low",
+            f,
+            "WAIT",
+            "haze",
+            "medium" if f.neighbours is not None else "low",
             say("haze", pm=pm_now, fell=1 - fell),
-            loss=f.loss, pm25=round(pm_now), area_drop_pct=round(100 * (1 - fell), 1))
+            loss=f.loss,
+            pm25=round(pm_now),
+            area_drop_pct=round(100 * (1 - fell), 1),
+        )
 
 
 def _not_dust(f):
@@ -310,8 +369,13 @@ def _not_dust(f):
     check = f.check
     if check and check["type"] == "wash" and check["status"] == "not_recovered":
         return _result(
-            f, "INSPECT", "not_dust", "medium",
-            say("not_dust", day=pd.Timestamp(check["date"]), loss=f.loss), loss=f.loss)
+            f,
+            "INSPECT",
+            "not_dust",
+            "medium",
+            say("not_dust", day=pd.Timestamp(check["date"]), loss=f.loss),
+            loss=f.loss,
+        )
 
 
 def _dust(f):
@@ -326,34 +390,72 @@ def _dust(f):
     per_day = round(loss * normal_kwh * f.tariff)
     saved = plan["saving_rs"]
     on = f.ratio.index[-1] + pd.Timedelta(days=plan["in_days"] or 0)
-    evidence = {"rate_pct_per_day": round(100 * rate, 2), "days_since_clean": days,
-                "saving_rs": plan["saving_rs"], "wash_cost_rs": cost}
+    evidence = {
+        "rate_pct_per_day": round(100 * rate, 2),
+        "days_since_clean": days,
+        "saving_rs": plan["saving_rs"],
+        "wash_cost_rs": cost,
+    }
     if plan["wash"]:
-        until = (say("until_rain" if plan["before"] == "rain" else "until_dust_storm", on=on) if plan["in_days"]
-                 else say("until_dry", n=config.DRY_SPELL_DAYS))
+        until = (
+            say("until_rain" if plan["before"] == "rain" else "until_dust_storm", on=on)
+            if plan["in_days"]
+            else say("until_dry", n=config.DRY_SPELL_DAYS)
+        )
         return _result(
-            f, "CLEAN", "dust", "high" if days >= 14 and loss >= 0.08 else "medium",
-            say("clean", rate=rate, days=days, loss=loss, saved=saved, until=until, cost=cost, ahead=saved - cost,
-                storm=say("storm_after") if plan.get("before") == "dust_storm" else ""),
-            loss=loss, **evidence)
+            f,
+            "CLEAN",
+            "dust",
+            "high" if days >= 14 and loss >= 0.08 else "medium",
+            say(
+                "clean",
+                rate=rate,
+                days=days,
+                loss=loss,
+                saved=saved,
+                until=until,
+                cost=cost,
+                ahead=saved - cost,
+                storm=say("storm_after") if plan.get("before") == "dust_storm" else "",
+            ),
+            loss=loss,
+            **evidence,
+        )
     evidence["wait_for"] = plan["wait_for"]
     if plan["wait_for"] == "rain":
         reason = say("wait_rain", loss=loss, days=days, on=on, saved=saved, cost=cost, diff=cost - saved)
     elif plan["wait_for"] == "dust_storm":
-        reason = say("wait_dust_storm", loss=loss, days=days, on=on, saved=saved, cost=cost, twice=2 * cost,
-                     total=saved + cost, diff=cost - saved)
+        reason = say(
+            "wait_dust_storm",
+            loss=loss,
+            days=days,
+            on=on,
+            saved=saved,
+            cost=cost,
+            twice=2 * cost,
+            total=saved + cost,
+            diff=cost - saved,
+        )
     else:
         later = say("worth_it_later", in_days=plan["in_days"]) if plan["in_days"] else ""
-        reason = say("not_worth_it", per_day=per_day, loss=loss, saved=saved, n=config.DRY_SPELL_DAYS, cost=cost,
-                     later=later)
+        reason = say(
+            "not_worth_it", per_day=per_day, loss=loss, saved=saved, n=config.DRY_SPELL_DAYS, cost=cost, later=later
+        )
         evidence["worth_it_in_days"] = plan["in_days"]
     return _result(f, "WAIT", "dust", "medium", reason, loss=loss, **evidence)
 
 
-def verdict(daily: pd.DataFrame, rain: pd.Series, rain_forecast: Iterable[float], pm25: pd.Series | None = None,
-            neighbours: pd.DataFrame | None = None, actions: Sequence[dict[str, str]] = (),
-            dust_storms: Iterable[bool] = (), wash_cost: float | None = None,
-            tariff: float | None = None) -> dict[str, Any]:
+def verdict(
+    daily: pd.DataFrame,
+    rain: pd.Series,
+    rain_forecast: Iterable[float],
+    pm25: pd.Series | None = None,
+    neighbours: pd.DataFrame | None = None,
+    actions: Sequence[dict[str, str]] = (),
+    dust_storms: Iterable[bool] = (),
+    wash_cost: float | None = None,
+    tariff: float | None = None,
+) -> dict[str, Any]:
     """daily: DataFrame[expected, actual] indexed by day, oldest first.
     rain: daily mm, same index. rain_forecast: mm for the coming days, tomorrow first.
     pm25: daily mean µg/m³ (optional). neighbours: DataFrame of actual/expected ratios, one column per
@@ -365,8 +467,17 @@ def verdict(daily: pd.DataFrame, rain: pd.Series, rain_forecast: Iterable[float]
     ratio = _ratio(daily)
     valid = ratio.dropna()
     # The figures every rule reads, prepared once here.
-    f = Facts(daily=daily, ratio=ratio, valid=valid, pm25=pm25, neighbours=neighbours, rain_forecast=rain_forecast,
-              dust_storms=dust_storms, wash_cost=wash_cost, tariff=config.TARIFF_RS if tariff is None else tariff)
+    f = Facts(
+        daily=daily,
+        ratio=ratio,
+        valid=valid,
+        pm25=pm25,
+        neighbours=neighbours,
+        rain_forecast=rain_forecast,
+        dust_storms=dust_storms,
+        wash_cost=wash_cost,
+        tariff=config.TARIFF_RS if tariff is None else tariff,
+    )
     if len(valid) < MIN_DAYS:
         return _result(f, "WAIT", "no_data", "low", say("no_data", n=len(valid)))
 
@@ -394,7 +505,9 @@ def verdict(daily: pd.DataFrame, rain: pd.Series, rain_forecast: Iterable[float]
     f.actions = actions = [a for a in reported if pd.Timestamp(a["date"], tz=ratio.index.tz) in told.index]
     # Reported for a day after the last reading ("I washed them today", and the readings end yesterday):
     # nothing can be measured yet, but the homeowner must see it was taken in and be able to take it back.
-    f.ahead = ahead = reported[-1] if reported and pd.Timestamp(reported[-1]["date"], tz=ratio.index.tz) > ratio.index[-1] else None
+    f.ahead = ahead = (
+        reported[-1] if reported and pd.Timestamp(reported[-1]["date"], tz=ratio.index.tz) > ratio.index[-1] else None
+    )
     for action in actions:
         told[pd.Timestamp(action["date"], tz=ratio.index.tz)] = True
     cleaned = rained | washed | told
@@ -409,8 +522,24 @@ def verdict(daily: pd.DataFrame, rain: pd.Series, rain_forecast: Iterable[float]
     if ahead or actions:
         f.check = check_action(ratio, baseline, ahead or actions[-1])
 
-    return (_outage(f) or _fault(f) or _trips(f) or _just_cleaned(f) or _ok(f) or _haze(f) or _not_dust(f)
-            or _dust(f)
-            # 8. Something is off but the pattern is not clear. Say so, and don't send anyone up to the roof.
-            or _result(f, "WAIT", "unclear", "low", say("unclear", loss=loss), loss=loss,
-                       rate_pct_per_day=round(100 * rate, 2), days_measured=len(since)))
+    return (
+        _outage(f)
+        or _fault(f)
+        or _trips(f)
+        or _just_cleaned(f)
+        or _ok(f)
+        or _haze(f)
+        or _not_dust(f)
+        or _dust(f)
+        # 8. Something is off but the pattern is not clear. Say so, and don't send anyone up to the roof.
+        or _result(
+            f,
+            "WAIT",
+            "unclear",
+            "low",
+            say("unclear", loss=loss),
+            loss=loss,
+            rate_pct_per_day=round(100 * rate, 2),
+            days_measured=len(since),
+        )
+    )

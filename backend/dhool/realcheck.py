@@ -19,6 +19,7 @@ app would have sent: the app looks every night and alerts only when its advice c
 
 Downloads are cached in ~/.cache/dhool (about 1 MB of readings and ten years of weather per place).
 """
+
 import io
 import pathlib
 import re
@@ -74,8 +75,12 @@ def _cached(name, make):
 
 
 def _readings(system_id):
-    keys = re.findall(r"<Key>([^<]+\.csv)</Key>", _get(f"{S3}/?list-type=2&prefix=pvdaq/csv/pvdata/system_id={system_id}/").decode())
-    frame = pd.concat(pd.read_csv(io.BytesIO(_get(f"{S3}/{key}")), index_col=0, parse_dates=True) for key in keys).sort_index()
+    keys = re.findall(
+        r"<Key>([^<]+\.csv)</Key>", _get(f"{S3}/?list-type=2&prefix=pvdaq/csv/pvdata/system_id={system_id}/").decode()
+    )
+    frame = pd.concat(
+        pd.read_csv(io.BytesIO(_get(f"{S3}/{key}")), index_col=0, parse_dates=True) for key in keys
+    ).sort_index()
     kwh = frame[[c for c in frame.columns if c.endswith("daily_sum")]].sum(axis=1, min_count=1)
     return kwh[~kwh.index.duplicated()]
 
@@ -84,6 +89,7 @@ def _weather(lat, lon):
     def fetch():  # a year per request keeps each response small
         years = range(int(START[:4]), int(END[:4]) + 1)
         return pd.concat(fetch_weather(round(lat, 2), round(lon, 2), f"{y}-01-01", f"{y}-12-31") for y in years)
+
     return fetch
 
 
@@ -94,7 +100,9 @@ def load(system_id: int) -> tuple[pd.DataFrame, pd.Series]:
     weather = _cached(f"weather-{lat:.2f}-{lon:.2f}.pkl", _weather(lat, lon))
     actual = _cached(f"pvdaq-{system_id}.pkl", lambda: _readings(system_id))
     actual.index = pd.DatetimeIndex(actual.index).tz_localize(tz)
-    daily = pd.DataFrame({"expected": expected_daily_kwh(weather, lat, lon, kw, tilt, azimuth), "actual": actual})[START:END]
+    daily = pd.DataFrame({"expected": expected_daily_kwh(weather, lat, lon, kw, tilt, azimuth), "actual": actual})[
+        START:END
+    ]
     daily.loc[daily["actual"] <= 0, "actual"] = np.nan
     return daily, weather["rain"].resample("D").sum()[START:END]
 
@@ -104,7 +112,7 @@ def natural_washes(daily: pd.DataFrame, rain: pd.Series) -> list[dict[str, Any]]
     ratio, events, last_wet = _ratio(daily), [], None
     for day in rain[rain >= config.CLEAN_RAIN_MM].index:
         if last_wet is not None and (day - last_wet).days >= DRY_DAYS:
-            year = ratio[day - pd.Timedelta(days=365):day - pd.Timedelta(days=1)]
+            year = ratio[day - pd.Timedelta(days=365) : day - pd.Timedelta(days=1)]
             if year.notna().sum() >= 120:
                 check = check_action(ratio, normal(year), {"date": str(day.date()), "type": "wash"})
                 if check and check["observed_pct"] is not None:
@@ -116,11 +124,13 @@ def natural_washes(daily: pd.DataFrame, rain: pd.Series) -> list[dict[str, Any]]
 def monthly_verdicts(daily: pd.DataFrame, rain: pd.Series) -> list[str]:
     """The verdict at each month end, from the year of readings before it: what a homeowner would have seen."""
     said = []
-    for end in pd.date_range(daily.index[0] + pd.Timedelta(days=365), daily.index[-1] - pd.Timedelta(days=7), freq="ME"):
-        window = daily[end - pd.Timedelta(days=364):end]
+    for end in pd.date_range(
+        daily.index[0] + pd.Timedelta(days=365), daily.index[-1] - pd.Timedelta(days=7), freq="ME"
+    ):
+        window = daily[end - pd.Timedelta(days=364) : end]
         if window["actual"].tail(30).notna().sum() < 10:
             continue  # the inverter was not reporting
-        result = verdict(window, rain[window.index[0]:end], list(rain[end:].iloc[1:8]))
+        result = verdict(window, rain[window.index[0] : end], list(rain[end:].iloc[1:8]))
         said.append(f"{result['verdict']}:{result['cause']}")
     return said
 
@@ -143,25 +153,33 @@ def main() -> None:
         gains = [w["observed_pct"] for w in washes]
         events += washes
         said.update(monthly_verdicts(daily, rain))
-        print(f"{system_id} {place:<20}{len(ratio):>6}{ratio.median():>9.2f}{scatter:>9.1%}{len(washes):>8}"
-              f"{np.mean([g > 0 for g in gains]):>11.0%}{np.median(gains):>12.1f}%")
+        print(
+            f"{system_id} {place:<20}{len(ratio):>6}{ratio.median():>9.2f}{scatter:>9.1%}{len(washes):>8}"
+            f"{np.mean([g > 0 for g in gains]):>11.0%}{np.median(gains):>12.1f}%"
+        )
     frame = pd.DataFrame(events)
     dusty = frame[frame["predicted_pct"] >= 5]
-    print(f"\n{len(frame)} first rains after {DRY_DAYS}+ dry days: output rose after "
-          f"{np.mean(frame['observed_pct'] > 0):.0%} of them, "
-          f"median {frame['observed_pct'].median():+.1f}%.")
-    print(f"Where the roof was 5% or more below its normal before the rain ({len(dusty)} events): predicted "
-          f"{dusty['predicted_pct'].median():+.1f}%, came back {dusty['observed_pct'].median():+.1f}% (medians); "
-          f"check said {dict(Counter(dusty['status']))}; "
-          f"correlation {dusty['predicted_pct'].corr(dusty['observed_pct']):.2f}.")
+    print(
+        f"\n{len(frame)} first rains after {DRY_DAYS}+ dry days: output rose after "
+        f"{np.mean(frame['observed_pct'] > 0):.0%} of them, "
+        f"median {frame['observed_pct'].median():+.1f}%."
+    )
+    print(
+        f"Where the roof was 5% or more below its normal before the rain ({len(dusty)} events): predicted "
+        f"{dusty['predicted_pct'].median():+.1f}%, came back {dusty['observed_pct'].median():+.1f}% (medians); "
+        f"check said {dict(Counter(dusty['status']))}; "
+        f"correlation {dusty['predicted_pct'].corr(dusty['observed_pct']):.2f}."
+    )
     total = sum(said.values())
     print(f"\nMonth-end verdicts over {total} system-months, one roof at a time (no neighbours, no PM2.5):")
     for name, count in said.most_common():
         print(f"  {name:<16}{count:>5}  {count / total:.0%}")
     alerting = alerts(said)
-    print(f"\nAlerts per roof per month: {sum(alerting.values()) / total:.2f} ("
-          + ", ".join(f"{v} {n / total:.2f}" for v, n in alerting.items())
-          + f"): {sum(alerting.values())} of those {total} month-end verdicts were CLEAN or INSPECT.")
+    print(
+        f"\nAlerts per roof per month: {sum(alerting.values()) / total:.2f} ("
+        + ", ".join(f"{v} {n / total:.2f}" for v, n in alerting.items())
+        + f"): {sum(alerting.values())} of those {total} month-end verdicts were CLEAN or INSPECT."
+    )
     print("These are alerts, not false alerts: no roof here is labelled, so nobody can say which of them were wrong.")
 
 

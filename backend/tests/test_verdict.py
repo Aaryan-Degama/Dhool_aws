@@ -1,4 +1,5 @@
 """Verdict rules on hand-built series: each case is one pattern the rules must name correctly."""
+
 import json
 
 import numpy as np
@@ -67,17 +68,22 @@ def test_a_heavy_loss_is_washed_even_with_rain_five_days_off():
 
 def test_a_dust_storm_coming_means_wash_after_it():
     v = verdict(home(dust(0.004, reset_day=80)), rain_on(80), DRY_WEEK, dust_storms=[False, True, False])
-    assert (v["verdict"], v["evidence"]["wait_for"]) == ("WAIT", "dust_storm") and "Wait and wash once after it" in v["reason"]
+    assert (v["verdict"], v["evidence"]["wait_for"]) == ("WAIT", "dust_storm") and "Wait and wash once after it" in v[
+        "reason"
+    ]
 
 
-@pytest.mark.parametrize("loss,kwh,rain,storms,wash,wait_for,in_days", [
-    (0.10, 13.0, [0] * 7, [], True, None, None),                  # ₹9 a day for a dry month: wash
-    (0.10, 13.0, [0, 9, 0], [], False, "rain", 2),                # rain the day after tomorrow: one day's saving
-    (0.10, 13.0, [0, 0, 0, 0, 0, 0, 9], [], True, None, 7),       # rain a week off: six days at ₹9 pays
-    (0.10, 13.0, [0] * 7, [False, False, True], False, "dust_storm", 3),
-    (0.05, 4.3, [0] * 7, [], False, "not_worth_it", 3),           # a 1 kW roof: ₹1.50 a day, ₹45 over a dry month
-    (0.25, 4.3, [0] * 7, [], True, None, None),                   # the same roof once it is really dirty
-])
+@pytest.mark.parametrize(
+    "loss,kwh,rain,storms,wash,wait_for,in_days",
+    [
+        (0.10, 13.0, [0] * 7, [], True, None, None),  # ₹9 a day for a dry month: wash
+        (0.10, 13.0, [0, 9, 0], [], False, "rain", 2),  # rain the day after tomorrow: one day's saving
+        (0.10, 13.0, [0, 0, 0, 0, 0, 0, 9], [], True, None, 7),  # rain a week off: six days at ₹9 pays
+        (0.10, 13.0, [0] * 7, [False, False, True], False, "dust_storm", 3),
+        (0.05, 4.3, [0] * 7, [], False, "not_worth_it", 3),  # a 1 kW roof: ₹1.50 a day, ₹45 over a dry month
+        (0.25, 4.3, [0] * 7, [], True, None, None),  # the same roof once it is really dirty
+    ],
+)
 def test_wash_plan_weighs_saving_against_the_cost_of_a_wash(loss, kwh, rain, storms, wash, wait_for, in_days):
     plan = wash_plan(loss, 0.002, kwh, rain, storms)
     assert (plan["wash"], plan["wait_for"], plan["in_days"]) == (wash, wait_for, in_days)
@@ -119,7 +125,7 @@ def test_same_drop_alone_with_clean_air_is_inspect():
 
 def off_for(days):
     factor = np.ones(120)
-    factor[120 - days:] = 0.0  # a healthy roof, then nothing at all in good sun
+    factor[120 - days :] = 0.0  # a healthy roof, then nothing at all in good sun
     return factor
 
 
@@ -164,9 +170,16 @@ def fault_from(day):
     return factor
 
 
-@pytest.mark.parametrize("factor", [np.ones(120), dust(0.004, reset_day=80), fault_from(90),
-                                    fault_from(8)],  # nearly all the history is after the fault
-                         ids=["ok", "dust", "fault", "early-fault"])
+@pytest.mark.parametrize(
+    "factor",
+    [
+        np.ones(120),
+        dust(0.004, reset_day=80),
+        fault_from(90),
+        fault_from(8),
+    ],  # nearly all the history is after the fault
+    ids=["ok", "dust", "fault", "early-fault"],
+)
 def test_the_figures_shown_together_add_up(factor):
     """Should have made, made, and the loss a day sit side by side on the Why tab: the subtraction must work,
     against this roof's own normal (not the physics, which no roof reaches), and match the percentage."""
@@ -248,7 +261,12 @@ def test_a_wash_reported_today_after_the_last_reading_is_taken_in_and_awaited():
     dusty = home((1 - 0.004 * np.arange(120))[:110], days=DAYS[:110])
     assert verdict(dusty, NO_RAIN[:110], DRY_WEEK)["verdict"] == "CLEAN"
     v = verdict(dusty, NO_RAIN[:110], DRY_WEEK, actions=today)
-    assert (v["verdict"], v["check"]["status"], v["check"]["date"], v["check"]["days_after"]) == ("OK", "waiting", today[0]["date"], 0)
+    assert (v["verdict"], v["check"]["status"], v["check"]["date"], v["check"]["days_after"]) == (
+        "OK",
+        "waiting",
+        today[0]["date"],
+        0,
+    )
     assert "Your wash on" in v["reason"]
 
 
@@ -257,7 +275,12 @@ def test_a_vendor_visit_reported_today_keeps_the_fault_and_waits_for_proof():
     factor[60:] = 0.67
     today = [{"date": str((DAYS[-1] + pd.Timedelta(days=1)).date()), "type": "visit"}]
     v = verdict(home(factor), NO_RAIN, DRY_WEEK, actions=today)
-    assert (v["verdict"], v["cause"], v["check"]["type"], v["check"]["status"]) == ("INSPECT", "fault", "visit", "waiting")
+    assert (v["verdict"], v["cause"], v["check"]["type"], v["check"]["status"]) == (
+        "INSPECT",
+        "fault",
+        "visit",
+        "waiting",
+    )
 
 
 def test_no_reported_action_means_no_check():
@@ -266,8 +289,11 @@ def test_no_reported_action_means_no_check():
 
 def test_heavy_dust_is_named_within_days_of_the_rain_that_cleaned_the_roof():
     """Beside a dust source a roof loses over 1% a day: ten days after rain it is 14% down and should be washed."""
-    v = verdict(home(dust(0.014, reset_day=110) * np.where(np.arange(120) < 110, 0, 1) + np.where(np.arange(120) < 110, 1, 0)),
-                rain_on(110), DRY_WEEK)
+    v = verdict(
+        home(dust(0.014, reset_day=110) * np.where(np.arange(120) < 110, 0, 1) + np.where(np.arange(120) < 110, 1, 0)),
+        rain_on(110),
+        DRY_WEEK,
+    )
     assert (v["verdict"], v["cause"]) == ("CLEAN", "dust") and 10 <= v["loss_pct"] <= 16
 
 
@@ -281,8 +307,8 @@ def test_the_owners_two_cases_wash_before_a_storm_only_if_the_loss_beats_one_was
     """A storm in a week means washing again afterwards either way. Missing ₹200 against a ₹350 wash: wait
     (₹550 against ₹700). Missing ₹600: wash now (₹700 against ₹950)."""
     storm = [False] * 6 + [True]
-    small = wash_plan(0.10, 0.002, 200 / 6 / 0.10 / 7, [0] * 7, storm, cost=350)   # ₹200 over the 6 days before it
-    large = wash_plan(0.10, 0.002, 600 / 6 / 0.10 / 7, [0] * 7, storm, cost=350)   # ₹600
+    small = wash_plan(0.10, 0.002, 200 / 6 / 0.10 / 7, [0] * 7, storm, cost=350)  # ₹200 over the 6 days before it
+    large = wash_plan(0.10, 0.002, 600 / 6 / 0.10 / 7, [0] * 7, storm, cost=350)  # ₹600
     assert (small["wash"], small["wait_for"], small["saving_rs"]) == (False, "dust_storm", 200)
     assert (large["wash"], large["saving_rs"]) == (True, 600)
 
@@ -310,12 +336,21 @@ def test_every_reason_reads_in_hindi_with_the_same_figures_as_the_english():
     import string
 
     from dhool.reasons import REASONS, say
+
     day = pd.Timestamp("2026-08-17")  # a Monday
     for key, text in REASONS.items():
         names = {name for _, name, _, _ in string.Formatter().parse(text["en"]) if name}
         assert names == {name for _, name, _, _ in string.Formatter().parse(text["hi"]) if name}, key
-        figures = {name: day if name in ("day", "on") else say("by_rain") if name in ("by", "until", "storm", "later")
-                   else 0.37 if name in ("drop", "loss", "rate", "fell") else 41 + i for i, name in enumerate(sorted(names))}
+        figures = {
+            name: day
+            if name in ("day", "on")
+            else say("by_rain")
+            if name in ("by", "until", "storm", "later")
+            else 0.37
+            if name in ("drop", "loss", "rate", "fell")
+            else 41 + i
+            for i, name in enumerate(sorted(names))
+        }
         said = say(key, **figures)
         number = r"₹?\d+(?:\.\d+)?%?"
         assert sorted(re.findall(number, said["en"])) == sorted(re.findall(number, said["hi"])), key

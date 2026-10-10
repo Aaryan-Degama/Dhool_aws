@@ -1,5 +1,6 @@
 """The numbers the analysis writes for CloudWatch (Embedded Metric Format lines on stdout), and the two
 things in template.yaml that only a deploy would otherwise find wrong. No network."""
+
 import json
 import pathlib
 import re
@@ -95,8 +96,13 @@ def test_the_system_errors_alarm_watches_every_dynamodb_operation_the_code_calls
     watched = set(re.findall(r"Name: Operation, Value: (\w+)", resource("TableSystemErrorsAlarm")))
     calls = set()
     for source in [*(ROOT / "backend/handlers").glob("*.py"), ROOT / "vision/vision_handler.py"]:
-        calls |= set(re.findall(r"\.(get_item|put_item|update_item|delete_item|query|scan|batch_writer|batch_get_item|"
-                                r"batch_write_item|transact_write_items|transact_get_items)\(", source.read_text()))
+        calls |= set(
+            re.findall(
+                r"\.(get_item|put_item|update_item|delete_item|query|scan|batch_writer|batch_get_item|"
+                r"batch_write_item|transact_write_items|transact_get_items)\(",
+                source.read_text(),
+            )
+        )
     assert watched == {"BatchWriteItem" if call == "batch_writer" else call.title().replace("_", "") for call in calls}
 
 
@@ -105,4 +111,8 @@ def test_the_dashboard_is_json_once_its_names_are_filled_in_and_draws_the_metric
     widgets = json.loads(re.sub(r"\$\{[\w:.]+\}", "x", body))["widgets"]
     assert all(w["type"] == "metric" and w["properties"]["region"] and w["properties"]["metrics"] for w in widgets)
     drawn = {(m[1], *m[2:-1]) for w in widgets for m in w["properties"]["metrics"] if m[0] == "Dhool"}
-    assert drawn == {("HouseRunDuration",), ("WeatherFailures",), *(("Verdicts", "verdict", v) for v in ("OK", "WAIT", "CLEAN", "INSPECT"))}
+    assert drawn == {
+        ("HouseRunDuration",),
+        ("WeatherFailures",),
+        *(("Verdicts", "verdict", v) for v in ("OK", "WAIT", "CLEAN", "INSPECT")),
+    }

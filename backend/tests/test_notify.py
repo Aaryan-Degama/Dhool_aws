@@ -1,4 +1,5 @@
 """When a nightly run notifies the family's phones, and the nightly run itself: one background run per house."""
+
 import datetime
 import json
 
@@ -9,30 +10,57 @@ from moto import mock_aws
 from dhool import notify
 from handlers import analysis, common
 
-FAULT = {"verdict": "INSPECT", "cause": "fault", "reason": "Output fell by a third on 3 Oct.", "reason_hi": "3 अक्टूबर को बिजली एक तिहाई गिर गई।"}
+FAULT = {
+    "verdict": "INSPECT",
+    "cause": "fault",
+    "reason": "Output fell by a third on 3 Oct.",
+    "reason_hi": "3 अक्टूबर को बिजली एक तिहाई गिर गई।",
+}
 OUTAGE = {**FAULT, "cause": "outage"}
-DUSTY = {"verdict": "CLEAN", "cause": "dust", "reason": "Dust is costing ₹90; a wash costs ₹50.", "reason_hi": "धूल से ₹90 का नुकसान; धुलाई ₹50 की।"}
+DUSTY = {
+    "verdict": "CLEAN",
+    "cause": "dust",
+    "reason": "Dust is costing ₹90; a wash costs ₹50.",
+    "reason_hi": "धूल से ₹90 का नुकसान; धुलाई ₹50 की।",
+}
 FINE = {"verdict": "OK", "cause": "ok", "reason": "All good."}
 WAIT = {"verdict": "WAIT", "cause": "dust", "reason": "Rain is coming."}
 
 
-@pytest.mark.parametrize("previous,new,sent", [
-    (FINE, FAULT, True), (None, FAULT, True), (FAULT, OUTAGE, True), (DUSTY, FAULT, True),
-    (FINE, DUSTY, True), (WAIT, DUSTY, True),
-    (FAULT, FAULT, False), (DUSTY, DUSTY, False),      # the same advice again
-    (FAULT, FINE, False), (DUSTY, WAIT, False), (None, FINE, False),  # good news and "wait" do not ring the phone
-])
+@pytest.mark.parametrize(
+    "previous,new,sent",
+    [
+        (FINE, FAULT, True),
+        (None, FAULT, True),
+        (FAULT, OUTAGE, True),
+        (DUSTY, FAULT, True),
+        (FINE, DUSTY, True),
+        (WAIT, DUSTY, True),
+        (FAULT, FAULT, False),
+        (DUSTY, DUSTY, False),  # the same advice again
+        (FAULT, FINE, False),
+        (DUSTY, WAIT, False),
+        (None, FINE, False),  # good news and "wait" do not ring the phone
+    ],
+)
 def test_a_change_to_call_the_vendor_or_wash_is_sent_once(previous, new, sent):
     assert (notify.message(previous, new, 1, "en") is not None) is sent
 
 
 def test_the_message_is_the_verdicts_own_reason_in_the_phones_language():
     assert notify.message(FINE, FAULT, 1, "en") == {
-        "title": "Dhool: call your vendor", "body": "Output fell by a third on 3 Oct.", "url": "/#/roof"}
+        "title": "Dhool: call your vendor",
+        "body": "Output fell by a third on 3 Oct.",
+        "url": "/#/roof",
+    }
     hindi = notify.message(FINE, DUSTY, 1, "hi")
     assert hindi == {"title": "Dhool: पैनल धो दीजिए", "body": "धूल से ₹90 का नुकसान; धुलाई ₹50 की।", "url": "/#/roof"}
-    assert notify.message(None, {"verdict": "CLEAN", "cause": "dust"}, 1, "hi")["body"].startswith("धूल")  # no reason stored
-    assert notify.message(FINE, FAULT, 1, "fr")["title"] == "Dhool: call your vendor"  # an unknown language reads English
+    assert notify.message(None, {"verdict": "CLEAN", "cause": "dust"}, 1, "hi")["body"].startswith(
+        "धूल"
+    )  # no reason stored
+    assert (
+        notify.message(FINE, FAULT, 1, "fr")["title"] == "Dhool: call your vendor"
+    )  # an unknown language reads English
 
 
 def test_readings_stopped_is_said_on_the_third_day_only():
@@ -43,8 +71,10 @@ def test_readings_stopped_is_said_on_the_third_day_only():
 
 
 def test_the_nightly_run_starts_one_background_run_per_house_across_pages(monkeypatch):
-    pages = [{"Items": [{"sk": "h1"}, {"sk": "h2"}], "LastEvaluatedKey": {"pk": "HOUSES", "sk": "h2"}},
-             {"Items": [{"sk": "h3"}]}]
+    pages = [
+        {"Items": [{"sk": "h1"}, {"sk": "h2"}], "LastEvaluatedKey": {"pk": "HOUSES", "sk": "h2"}},
+        {"Items": [{"sk": "h3"}]},
+    ]
     asked, started = [], []
 
     class Table:
@@ -63,7 +93,9 @@ def test_the_nightly_run_starts_one_background_run_per_house_across_pages(monkey
     clock = type("Context", (), {"aws_request_id": "r", "get_remaining_time_in_millis": lambda self: 100_000})()
     assert analysis.handler({}, clock) == {"houses": 3}
     assert asked == [None, {"pk": "HOUSES", "sk": "h2"}]
-    assert started == [("dhool-AnalysisFunction-abc", "Event", {"house_id": h, "nightly": True}) for h in ("h1", "h2", "h3")]
+    assert started == [
+        ("dhool-AnalysisFunction-abc", "Event", {"house_id": h, "nightly": True}) for h in ("h1", "h2", "h3")
+    ]
     # Short of time before the second page: the rest is handed to a fresh run, which starts from that page.
     asked.clear(), started.clear()
     clock = type("Context", (), {"aws_request_id": "r", "get_remaining_time_in_millis": lambda self: 5_000})()
@@ -108,8 +140,13 @@ def test_a_nightly_run_short_of_time_from_the_start_still_does_a_page_and_the_ch
 @pytest.fixture
 def home(monkeypatch):
     """A house with typed readings, a stored "all good" and two subscribed phones; the run's inputs are stubbed."""
-    for name, value in {"AWS_DEFAULT_REGION": "ap-south-1", "AWS_ACCESS_KEY_ID": "t", "AWS_SECRET_ACCESS_KEY": "t",
-                        "TABLE": "dhool-test", "VAPID_SUBJECT": "https://dhool.invalid"}.items():
+    for name, value in {
+        "AWS_DEFAULT_REGION": "ap-south-1",
+        "AWS_ACCESS_KEY_ID": "t",
+        "AWS_SECRET_ACCESS_KEY": "t",
+        "TABLE": "dhool-test",
+        "VAPID_SUBJECT": "https://dhool.invalid",
+    }.items():
         monkeypatch.setenv(name, value)
     as_of = str(datetime.datetime.now(analysis.ZoneInfo(analysis.config.TZ)).date() - datetime.timedelta(days=1))
     for fetch in ("fetch_weather_with_forecast", "fetch_pm25", "fetch_dust_storms"):
@@ -118,22 +155,38 @@ def home(monkeypatch):
     monkeypatch.setattr(analysis, "_vapid", "the-key")
     with mock_aws():
         table = boto3.resource("dynamodb").create_table(
-            TableName="dhool-test", BillingMode="PAY_PER_REQUEST",
-            AttributeDefinitions=[{"AttributeName": "pk", "AttributeType": "S"}, {"AttributeName": "sk", "AttributeType": "S"}],
-            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}])
+            TableName="dhool-test",
+            BillingMode="PAY_PER_REQUEST",
+            AttributeDefinitions=[
+                {"AttributeName": "pk", "AttributeType": "S"},
+                {"AttributeName": "sk", "AttributeType": "S"},
+            ],
+            KeySchema=[{"AttributeName": "pk", "KeyType": "HASH"}, {"AttributeName": "sk", "KeyType": "RANGE"}],
+        )
         table.put_item(Item={"pk": "HOUSE#h1", "sk": "META", "kw": 3, "lat": "28.61", "lon": "77.21"})
         table.put_item(Item={"pk": "HOUSE#h1", "sk": f"READING#{as_of}", "kwh": 9})
         table.put_item(Item={"pk": "HOUSE#h1", "sk": "VERDICT#2026-01-01", "json": json.dumps(FINE), "at": 1})
         for name, lang in (("a", "en"), ("b", "hi")):
-            table.put_item(Item={"pk": "HOUSE#h1", "sk": f"PUSH#{name}", "endpoint": f"https://web.push.apple.com/{name}",
-                                 "p256dh": "p", "auth": "a", "lang": lang, "by": "sub-father"})
+            table.put_item(
+                Item={
+                    "pk": "HOUSE#h1",
+                    "sk": f"PUSH#{name}",
+                    "endpoint": f"https://web.push.apple.com/{name}",
+                    "p256dh": "p",
+                    "auth": "a",
+                    "lang": lang,
+                    "by": "sub-father",
+                }
+            )
         common._made.clear()
         yield table
 
 
 def test_a_nightly_run_tells_each_phone_in_its_language_and_only_when_the_advice_changed(home, monkeypatch):
     sent = []
-    monkeypatch.setattr(analysis, "_webpush", lambda item, message, key: sent.append((item["sk"], message["title"], key)))
+    monkeypatch.setattr(
+        analysis, "_webpush", lambda item, message, key: sent.append((item["sk"], message["title"], key))
+    )
     assert analysis.handler({"house_id": "h1"}, None) == {"verdict": "INSPECT"}
     assert sent == []  # a run that follows a tap in the app: the person is looking at the verdict already
     # That run stored "call your vendor" and told no phone. The night's run finds the same verdict already
@@ -154,6 +207,7 @@ def test_a_night_when_no_phone_could_be_reached_is_tried_again_the_next(home, mo
 
     def down(item, message, key):
         raise TimeoutError("the push service did not answer")
+
     monkeypatch.setattr(analysis, "_webpush", down)
     analysis.handler({"house_id": "h1", "nightly": True}, None)
     assert told(home) is None  # nobody was told, so nothing is marked as said
@@ -179,12 +233,23 @@ def test_the_readings_stopped_alert_does_not_count_as_having_given_the_advice(ho
     sent = []
     today = datetime.datetime.now(analysis.ZoneInfo(analysis.config.TZ)).date()
     monkeypatch.setattr(analysis, "_webpush", lambda item, message, key: sent.append(message["title"]))
-    monkeypatch.setattr(analysis, "analyse", lambda *a: {**FAULT, "as_of": str(today - datetime.timedelta(days=3)), "confidence": "high"})
+    monkeypatch.setattr(
+        analysis,
+        "analyse",
+        lambda *a: {**FAULT, "as_of": str(today - datetime.timedelta(days=3)), "confidence": "high"},
+    )
     analysis.handler({"house_id": "h1", "nightly": True}, None)
     assert sent == ["Dhool: no readings for 3 days", "Dhool: 3 दिन से कोई रीडिंग नहीं"] and told(home) is None
-    monkeypatch.setattr(analysis, "analyse", lambda *a: {**FAULT, "as_of": str(today - datetime.timedelta(days=4)), "confidence": "high"})
+    monkeypatch.setattr(
+        analysis,
+        "analyse",
+        lambda *a: {**FAULT, "as_of": str(today - datetime.timedelta(days=4)), "confidence": "high"},
+    )
     analysis.handler({"house_id": "h1", "nightly": True}, None)  # the next night: the advice itself, once
-    assert sent[2:] == ["Dhool: call your vendor", "Dhool: वेंडर को बुलाइए"] and told(home) == {"verdict": "INSPECT", "cause": "fault"}
+    assert sent[2:] == ["Dhool: call your vendor", "Dhool: वेंडर को बुलाइए"] and told(home) == {
+        "verdict": "INSPECT",
+        "cause": "fault",
+    }
 
 
 def test_a_dead_subscription_is_dropped_and_a_failed_send_never_fails_the_run(home, monkeypatch, capsys):
@@ -193,6 +258,7 @@ def test_a_dead_subscription_is_dropped_and_a_failed_send_never_fails_the_run(ho
 
     def push(item, message, key):
         raise Gone() if item["sk"] == "PUSH#a" else TimeoutError("the push service did not answer")
+
     monkeypatch.setattr(analysis, "_webpush", push)
     assert analysis.handler({"house_id": "h1", "nightly": True}, None) == {"verdict": "INSPECT"}
     assert "Item" not in home.get_item(Key={"pk": "HOUSE#h1", "sk": "PUSH#a"})
@@ -203,7 +269,9 @@ def test_a_dead_subscription_is_dropped_and_a_failed_send_never_fails_the_run(ho
 def test_without_a_key_nothing_is_sent_and_the_verdict_is_still_saved(home, monkeypatch, capsys):
     monkeypatch.setattr(analysis, "_vapid", False)
     monkeypatch.setattr(analysis, "_webpush", lambda *a: pytest.fail("there is no key to sign with"))
-    assert analysis.handler({"house_id": "h1", "nightly": True}, None) == {"verdict": "INSPECT"}  # moto has no such parameter
+    assert analysis.handler({"house_id": "h1", "nightly": True}, None) == {
+        "verdict": "INSPECT"
+    }  # moto has no such parameter
     analysis.handler({"house_id": "h1", "nightly": True}, None)
     assert capsys.readouterr().out.count('"push_off"') == 1  # looked up once per container, said once
 
@@ -213,7 +281,11 @@ def test_a_run_reads_every_typed_reading_however_many_pages_they_fill(home, monk
     for day in range(1, 8):
         home.put_item(Item={"pk": "HOUSE#h1", "sk": f"READING#2026-09-{day:02d}", "kwh": 9})
     monkeypatch.setattr(analysis, "query_all", lambda table, **query: common.query_all(table, Limit=2, **query))
-    monkeypatch.setattr(analysis, "analyse", lambda meta, readings, *a: seen.append(readings) or {**FINE, "as_of": "2026-09-07", "confidence": "high"})
+    monkeypatch.setattr(
+        analysis,
+        "analyse",
+        lambda meta, readings, *a: seen.append(readings) or {**FINE, "as_of": "2026-09-07", "confidence": "high"},
+    )
     analysis.handler({"house_id": "h1"}, None)
     assert len(seen[0]) == 8  # the seven here and the fixture's own
 
@@ -227,6 +299,7 @@ def test_a_house_deleted_while_its_run_was_working_gets_no_verdict_and_no_alert(
         for item in home.scan()["Items"]:  # what DELETE /houses/{id} does, in the seconds the analysis takes
             home.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
         return {**FAULT, "as_of": "2026-10-01", "confidence": "high"}
+
     monkeypatch.setattr(analysis, "analyse", analyse_while_the_owner_deletes)
     monkeypatch.setattr(analysis, "_webpush", lambda *a: pytest.fail("there is nobody left to tell"))
     assert analysis.handler({"house_id": "h1", "nightly": True}, None) == {"verdict": None}

@@ -7,6 +7,7 @@ label and can change it. Its confidence is not returned: wrong answers come at t
 
 Event: {"text": "<the vendor's reply>"}, or {"warm": true} from the five-minute ping.
 """
+
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -32,6 +33,7 @@ def reader():
         with ThreadPoolExecutor(16) as pool:
             list(pool.map(_read_piece, range(0, os.path.getsize(f"{MODEL}/model.onnx"), PIECE)))
         from laya.onnx_agent import ONNXAgent  # slow to import: only when a container starts
+
         with open(f"{MODEL}/questions.json", encoding="utf-8") as f:
             questions = json.load(f)  # the exact question the model was tuned on; ask no other
         _reader = (ONNXAgent(MODEL, onnx_path=f"{MODEL}/model.onnx"), questions)

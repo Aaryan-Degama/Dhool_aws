@@ -4,6 +4,7 @@ functions here, pointed at that brand's API.
 
 No heavy imports: the small API Lambda uses this too.
 """
+
 import json
 import re
 import urllib.error

@@ -12,6 +12,7 @@ It has the three things a real brand has, all serving the simulated neighbourhoo
 
 It never exposes what was planted in each home: only what a real inverter would report.
 """
+
 import hashlib
 import hmac
 import json
@@ -57,9 +58,16 @@ def _json(status, body):
 def _app_page(query):
     plant_id = query.get("plant") if query.get("plant") in homes() else next(iter(homes()))
     home = homes()[plant_id]
-    data = {"app": "Inverter Cloud (demo)", "plant": plant_id, "kw": home["meta"]["kw"], "key": api_key(plant_id),
-            "plants": list(homes()), "readings": _daily(home)[-30:],
-            "view": "list" if query.get("view") == "list" else "today", "older": query.get("page") == "2"}
+    data = {
+        "app": "Inverter Cloud (demo)",
+        "plant": plant_id,
+        "kw": home["meta"]["kw"],
+        "key": api_key(plant_id),
+        "plants": list(homes()),
+        "readings": _daily(home)[-30:],
+        "view": "list" if query.get("view") == "list" else "today",
+        "older": query.get("page") == "2",
+    }
     page = (HERE / "mock_app.html").read_text().replace("__DATA__", json.dumps(data).replace("<", "\\u003c"))
     return {"statusCode": 200, "headers": {"content-type": "text/html; charset=utf-8"}, "body": page}
 
@@ -69,8 +77,13 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if route == "GET /mock/app":
         return _app_page(query)
     if route == "GET /mock/fleet/daily":
-        return _json(200, {pid: {"kw": h["meta"]["kw"], "readings": {r["date"]: r["kwh"] for r in _daily(h)}}
-                           for pid, h in homes().items()})
+        return _json(
+            200,
+            {
+                pid: {"kw": h["meta"]["kw"], "readings": {r["date"]: r["kwh"] for r in _daily(h)}}
+                for pid, h in homes().items()
+            },
+        )
     home = _owner(event)
     if home is None:
         return _json(401, {"error": "Missing or unknown API key"})

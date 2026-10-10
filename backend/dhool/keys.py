@@ -6,13 +6,23 @@ FEEDBACK#<date>. What has to be found without knowing the home has a partition o
 (sort key HOUSE#<id>, one per home the person is in), INVITE#<code>, JOINFAIL#<sub>, WXCACHE#<hash>, and
 HOUSES (sort key <id>), the list the nightly run walks.
 """
+
 import datetime
 
 HOUSES = "HOUSES"
 META = "META"
 # Sort-key prefixes, for begins_with and startswith.
 HOUSE, MEMBER, READING, VERDICT, ACTION, SHOT, PUSH, INVITE, FEEDBACK = (
-    "HOUSE#", "MEMBER#", "READING#", "VERDICT#", "ACTION#", "SHOT#", "PUSH#", "INVITE#", "FEEDBACK#")
+    "HOUSE#",
+    "MEMBER#",
+    "READING#",
+    "VERDICT#",
+    "ACTION#",
+    "SHOT#",
+    "PUSH#",
+    "INVITE#",
+    "FEEDBACK#",
+)
 
 
 def house_pk(house_id: str) -> str:

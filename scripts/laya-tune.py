@@ -10,6 +10,7 @@ The training loop is adapted from Laya's own CPU script (notebooks/laya_finetune
 Apache-2.0, https://github.com/NandhaKishorM/laya); see CREDITS.md. Changes: our data, frozen token
 embeddings, calibration through laya.calibrate.
 """
+
 # The imports stay in the order they were tuned and measured with (torch before laya): this script runs only in
 # .venv-laya, outside the tests and CI, so a reorder could not be checked.
 import argparse  # noqa: I001
@@ -41,24 +42,28 @@ BASE_REVISION = "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851"
 # (questions.json) so whatever serves the model asks the same question.
 # ponytail: fixed option order, so the model may lean on position. Shuffle options while training
 # if the question ever has to change at request time.
-QUESTIONS = {"reply": {
-    "type": "choice",
-    "instructions": "A homeowner asked their solar vendor to inspect a fault on the rooftop system. "
-                    "What does the vendor's reply say?",
-    "criteria": {
-        "visit_scheduled": "the vendor will come or send someone",
-        "asking_details": "the vendor wants something first: a photo, a model, an error code, "
-                          "an address, a date, or agreement to a charge",
-        "refused": "the vendor will not visit or help: not their job, out of warranty, no service, "
-                   "or says nothing needs doing",
-        "unclear": "an acknowledgement or a reply with no commitment, question or refusal",
-    },
-}}
+QUESTIONS = {
+    "reply": {
+        "type": "choice",
+        "instructions": "A homeowner asked their solar vendor to inspect a fault on the rooftop system. "
+        "What does the vendor's reply say?",
+        "criteria": {
+            "visit_scheduled": "the vendor will come or send someone",
+            "asking_details": "the vendor wants something first: a photo, a model, an error code, "
+            "an address, a date, or agreement to a charge",
+            "refused": "the vendor will not visit or help: not their job, out of warranty, no service, "
+            "or says nothing needs doing",
+            "unclear": "an acknowledgement or a reply with no commitment, question or refusal",
+        },
+    }
+}
 LABELS = list(QUESTIONS["reply"]["criteria"])
 
 
 def rows(split):
-    lines = [line for line in DATA.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")]
+    lines = [
+        line for line in DATA.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")
+    ]
     return [r for r in map(json.loads, lines) if r["split"] == split]
 
 
@@ -80,8 +85,10 @@ def evaluate(agent, split="test"):
             wrong.append((r["label"], a["choice"], round(a["answer_confidence"], 2), r["text"]))
     for key in sorted(hits):
         print(f"  {key:24s} {sum(hits[key]):3d}/{len(hits[key]):3d} = {np.mean(hits[key]):.3f}")
-    print(f"  calibration error (ECE)  {ece_score(np.array(conf), np.array(hits['all'], dtype=float)):.3f}"
-          f"   mean confidence {np.mean(conf):.3f}")
+    print(
+        f"  calibration error (ECE)  {ece_score(np.array(conf), np.array(hits['all'], dtype=float)):.3f}"
+        f"   mean confidence {np.mean(conf):.3f}"
+    )
     print(f"  per reply: median {np.median(ms):.0f} ms, slowest {max(ms):.0f} ms")
     for w in wrong:
         print("  wrong: want {}, got {} ({:.2f}): {}".format(*w))
@@ -96,13 +103,19 @@ def quantize(folder):
     """
     import onnx
     from onnxruntime.quantization import QuantType, quantize_dynamic
+
     src = Path(str(folder).rstrip("/") + "-onnx")
     for name, ops in (("int8-layers", ["MatMul"]), ("int8-all", ["MatMul", "Gather"])):
         model = onnx.load(str(src / "model.onnx"))
         del model.graph.value_info[:]  # stale shapes from the exporter trip the quantizer
         # per_channel stays off: Laya measured it collapsing this model (their issue #790)
-        quantize_dynamic(model_input=model, model_output=str(src / f"model-{name}.onnx"),
-                         op_types_to_quantize=ops, weight_type=QuantType.QInt8, per_channel=False)
+        quantize_dynamic(
+            model_input=model,
+            model_output=str(src / f"model-{name}.onnx"),
+            op_types_to_quantize=ops,
+            weight_type=QuantType.QInt8,
+            per_channel=False,
+        )
         print(name, "->", src / f"model-{name}.onnx")
 
 
@@ -142,7 +155,7 @@ def train(args):
         sigma = 0.4 + (0.1 - 0.4) * epoch / max(1, args.epochs - 1)
         total = 0.0
         for start in range(0, len(items), args.batch):
-            b = collate_items([items[start:start + args.batch]], tok.pad_token_id)
+            b = collate_items([items[start : start + args.batch]], tok.pad_token_id)
             mask, target, qtype = b["marker_mask"], b["target"], b["qtype"]
             logits, act = model(b["input_ids"], b["attention_mask"], b["marker_pos"], mask, qtype)
             # Upstream's loss, unchanged: REINFORCE on a proper scoring rule, plus cross-entropy.
@@ -151,11 +164,17 @@ def train(args):
             eps = (eps - eps.sum(-1, keepdim=True) / k) * mask
             noisy = logits.detach().unsqueeze(0) + eps
             with torch.no_grad():
-                reward = proper_reward(torch.softmax(noisy.masked_fill(~mask, -1e4), -1),
-                                       target.unsqueeze(0), qtype, mask, w_sph=0.75, w_rps=1.0)
+                reward = proper_reward(
+                    torch.softmax(noisy.masked_fill(~mask, -1e4), -1),
+                    target.unsqueeze(0),
+                    qtype,
+                    mask,
+                    w_sph=0.75,
+                    w_rps=1.0,
+                )
                 adv = reward - reward.mean(0, keepdim=True)
                 adv = adv / (adv.std() + 1e-6)
-            logp = -(((noisy - logits.unsqueeze(0)) ** 2) * mask).sum(-1) / (2 * sigma ** 2)
+            logp = -(((noisy - logits.unsqueeze(0)) ** 2) * mask).sum(-1) / (2 * sigma**2)
             ce = -(target * torch.log_softmax(logits.masked_fill(~mask, -1e4), -1)).sum(-1).mean()
             loss = -(adv * logp).mean() + ce + 0.0 * act.sum()
             loss.backward()
@@ -168,8 +187,9 @@ def train(args):
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    save_file({n: v.detach().half().contiguous() for n, v in model.state_dict().items()},
-              str(out / "model.safetensors"))
+    save_file(
+        {n: v.detach().half().contiguous() for n, v in model.state_dict().items()}, str(out / "model.safetensors")
+    )
     model.encoder.config.save_pretrained(out / "encoder")
     tok.save_pretrained(out / "tokenizer")
     cfg.update({"fine_tuned": True, "model_name": "laya-dhool-vendor-replies", "temperature": [1.0, 1.0, 1.0]})
@@ -203,10 +223,14 @@ if __name__ == "__main__":
         raise SystemExit
     if args.onnx:
         from laya.onnx_agent import ONNXAgent
+
         agent = ONNXAgent(args.model, onnx_path=args.onnx)
     else:
-        agent = (laya.load(args.model, device="cpu") if args.model
-                 else laya.load(BASE[0], subfolder=BASE[1], device="cpu", revision=BASE_REVISION))
+        agent = (
+            laya.load(args.model, device="cpu")
+            if args.model
+            else laya.load(BASE[0], subfolder=BASE[1], device="cpu", revision=BASE_REVISION)
+        )
     # Each later set was written after earlier mistakes were seen. "real" is for replies from real vendors, added to
     # the data file with "split": "real": scored once some exist, and never trained on (training reads "train" only).
     for split in ("test", "test2", "test3") + (("real",) if rows("real") else ()):

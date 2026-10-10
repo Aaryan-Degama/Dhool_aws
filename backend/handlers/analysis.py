@@ -4,6 +4,7 @@ Invoked with {"house_id": ...} right after new data arrives, or with no house_id
 EventBridge schedule, which starts one run of this same function per house ({"house_id", "nightly": true}).
 Writes one VERDICT#<date> item per run. A nightly run also tells the family's phones when the advice changed.
 """
+
 import datetime
 import json
 import os
@@ -25,13 +26,15 @@ from handlers.common import client, log, metric, query_all, table
 # Starting a house every 1.5 s keeps the night under that, and fits about 70 houses in the 120 s timeout.
 # Once AWS raises the limit set this to 0; past a few hundred houses put an SQS queue in between.
 NIGHTLY_PACE_S = 1.5
-NIGHTLY_PAGE = 25       # houses started between looks at the clock
+NIGHTLY_PAGE = 25  # houses started between looks at the clock
 VERDICT_TTL_S = 400 * 24 * 3600  # a day's verdict is kept a little over a year; the readings behind it are kept
 PUSH_TTL_S = 24 * 3600  # a phone that is off gets the alert within a day or not at all
 
 expected.get_json = weather_cache.cached(expected.http_get)  # Open-Meteo's answers, kept for three hours
 
-_vapid: str | Literal[False] | None = False  # the key that signs notifications: False until looked up, None when there is none
+_vapid: str | Literal[False] | None = (
+    False  # the key that signs notifications: False until looked up, None when there is none
+)
 
 
 def _vapid_key():
@@ -39,7 +42,8 @@ def _vapid_key():
     if _vapid is False:
         try:
             _vapid = client("ssm").get_parameter(
-                Name=os.environ.get("VAPID_PARAM", "/dhool/vapid-private-key"), WithDecryption=True)["Parameter"]["Value"]
+                Name=os.environ.get("VAPID_PARAM", "/dhool/vapid-private-key"), WithDecryption=True
+            )["Parameter"]["Value"]
         except Exception as e:  # no key stored: verdicts go on, notifications are off until it is
             _vapid = None
             log(analysis="push_off", error=type(e).__name__)
@@ -48,9 +52,15 @@ def _vapid_key():
 
 def _webpush(item, message, key):
     from pywebpush import webpush  # here, not at the top: only a nightly run with something to say needs it
-    webpush({"endpoint": item["endpoint"], "keys": {"p256dh": item["p256dh"], "auth": item["auth"]}},
-            json.dumps(message, ensure_ascii=False), vapid_private_key=key,
-            vapid_claims={"sub": os.environ["VAPID_SUBJECT"]}, ttl=PUSH_TTL_S, timeout=10)
+
+    webpush(
+        {"endpoint": item["endpoint"], "keys": {"p256dh": item["p256dh"], "auth": item["auth"]}},
+        json.dumps(message, ensure_ascii=False),
+        vapid_private_key=key,
+        vapid_claims={"sub": os.environ["VAPID_SUBJECT"]},
+        ttl=PUSH_TTL_S,
+        timeout=10,
+    )
 
 
 def _notify(house_id, told, result):
@@ -65,12 +75,15 @@ def _notify(house_id, told, result):
     advice = {"verdict": result["verdict"], "cause": result.get("cause")}
     alerting, meta = advice["verdict"] in ("INSPECT", "CLEAN"), {"pk": keys.house_pk(house_id), "sk": keys.META}
     if told and not alerting:
-        table().update_item(Key=meta, UpdateExpression="REMOVE last_notified", ConditionExpression="attribute_exists(pk)")
+        table().update_item(
+            Key=meta, UpdateExpression="REMOVE last_notified", ConditionExpression="attribute_exists(pk)"
+        )
     if not notify.message(told, result, days, "en") or not _vapid_key():
         return
     sent = 0
     for item in table().query(
-            KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.PUSH))["Items"]:
+        KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.PUSH)
+    )["Items"]:
         try:
             _webpush(item, notify.message(told, result, days, item.get("lang")), _vapid_key())
             sent += 1
@@ -80,8 +93,12 @@ def _notify(house_id, told, result):
                 table().delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
             log(analysis="push_failed", house=house_id, status=status, error=type(e).__name__)
     if sent and alerting and days != notify.STOPPED_AFTER_DAYS:  # "readings stopped" went out, not the advice
-        table().update_item(Key=meta, UpdateExpression="SET last_notified = :told", ExpressionAttributeValues={":told": advice},
-                            ConditionExpression="attribute_exists(pk)")
+        table().update_item(
+            Key=meta,
+            UpdateExpression="SET last_notified = :told",
+            ExpressionAttributeValues={":told": advice},
+            ConditionExpression="attribute_exists(pk)",
+        )
     log(analysis="pushed", house=house_id, sent=sent)
 
 
@@ -99,13 +116,17 @@ def run_house(house_id: str, nightly: bool = False) -> str | None:
         # Connected inverter: pull from the brand's cloud (here, the demo one). Houses linked before API keys
         # existed have a plant but no key; they count as not linked until the owner connects again in Setup.
         if meta.get("plant_id") and meta.get("inverter_key"):
-            readings = pool.submit(connectors.inverter_readings, meta["inverter_url"], meta["inverter_key"], meta["plant_id"])
+            readings = pool.submit(
+                connectors.inverter_readings, meta["inverter_url"], meta["inverter_key"], meta["plant_id"]
+            )
             fleet = pool.submit(connectors.inverter_fleet, meta["inverter_url"])
             readings, fleet = readings.result(), fleet.result()
             fleet.pop(meta["plant_id"], None)
         else:  # screenshots and typed-in readings
             items = query_all(
-                table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.READING))
+                table(),
+                KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.READING),
+            )
             readings = {keys.tail(i["sk"]): float(i["kwh"]) for i in items}
         if not readings:
             return None
@@ -131,20 +152,38 @@ def run_house(house_id: str, nightly: bool = False) -> str | None:
     # The name items held the typed-in readings in the branch above; from here on it is this function.
     def items(prefix, **more):  # type: ignore[no-redef]  # see the line above
         return table().query(
-            KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more)["Items"]
+            KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more
+        )["Items"]
+
     # What the homeowner told Dhool they did (washed the panels, had the vendor in), for the before-and-after check.
     actions = [{"date": keys.tail(i["sk"]), "type": i["type"]} for i in items(keys.ACTION)]  # type: ignore[operator]
     result = analyse(meta, readings, weather, pm25, fleet, actions, storms)
     try:
         # Only while the home still stands: a run takes many seconds, and a verdict written after its owner
         # deleted the home would be a piece of it left behind for 400 days.
-        table().meta.client.transact_write_items(TransactItems=[
-            {"ConditionCheck": {"TableName": table().name, "Key": {"pk": keys.house_pk(house_id), "sk": keys.META},
-                                "ConditionExpression": "attribute_exists(pk)"}},
-            {"Put": {"TableName": table().name, "Item": {
-                "pk": keys.house_pk(house_id), "sk": keys.verdict_sk(result['as_of']),
-                "json": json.dumps(result, allow_nan=False), "at": int(time.time()),
-                "expiresAt": int(time.time()) + VERDICT_TTL_S}}}])
+        table().meta.client.transact_write_items(
+            TransactItems=[
+                {
+                    "ConditionCheck": {
+                        "TableName": table().name,
+                        "Key": {"pk": keys.house_pk(house_id), "sk": keys.META},
+                        "ConditionExpression": "attribute_exists(pk)",
+                    }
+                },
+                {
+                    "Put": {
+                        "TableName": table().name,
+                        "Item": {
+                            "pk": keys.house_pk(house_id),
+                            "sk": keys.verdict_sk(result["as_of"]),
+                            "json": json.dumps(result, allow_nan=False),
+                            "at": int(time.time()),
+                            "expiresAt": int(time.time()) + VERDICT_TTL_S,
+                        },
+                    }
+                },
+            ]
+        )
     except ClientError as e:
         reasons = [r.get("Code") for r in e.response.get("CancellationReasons", [])]
         if e.response["Error"]["Code"] != "TransactionCanceledException" or reasons[:1] != ["ConditionalCheckFailed"]:
@@ -154,8 +193,14 @@ def run_house(house_id: str, nightly: bool = False) -> str | None:
     # For the dashboard: how long a run that reached a verdict took, up to storing it, and which verdict.
     metric("HouseRunDuration", round((time.monotonic() - began) * 1000), "Milliseconds")
     metric("Verdicts", 1, verdict=result["verdict"])
-    log(analysis="done", house=house_id, as_of=result["as_of"],
-         verdict=result["verdict"], cause=result["cause"], confidence=result["confidence"])
+    log(
+        analysis="done",
+        house=house_id,
+        as_of=result["as_of"],
+        verdict=result["verdict"],
+        cause=result["cause"],
+        confidence=result["confidence"],
+    )
     if nightly:
         try:
             _notify(house_id, meta.get("last_notified"), result)
@@ -175,14 +220,20 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     more = {"ExclusiveStartKey": event["cursor"]} if event.get("cursor") else {}
     while True:
         if started and more and context.get_remaining_time_in_millis() < NIGHTLY_PAGE * NIGHTLY_PACE_S * 1000 + 15_000:
-            runs.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
-                        Payload=json.dumps({"cursor": more["ExclusiveStartKey"]}))
+            runs.invoke(
+                FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"],
+                InvocationType="Event",
+                Payload=json.dumps({"cursor": more["ExclusiveStartKey"]}),
+            )
             log(analysis="nightly_continues", houses=started)
             return {"houses": started, "continues": True}
         page = table().query(KeyConditionExpression=Key("pk").eq(keys.HOUSES), Limit=NIGHTLY_PAGE, **more)
         for house in page["Items"]:
-            runs.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
-                        Payload=json.dumps({"house_id": house["sk"], "nightly": True}))
+            runs.invoke(
+                FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"],
+                InvocationType="Event",
+                Payload=json.dumps({"house_id": house["sk"], "nightly": True}),
+            )
             started += 1
             time.sleep(NIGHTLY_PACE_S)
         if "LastEvaluatedKey" not in page:

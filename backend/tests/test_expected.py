@@ -4,6 +4,7 @@ fixtures/openmeteo_*.json are Open-Meteo's own answers for Delhi, recorded on 10
 the three calls the analysis made until then (weather, gusts and visibility, dust) and the one forecast call
 that now replaces the first two. No network here.
 """
+
 import io
 import json
 import pathlib
@@ -41,6 +42,7 @@ def open_meteo(monkeypatch):
             return recorded("air_dust")
         assert url.startswith(expected.FORECAST_URL) and "wind_gusts_10m" in query["hourly"][0], url
         return recorded("forecast_combined")
+
     monkeypatch.setattr(expected, "get_json", answer)
     return asked
 
@@ -48,8 +50,11 @@ def open_meteo(monkeypatch):
 def storms_as_before():
     """The dust-storm rule on the two calls it used to make, gusts in km/h as Open-Meteo sent them."""
     hours = frame("air_dust").join(frame("forecast_gusts"), how="inner")
-    storm = ((hours["dust"] >= config.STORM_DUST) & (hours["wind_gusts_10m"] >= config.STORM_GUST_KMH)
-             & (hours["visibility"] <= config.STORM_VISIBILITY_M))
+    storm = (
+        (hours["dust"] >= config.STORM_DUST)
+        & (hours["wind_gusts_10m"] >= config.STORM_GUST_KMH)
+        & (hours["visibility"] <= config.STORM_VISIBILITY_M)
+    )
     return storm.resample("D").max().astype(bool)
 
 
@@ -68,14 +73,26 @@ def test_gusts_and_visibility_from_that_call_are_the_figures_the_second_call_gav
     assert len(before) == 7 * 24 and before["wind_gusts_10m"].max() > 30
 
 
-@pytest.mark.parametrize("dust,gust,visibility,any_storm", [
-    (config.STORM_DUST, config.STORM_GUST_KMH, config.STORM_VISIBILITY_M, False),  # the rule as it stands: a calm week
-    # Looser, so that some days are storms and the comparison has something to get wrong. 31.7 is the week's
-    # strongest gust and 25.2 a common one: the rule's >= is tried exactly on a recorded figure.
-    (0.0, 20.0, 1e9, True), (0.0, 25.2, 1e9, True), (0.0, 31.7, 1e9, True), (10.0, 15.0, 30000.0, True),
-])
-def test_dust_storm_days_are_the_same_with_one_forecast_call_as_with_two(open_meteo, monkeypatch, dust, gust, visibility,
-                                                                         any_storm):
+@pytest.mark.parametrize(
+    "dust,gust,visibility,any_storm",
+    [
+        (
+            config.STORM_DUST,
+            config.STORM_GUST_KMH,
+            config.STORM_VISIBILITY_M,
+            False,
+        ),  # the rule as it stands: a calm week
+        # Looser, so that some days are storms and the comparison has something to get wrong. 31.7 is the week's
+        # strongest gust and 25.2 a common one: the rule's >= is tried exactly on a recorded figure.
+        (0.0, 20.0, 1e9, True),
+        (0.0, 25.2, 1e9, True),
+        (0.0, 31.7, 1e9, True),
+        (10.0, 15.0, 30000.0, True),
+    ],
+)
+def test_dust_storm_days_are_the_same_with_one_forecast_call_as_with_two(
+    open_meteo, monkeypatch, dust, gust, visibility, any_storm
+):
     monkeypatch.setattr(config, "STORM_DUST", dust)
     monkeypatch.setattr(config, "STORM_GUST_KMH", gust)
     monkeypatch.setattr(config, "STORM_VISIBILITY_M", visibility)
@@ -88,6 +105,7 @@ def test_dust_storm_days_are_the_same_with_one_forecast_call_as_with_two(open_me
 
 class Answers:
     """urlopen that fails as told, then answers."""
+
     def __init__(self, *failures):
         self.failures, self.calls = list(failures), 0
 
@@ -102,17 +120,24 @@ def http_error(code):
     return urllib.error.HTTPError("https://api.invalid", code, "no", {}, None)
 
 
-@pytest.mark.parametrize("failures", [
-    [http_error(429)], [http_error(503), http_error(500)], [TimeoutError("read timed out")],
-    [urllib.error.URLError("connection refused"), TimeoutError()],
-])
+@pytest.mark.parametrize(
+    "failures",
+    [
+        [http_error(429)],
+        [http_error(503), http_error(500)],
+        [TimeoutError("read timed out")],
+        [urllib.error.URLError("connection refused"), TimeoutError()],
+    ],
+)
 def test_a_busy_failing_or_silent_open_meteo_is_asked_again(monkeypatch, failures):
     waits, answers = [], Answers(*failures)
     monkeypatch.setattr(expected.urllib.request, "urlopen", answers)
     monkeypatch.setattr(expected.time, "sleep", waits.append)
     assert expected.http_get("https://api.invalid") == {"hourly": {}}
     assert answers.calls == len(failures) + 1 and len(waits) == len(failures)
-    assert all(0 <= wait <= expected.BACKOFF_S * 2 ** n for n, wait in enumerate(waits))  # a random wait, longer each time
+    assert all(
+        0 <= wait <= expected.BACKOFF_S * 2**n for n, wait in enumerate(waits)
+    )  # a random wait, longer each time
 
 
 def test_the_third_failure_is_the_last_and_a_bad_request_is_not_asked_again(monkeypatch):

@@ -5,6 +5,7 @@ longer than an API call may. The result is written onto that screenshot's item, 
 
 Event: {"house_id": ..., "shot_id": ..., "key": "<object key in the uploads bucket>"}
 """
+
 import json
 import os
 import time
@@ -50,11 +51,23 @@ def handler(event, context):
             UpdateExpression="SET #status = :status, #result = :result, seconds = :seconds",
             ConditionExpression="attribute_exists(pk)",
             ExpressionAttributeNames={"#status": "status", "#result": "result"},
-            ExpressionAttributeValues={":status": status, ":result": json.dumps(result), ":seconds": seconds})
+            ExpressionAttributeValues={":status": status, ":result": json.dumps(result), ":seconds": seconds},
+        )
     except ClientError as e:
         if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
             raise
         status = "gone"
-    print(json.dumps({"vision": status, "house": event["house_id"], "shot": event["shot_id"], "seconds": seconds,
-                      "reader": result.get("reader"), "readings": len(result["readings"]), "error": result.get("error")}))
+    print(
+        json.dumps(
+            {
+                "vision": status,
+                "house": event["house_id"],
+                "shot": event["shot_id"],
+                "seconds": seconds,
+                "reader": result.get("reader"),
+                "readings": len(result["readings"]),
+                "error": result.get("error"),
+            }
+        )
+    )
     return {"status": status, "seconds": seconds}

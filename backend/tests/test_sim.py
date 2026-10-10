@@ -1,4 +1,5 @@
 """Physics and simulator checks on synthetic clear-sky weather. No network."""
+
 import numpy as np
 import pandas as pd
 import pvlib
@@ -52,7 +53,7 @@ def test_dust_builds_then_rain_resets_it(homes):
     assert soiling.iloc[RAIN_DAY - 1] > soiling.iloc[RAIN_DAY]  # reset on the rain day
     assert soiling.iloc[RAIN_DAY] == pytest.approx(home["meta"]["soiling_rate"], abs=1e-4)
     r = ratio(home)
-    assert r.iloc[RAIN_DAY + 1:RAIN_DAY + 4].mean() > r.iloc[RAIN_DAY - 4:RAIN_DAY - 1].mean()
+    assert r.iloc[RAIN_DAY + 1 : RAIN_DAY + 4].mean() > r.iloc[RAIN_DAY - 4 : RAIN_DAY - 1].mean()
 
 
 def test_string_fault_is_a_step_that_stays(homes):
@@ -61,7 +62,7 @@ def test_string_fault_is_a_step_that_stays(homes):
     onset = faulty.to_numpy().argmax()
     assert faulty.iloc[onset:].all() and not faulty.iloc[:onset].any()
     r = ratio(home)
-    assert r.iloc[onset:onset + 10].mean() < 0.8 * r.iloc[onset - 10:onset].mean()
+    assert r.iloc[onset : onset + 10].mean() < 0.8 * r.iloc[onset - 10 : onset].mean()
 
 
 def test_haze_drops_every_home_together(homes):

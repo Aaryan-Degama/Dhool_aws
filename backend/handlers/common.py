@@ -1,5 +1,6 @@
 """What the API and the analysis handlers share: the table, AWS clients kept for the life of the container,
 one shape of log line, one of metric line, and reading a list to its end."""
+
 import json
 import os
 import sys
@@ -53,10 +54,18 @@ def metric(name: str, value: float, unit: str = "Count", **dimensions: str) -> N
     into a metric in the Dhool namespace, with no PutMetricData call and no permission to grant.
     Every different set of dimension values is a metric of its own, and is billed as one: keep them few.
     ponytail: one namespace for every stack; add the stack as a dimension when staging is deployed."""
-    _line({
-        "_aws": {"Timestamp": int(time.time() * 1000), "CloudWatchMetrics": [
-            {"Namespace": "Dhool", "Dimensions": [list(dimensions)], "Metrics": [{"Name": name, "Unit": unit}]}]},
-        **dimensions, name: value})
+    _line(
+        {
+            "_aws": {
+                "Timestamp": int(time.time() * 1000),
+                "CloudWatchMetrics": [
+                    {"Namespace": "Dhool", "Dimensions": [list(dimensions)], "Metrics": [{"Name": name, "Unit": unit}]}
+                ],
+            },
+            **dimensions,
+            name: value,
+        }
+    )
 
 
 def query_all(table: Any, **query: Any) -> Iterator[dict[str, Any]]:

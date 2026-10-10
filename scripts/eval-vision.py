@@ -20,6 +20,7 @@ Run it under `taskset -c 0,1`, or better in the Lambda image with `docker run --
 to see what the Lambda sees. Memory: "working" is the model server's own memory (what an out-of-memory
 kill counts); the weights are mapped from disk on top of it and can be dropped and read again.
 """
+
 import json
 import os
 import pathlib
@@ -46,8 +47,8 @@ def answer_key(path, image):
     if image.startswith(b"\x89PNG"):
         pos = 8
         while pos + 8 <= len(image):
-            length, kind = struct.unpack(">I4s", image[pos:pos + 8])
-            body = image[pos + 8:pos + 8 + length]
+            length, kind = struct.unpack(">I4s", image[pos : pos + 8])
+            body = image[pos + 8 : pos + 8 + length]
             if kind == b"tEXt" and body.startswith(b"dhool-demo\x00"):
                 return json.loads(body[11:])["readings"]
             pos += 12 + length
@@ -62,8 +63,11 @@ def watch(pid):
     """Sample the model server's memory every 50 ms: the peaks are what matter, and they last moments."""
     while True:
         try:
-            status = {line.split(":")[0]: int(line.split()[1]) // 1024 for line in open(f"/proc/{pid}/status")
-                      if line.startswith(("RssAnon", "VmRSS"))}
+            status = {
+                line.split(":")[0]: int(line.split()[1]) // 1024
+                for line in open(f"/proc/{pid}/status")
+                if line.startswith(("RssAnon", "VmRSS"))
+            }
         except (FileNotFoundError, ProcessLookupError):
             return
         peaks["working"] = max(peaks["working"], status["RssAnon"])
@@ -75,8 +79,10 @@ started = time.time()
 if not OCR:
     reader.start()
     threading.Thread(target=watch, args=(reader._server.pid,), daemon=True).start()
-    print(f"model ready in {time.time() - started:.0f}s on {len(os.sched_getaffinity(0))} cores, "
-          f"image tokens <= {reader.IMAGE_TOKENS}")
+    print(
+        f"model ready in {time.time() - started:.0f}s on {len(os.sched_getaffinity(0))} cores, "
+        f"image tokens <= {reader.IMAGE_TOKENS}"
+    )
 if BOTH:
     import reader as both  # noqa: E402
 right = total = invented = 0
@@ -94,16 +100,23 @@ for name in sys.argv[1:]:
     got = {r["date"]: r["kwh"] for r in result["readings"]}
     ok = sum(1 for date, kwh in truth.items() if date in got and abs(got[date] - kwh) < 0.005)
     extra = sorted(set(got) - set(truth))
-    wrong = {date: (got.get(date), kwh) for date, kwh in truth.items() if date not in got or abs(got[date] - kwh) >= 0.005}
+    wrong = {
+        date: (got.get(date), kwh) for date, kwh in truth.items() if date not in got or abs(got[date] - kwh) >= 0.005
+    }
     right, total, invented = right + ok, total + len(truth), invented + len(extra)
-    print(f"{path.name}: {seconds:.{1 if OCR else 0}f}s, kind {result['kind'] or '?'}, {ok}/{len(truth)} right"
-          + (f", NOT ON SCREEN: {extra}" if extra else "") + (f", wrong (read, true): {wrong}" if wrong else ""))
+    print(
+        f"{path.name}: {seconds:.{1 if OCR else 0}f}s, kind {result['kind'] or '?'}, {ok}/{len(truth)} right"
+        + (f", NOT ON SCREEN: {extra}" if extra else "")
+        + (f", wrong (read, true): {wrong}" if wrong else "")
+    )
     if os.environ.get("SHOW"):
         print("   ", json.dumps(result["replies"])[:600])
 print(f"overall: {right}/{total} printed values read exactly, {invented} values invented")
 if OCR:
-    print(f"{reader.READER}: {sum(took) / max(1, len(took)):.2f}s an image on average, "
-          f"{max(took, default=0):.2f}s the slowest, on {len(os.sched_getaffinity(0))} cores")
+    print(
+        f"{reader.READER}: {sum(took) / max(1, len(took)):.2f}s an image on average, "
+        f"{max(took, default=0):.2f}s the slowest, on {len(os.sched_getaffinity(0))} cores"
+    )
     sys.exit()
 print(f"model server peak memory: working {peaks['working']} MB, with the mapped weights {peaks['total']} MB")
 try:  # the container's own peak, page cache included, when run in one (cgroup v2)

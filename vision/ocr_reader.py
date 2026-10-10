@@ -9,6 +9,7 @@ A number is never returned unless it is tied to a date or to such a label. Chart
 What it returns is never trusted as fact: the API drops any value that cannot be true for the roof, and
 the homeowner confirms or corrects the rest before anything is saved.
 """
+
 import collections
 import datetime
 import io
@@ -20,7 +21,7 @@ from PIL import Image, ImageOps, ImageStat
 
 TESSERACT = os.environ.get("TESSERACT", "tesseract")
 MAX_PIXELS = 30_000_000  # as in screenshot_reader: no phone screenshot is larger
-MAX_SIDE = 32_000        # Tesseract refuses a picture with a side over 32,767 pixels
+MAX_SIDE = 32_000  # Tesseract refuses a picture with a side over 32,767 pixels
 READER = "tesseract-rules"
 # Tesseract reads best when letters are about 30 pixels tall. Small screenshots are enlarged to this width;
 # print far larger than that (the big figure on a today screen) is cut out, shrunk and read again: at full
@@ -47,18 +48,57 @@ DATES = [  # (pattern, the order its groups come in)
 # A label that says the figure is today's generation: one of the first words and none of the second (word
 # beginnings). "Last 30 days", "Total", "Today's consumption" and a forecast are other figures.
 TODAY = {"today", "todays", "etoday", "daily", "day"}
-NOT_TODAY = ("total", "month", "year", "week", "life", "last", "yesterday", "forecast", "expect", "possible", "estimat",
-             "predict", "consum", "import", "export", "load", "grid", "purchas", "bought", "sold", "feed", "charg",
-             "discharg", "batter", "self", "sav", "revenue", "income", "earn", "co2", "limit", "target", "capacity",
-             "peak", "avg", "average")
+NOT_TODAY = (
+    "total",
+    "month",
+    "year",
+    "week",
+    "life",
+    "last",
+    "yesterday",
+    "forecast",
+    "expect",
+    "possible",
+    "estimat",
+    "predict",
+    "consum",
+    "import",
+    "export",
+    "load",
+    "grid",
+    "purchas",
+    "bought",
+    "sold",
+    "feed",
+    "charg",
+    "discharg",
+    "batter",
+    "self",
+    "sav",
+    "revenue",
+    "income",
+    "earn",
+    "co2",
+    "limit",
+    "target",
+    "capacity",
+    "peak",
+    "avg",
+    "average",
+)
 
 
 def tesseract(picture, psm):
     """A greyscale picture -> its words with their boxes."""
     png = io.BytesIO()
     picture.save(png, "PNG")
-    out = subprocess.run([TESSERACT, "stdin", "stdout", "--psm", str(psm), "tsv"], input=png.getvalue(),
-                         capture_output=True, check=True, timeout=120).stdout.decode("utf-8", "replace")
+    out = subprocess.run(
+        [TESSERACT, "stdin", "stdout", "--psm", str(psm), "tsv"],
+        input=png.getvalue(),
+        capture_output=True,
+        check=True,
+        timeout=120,
+    ).stdout.decode("utf-8", "replace")
     found = []
     for line in out.splitlines()[1:]:
         cell = line.split("\t")
@@ -89,7 +129,9 @@ def reread(picture, found):
         top = max(0, min(w.y0 for w in tall) - height // 5)
         cut = picture.crop((0, top, picture.width, min(picture.height, max(w.y1 for w in tall) + height // 5)))
         left, right = tall[0].x0, tall[-1].x1
-        paper = max(range(256), key=cut.crop((left, 0, right, cut.height)).histogram().__getitem__)  # the commonest shade there
+        paper = max(
+            range(256), key=cut.crop((left, 0, right, cut.height)).histogram().__getitem__
+        )  # the commonest shade there
         # B023 below: point() calls the lambda at once, inside this turn of the loop, so it sees this turn's paper
         ink = cut.point(lambda shade: 255 if abs(shade - paper) > 60 else 0)  # noqa: B023
         # Widen to the whole card the print stands on, out to where another background begins (a column that is
@@ -116,7 +158,11 @@ def reread(picture, found):
                 runs[-1][2:] = min(runs[-1][2], y0), x1, max(runs[-1][4], y1)
             else:
                 runs.append([large, x0, y0, x1, y1])
-        found = [w for w in found if not (left <= (w.x0 + w.x1) / 2 <= right and top <= (w.y0 + w.y1) / 2 <= top + cut.height)]
+        found = [
+            w
+            for w in found
+            if not (left <= (w.x0 + w.x1) / 2 <= right and top <= (w.y0 + w.y1) / 2 <= top + cut.height)
+        ]
         for _, x0, y0, x1, y1 in runs:
             scale, edge = REREAD_HEIGHT / (y1 - y0), REREAD_HEIGHT // 2
             piece = cut.crop((x0, y0, x1, y1)).resize((max(1, round((x1 - x0) * scale)), REREAD_HEIGHT), Image.LANCZOS)
@@ -125,8 +171,10 @@ def reread(picture, found):
             again = tesseract(framed, 7)  # 7: one line of text
             # A run that reads as nothing stays as a word no rule will take for a figure or a unit.
             x0, x1 = left + x0, left + x1
-            found += [Word(w.text, x0 + round((w.x0 - edge) / scale), top + y0, x0 + round((w.x1 - edge) / scale), top + y1)
-                      for w in again] or [Word("?", x0, top + y0, x1, top + y1)]
+            found += [
+                Word(w.text, x0 + round((w.x0 - edge) / scale), top + y0, x0 + round((w.x1 - edge) / scale), top + y1)
+                for w in again
+            ] or [Word("?", x0, top + y0, x1, top + y1)]
     return found
 
 
@@ -146,8 +194,12 @@ def words(image):
     found = tesseract(picture, 11)  # 11: words wherever they are; an app screen is not a page of text
     heights = sorted(w.y1 - w.y0 for w in found)
     if heights and heights[len(heights) // 2] < SMALL:  # small print: a screen shown inside a larger picture
-        scale = min(3, NORMAL / max(1, heights[len(heights) // 2]), (MAX_PIXELS / (picture.width * picture.height)) ** 0.5,
-                    MAX_SIDE / max(picture.size))
+        scale = min(
+            3,
+            NORMAL / max(1, heights[len(heights) // 2]),
+            (MAX_PIXELS / (picture.width * picture.height)) ** 0.5,
+            MAX_SIDE / max(picture.size),
+        )
         picture = picture.resize((round(picture.width * scale), round(picture.height * scale)), Image.LANCZOS)
         found = tesseract(picture, 11)
     return reread(picture, found)
@@ -195,7 +247,9 @@ def dates(row):
                 found.append(datetime.date(int(part["y"]), month, day).isoformat())
             except ValueError:
                 continue
-            used |= {i for i, start in enumerate(starts) if start < match.end() and start + len(row[i].text) > match.start()}
+            used |= {
+                i for i, start in enumerate(starts) if start < match.end() and start + len(row[i].text) > match.start()
+            }
     return found, used
 
 
@@ -241,8 +295,11 @@ def day_list(rows):
         with_unit, bare = figures(row, used)
         if not with_unit and len(bare) == 1:  # no unit on the row: one figure, standing under a "kWh" heading
             value, word = bare[0]
-            with_unit = [(round(value * TO_KWH[UNIT.search(head.text.lower()).group(1)], 6), word) for head in heads
-                         if head.y1 <= word.y0 and overlap((head.x0, head.x1), (word.x0, word.x1))][:1]
+            with_unit = [
+                (round(value * TO_KWH[UNIT.search(head.text.lower()).group(1)], 6), word)
+                for head in heads
+                if head.y1 <= word.y0 and overlap((head.x0, head.x1), (word.x0, word.x1))
+            ][:1]
         if len(with_unit) == 1 and len(bare) <= 1:  # two figures on a row (made and used, say) are not told apart
             seen.setdefault(found[0], with_unit[0][0])
     # One dated figure is not a list: it may be a total with the time it was updated.
@@ -278,12 +335,17 @@ def today(rows):
             if value is None and not values:
                 top, bottom = min(w.y0 for w in label), max(w.y1 for w in label)
                 near = []
-                for other in grouped[:r] + grouped[r + 1:]:
+                for other in grouped[:r] + grouped[r + 1 :]:
                     for group in other:
                         gap = max(min(w.y0 for w in group) - bottom, top - max(w.y1 for w in group))  # under or over
-                        reach = max(2.5 * (bottom - top), max(w.y1 - w.y0 for w in group))  # near, for print of either size
-                        if 0 <= gap <= reach and overlap((label[0].x0, label[-1].x1), (group[0].x0, group[-1].x1)) \
-                                and alone(group) is not None:
+                        reach = max(
+                            2.5 * (bottom - top), max(w.y1 - w.y0 for w in group)
+                        )  # near, for print of either size
+                        if (
+                            0 <= gap <= reach
+                            and overlap((label[0].x0, label[-1].x1), (group[0].x0, group[-1].x1))
+                            and alone(group) is not None
+                        ):
                             near.append((gap, alone(group)))
                 near.sort()
                 # Figures about as near on both sides (a column of label, figure, label, figure): which one is
@@ -292,7 +354,12 @@ def today(rows):
                     value = near[0][1]
             if value is not None:
                 on_row = dates([w for group in row for w in group])[0]
-                found.add((on_row[0] if len(on_row) == 1 else next(iter(all_dates)) if len(all_dates) == 1 else "TODAY", value))
+                found.add(
+                    (
+                        on_row[0] if len(on_row) == 1 else next(iter(all_dates)) if len(all_dates) == 1 else "TODAY",
+                        value,
+                    )
+                )
     # Two labels that say today with different figures (production and consumption, say): not told apart.
     return [{"date": date, "kwh": kwh} for date, kwh in found] if len(found) == 1 else []
 

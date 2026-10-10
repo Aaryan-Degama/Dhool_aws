@@ -3,6 +3,7 @@
 The caller is always the `sub` claim verified by the API Gateway JWT authorizer.
 Nothing in the body or query string is trusted for identity or house membership.
 """
+
 import base64
 import datetime
 import hashlib
@@ -28,28 +29,31 @@ from handlers.common import bucket, client, log, query_all, table
 INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I/L
 INVITE_TTL_S = 7 * 24 * 3600
 MAX_KWH_PER_KW = 12  # no roof makes more than this per installed kW in a day
-MAX_READINGS = 120   # in one request: a screenshot's history chart, not a bulk import
-HISTORY_DAYS = 45    # how far back the log of advice looks
+MAX_READINGS = 120  # in one request: a screenshot's history chart, not a bulk import
+HISTORY_DAYS = 45  # how far back the log of advice looks
 MAX_UPLOAD_BYTES = 5_000_000
 IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg"}
 SHOT_KEY = re.compile(r"houses/([0-9a-f]{12})/([0-9a-f]{32})\.(?:png|jpg)")
-SHOT_TTL_S = 24 * 3600         # a screenshot's reading result is kept for a day
+SHOT_TTL_S = 24 * 3600  # a screenshot's reading result is kept for a day
 # An answer is kept as long as the verdict it is about: VERDICT_TTL_S in analysis.py, which this Lambda cannot
 # import (it pulls in pvlib). test_api.py fails if the two drift apart.
 FEEDBACK_TTL_S = 400 * 24 * 3600
-READING_TIMEOUT_S = 15 * 60    # after this long with no result, the reader is taken to have failed
+READING_TIMEOUT_S = 15 * 60  # after this long with no result, the reader is taken to have failed
 REPLY_LABELS = ("visit_scheduled", "asking_details", "refused", "unclear")
 MAX_REPLY_CHARS = 1000
 
 JOIN_TRIES, JOIN_LOCK_S = 5, 3600  # wrong invite codes one person may try, and how long the count is kept
-MAX_HOUSES, MAX_MEMBERS = 5, 10    # homes one person may be in, and people in one home
+MAX_HOUSES, MAX_MEMBERS = 5, 10  # homes one person may be in, and people in one home
 TOO_MANY_HOUSES = f"You can be in up to {MAX_HOUSES} homes. Leave or delete one first."
 HOUSE_FULL = f"This home already has {MAX_MEMBERS} people. Ask its owner to remove someone first."
 SETTINGS = {"wash_cost_rs": (0, 5000), "tariff_rs": (1, 30)}
 # The server posts to a subscription's endpoint, so it must be a browser push service and nothing else.
-PUSH_ENDPOINT = re.compile(r"https://(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)+(?:push\.services\.mozilla\.com"
-                           r"|notify\.windows\.com|push\.apple\.com))/[A-Za-z0-9._~%:/?=&+-]*")
+PUSH_ENDPOINT = re.compile(
+    r"https://(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)+(?:push\.services\.mozilla\.com"
+    r"|notify\.windows\.com|push\.apple\.com))/[A-Za-z0-9._~%:/?=&+-]*"
+)
 MAX_ENDPOINT_CHARS, MAX_PUSH_KEY_CHARS = 2000, 200
+
 
 class HttpError(Exception):
     def __init__(self, status: int, message: str) -> None:
@@ -106,21 +110,26 @@ def _house_keys(house_id, prefix=None):
     condition = Key("pk").eq(keys.house_pk(house_id))
     if prefix:
         condition &= Key("sk").begins_with(prefix)
-    return query_all(table(), KeyConditionExpression=condition,
-                     ProjectionExpression="sk, #by", ExpressionAttributeNames={"#by": "by"})
+    return query_all(
+        table(),
+        KeyConditionExpression=condition,
+        ProjectionExpression="sk, #by",
+        ExpressionAttributeNames={"#by": "by"},
+    )
 
 
 def _count(pk, prefix):
     """How many items pk has under prefix.
     ponytail: counted, then written, so two requests at the same instant can end one over a quota. Keep a
     counter on the item and add to it in the same transaction if the limits ever have to be exact."""
-    return table().query(KeyConditionExpression=Key("pk").eq(pk) & Key("sk").begins_with(prefix), Select="COUNT")["Count"]
+    return table().query(KeyConditionExpression=Key("pk").eq(pk) & Key("sk").begins_with(prefix), Select="COUNT")[
+        "Count"
+    ]
 
 
 def me(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     items = table().query(KeyConditionExpression=Key("pk").eq(keys.user_pk(sub)))["Items"]
-    return 200, {"houses": [{"house_id": keys.tail(i["sk"]), "name": i["name"], "role": i["role"]}
-                            for i in items]}
+    return 200, {"houses": [{"house_id": keys.tail(i["sk"]), "name": i["name"], "role": i["role"]} for i in items]}
 
 
 def _new_house_id():
@@ -134,7 +143,8 @@ def create_house(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         raise HttpError(400, "name must be 1 to 60 characters")
     name = name.strip()
     meta = {
-        "sk": keys.META, "name": name,
+        "sk": keys.META,
+        "name": name,
         "kw": _number(data, "kw", Decimal("0.1"), 100),
         "lat": round(_number(data, "lat", -90, 90), 2),  # about a kilometre: enough for weather, not an address
         "lon": round(_number(data, "lon", -180, 180), 2),
@@ -152,9 +162,18 @@ def create_house(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             {"pk": keys.HOUSES, "sk": house_id},  # the list the nightly run walks
         ]
         try:  # all four or none, and never over a home that is already there
-            table().meta.client.transact_write_items(TransactItems=[
-                {"Put": {"TableName": table().name, "Item": item, "ConditionExpression": "attribute_not_exists(pk)"}}
-                for item in items])
+            table().meta.client.transact_write_items(
+                TransactItems=[
+                    {
+                        "Put": {
+                            "TableName": table().name,
+                            "Item": item,
+                            "ConditionExpression": "attribute_not_exists(pk)",
+                        }
+                    }
+                    for item in items
+                ]
+            )
             break
         except ClientError as e:
             if e.response["Error"]["Code"] != "TransactionCanceledException" or last_try:
@@ -166,8 +185,11 @@ def get_house(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     house_id = event["pathParameters"]["houseId"]
     # The member list is wanted anyway and holds the caller's own role: one read answers both. Nothing of
     # it leaves this function unless the decision below allows.
-    members = list(query_all(
-        table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.MEMBER)))
+    members = list(
+        query_all(
+            table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.MEMBER)
+        )
+    )
     _decide(sub, house_id, "read", next((m["role"] for m in members if m["sk"] == keys.member_sk(sub)), None))
     meta = _house_meta(house_id)
     return 200, {
@@ -176,8 +198,15 @@ def get_house(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         "wash_cost_rs": meta.get("wash_cost_rs", config.WASH_COST_RS),
         "tariff_rs": meta.get("tariff_rs", config.TARIFF_RS),
         "linked": bool(meta.get("plant_id") and meta.get("inverter_key")),
-        "members": [{"sub": keys.tail(m["sk"]), "role": m["role"], "joined_at": m.get("joined_at"),
-                     "me": m["sk"] == keys.member_sk(sub)} for m in members],
+        "members": [
+            {
+                "sub": keys.tail(m["sk"]),
+                "role": m["role"],
+                "joined_at": m.get("joined_at"),
+                "me": m["sk"] == keys.member_sk(sub),
+            }
+            for m in members
+        ],
     }
 
 
@@ -210,10 +239,13 @@ def join(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     invite = table().get_item(Key={"pk": keys.invite_pk(code.strip().upper()), "sk": keys.META}).get("Item")
     house = None
     if invite and invite["expiresAt"] >= now:  # the house may have been deleted since the code was made
-        house = table().get_item(Key={"pk": keys.house_pk(invite['house_id']), "sk": keys.META}).get("Item")
+        house = table().get_item(Key={"pk": keys.house_pk(invite["house_id"]), "sk": keys.META}).get("Item")
     if not house:
-        table().update_item(Key=fail_key, UpdateExpression="ADD n :one SET expiresAt = if_not_exists(expiresAt, :exp)",
-                            ExpressionAttributeValues={":one": 1, ":exp": now + JOIN_LOCK_S})
+        table().update_item(
+            Key=fail_key,
+            UpdateExpression="ADD n :one SET expiresAt = if_not_exists(expiresAt, :exp)",
+            ExpressionAttributeValues={":one": 1, ":exp": now + JOIN_LOCK_S},
+        )
         raise HttpError(404, "Invite code not found or expired")
     house_id = invite["house_id"]
     if "Item" not in table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub)}):  # someone new
@@ -223,13 +255,17 @@ def join(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             raise HttpError(409, HOUSE_FULL)
     try:
         # Never overwrite an existing membership: an owner using their own code stays owner.
-        table().put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub), "role": "member", "joined_at": now},
-                         ConditionExpression="attribute_not_exists(pk)")
+        table().put_item(
+            Item={"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub), "role": "member", "joined_at": now},
+            ConditionExpression="attribute_not_exists(pk)",
+        )
     except ClientError as e:
         if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
             raise
     else:
-        table().put_item(Item={"pk": keys.user_pk(sub), "sk": keys.house_pk(house_id), "role": "member", "name": house["name"]})
+        table().put_item(
+            Item={"pk": keys.user_pk(sub), "sk": keys.house_pk(house_id), "role": "member", "name": house["name"]}
+        )
     log(authz="join", sub=sub, house=house_id)
     return 200, {"house_id": house_id}
 
@@ -291,10 +327,20 @@ def subscribe_push(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]
     push_keys = subscription.get("keys") if isinstance(subscription.get("keys"), dict) else {}
     lang = data.get("lang", "en")
     if lang not in ("en", "hi") or not all(
-            isinstance(push_keys.get(k), str) and 1 <= len(push_keys[k]) <= MAX_PUSH_KEY_CHARS for k in ("p256dh", "auth")):
+        isinstance(push_keys.get(k), str) and 1 <= len(push_keys[k]) <= MAX_PUSH_KEY_CHARS for k in ("p256dh", "auth")
+    ):
         raise HttpError(400, "This browser's notifications are not supported.")
-    table().put_item(Item={**key, "endpoint": subscription["endpoint"], "p256dh": push_keys["p256dh"], "auth": push_keys["auth"],
-                           "lang": lang, "by": sub, "at": int(time.time())})
+    table().put_item(
+        Item={
+            **key,
+            "endpoint": subscription["endpoint"],
+            "p256dh": push_keys["p256dh"],
+            "auth": push_keys["auth"],
+            "lang": lang,
+            "by": sub,
+            "at": int(time.time()),
+        }
+    )
     return 201, {"subscribed": True}
 
 
@@ -339,8 +385,16 @@ def add_reading(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     rows = [_reading(item, limit) for item in items]
     with table().batch_writer(overwrite_by_pkeys=["pk", "sk"]) as batch:
         for date, kwh in rows:
-            batch.put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.reading_sk(date), "kwh": kwh,
-                                 "source": source, "by": sub, "at": int(time.time())})
+            batch.put_item(
+                Item={
+                    "pk": keys.house_pk(house_id),
+                    "sk": keys.reading_sk(date),
+                    "kwh": kwh,
+                    "source": source,
+                    "by": sub,
+                    "at": int(time.time()),
+                }
+            )
     _start_analysis(house_id)
     return 201, {"saved": len(rows)}
 
@@ -374,8 +428,16 @@ def record_feedback(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any
     if not isinstance(helpful, bool):
         raise HttpError(400, "helpful must be true or false")
     now = int(time.time())
-    table().put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.feedback_sk(date), "helpful": helpful,
-                           "by": sub, "at": now, "expiresAt": now + FEEDBACK_TTL_S})
+    table().put_item(
+        Item={
+            "pk": keys.house_pk(house_id),
+            "sk": keys.feedback_sk(date),
+            "helpful": helpful,
+            "by": sub,
+            "at": now,
+            "expiresAt": now + FEEDBACK_TTL_S,
+        }
+    )
     return 201, {"date": str(date), "helpful": helpful}
 
 
@@ -415,18 +477,29 @@ def start_upload(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         raise HttpError(400, "The screenshot must be a PNG or JPEG image")
     key = f"houses/{house_id}/{uuid.uuid4().hex}.{IMAGE_TYPES[content_type]}"
     region = os.environ["AWS_REGION"]
-    s3 = client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
-                config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
+    s3 = client(
+        "s3",
+        region_name=region,
+        endpoint_url=f"https://s3.{region}.amazonaws.com",
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+    )
     post = s3.generate_presigned_post(
-        os.environ["UPLOADS"], key, Fields={"Content-Type": content_type},
-        Conditions=[{"Content-Type": content_type}, ["content-length-range", 1, MAX_UPLOAD_BYTES]], ExpiresIn=300)
+        os.environ["UPLOADS"],
+        key,
+        Fields={"Content-Type": content_type},
+        Conditions=[{"Content-Type": content_type}, ["content-length-range", 1, MAX_UPLOAD_BYTES]],
+        ExpiresIn=300,
+    )
     return 201, {"key": key, "url": post["url"], "fields": post["fields"]}
 
 
 def _start_reading(house_id, shot_id, key):
     """Hand the screenshot to the reader (the vision model, in its own Lambda). It works in the background."""
-    client("lambda").invoke(FunctionName=os.environ["VISION_FUNCTION"], InvocationType="Event",
-                            Payload=json.dumps({"house_id": house_id, "shot_id": shot_id, "key": key}))
+    client("lambda").invoke(
+        FunctionName=os.environ["VISION_FUNCTION"],
+        InvocationType="Event",
+        Payload=json.dumps({"house_id": house_id, "shot_id": shot_id, "key": key}),
+    )
 
 
 def read_screenshot(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
@@ -438,8 +511,17 @@ def read_screenshot(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any
     if not match or match.group(1) != house_id:
         raise HttpError(400, "Upload the screenshot first")
     shot_id, now = match.group(2), int(time.time())
-    table().put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.shot_sk(shot_id), "status": "reading", "key": key,
-                           "by": sub, "at": now, "expiresAt": now + SHOT_TTL_S})
+    table().put_item(
+        Item={
+            "pk": keys.house_pk(house_id),
+            "sk": keys.shot_sk(shot_id),
+            "status": "reading",
+            "key": key,
+            "by": sub,
+            "at": now,
+            "expiresAt": now + SHOT_TTL_S,
+        }
+    )
     _start_reading(house_id, shot_id, key)
     return 202, {"shot_id": shot_id, "status": "reading"}
 
@@ -448,7 +530,11 @@ def screenshot_result(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, A
     """What the reader found in a screenshot, for the homeowner to confirm or correct. Nothing is saved here."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
-    item = table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.shot_sk(event['pathParameters']['shotId'])}).get("Item")
+    item = (
+        table()
+        .get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.shot_sk(event["pathParameters"]["shotId"])})
+        .get("Item")
+    )
     if not item:
         raise HttpError(404, "No such screenshot")
     if item["status"] == "reading":  # still working, unless it has been far too long
@@ -466,14 +552,18 @@ def screenshot_result(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, A
         readings[str(date)] = kwh
     if not readings:
         return 200, {"status": "unreadable"}
-    return 200, {"status": "read", "seconds": item.get("seconds"),
-                 "readings": [{"date": d, "kwh": readings[d]} for d in sorted(readings)]}
+    return 200, {
+        "status": "read",
+        "seconds": item.get("seconds"),
+        "readings": [{"date": d, "kwh": readings[d]} for d in sorted(readings)],
+    }
 
 
 def _start_analysis(house_id):
     """Ask the analysis Lambda for a fresh verdict. Returns at once; the app polls GET .../verdict."""
-    client("lambda").invoke(FunctionName=os.environ["ANALYSIS_FUNCTION"], InvocationType="Event",
-                            Payload=json.dumps({"house_id": house_id}))
+    client("lambda").invoke(
+        FunctionName=os.environ["ANALYSIS_FUNCTION"], InvocationType="Event", Payload=json.dumps({"house_id": house_id})
+    )
 
 
 def connect_inverter(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
@@ -492,10 +582,18 @@ def connect_inverter(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, An
     table().update_item(
         Key={"pk": keys.house_pk(house_id), "sk": keys.META},
         UpdateExpression="SET plant_id = :p, inverter_url = :url, inverter_key = :key, kw = :kw, lat = :lat, "
-                         "lon = :lon, tilt = :tilt, azimuth = :az",
-        ExpressionAttributeValues={":p": plant_id, ":url": inverter_url, ":key": api_key, ":kw": Decimal(str(plant["kw"])),
-                                   ":lat": round(Decimal(str(plant["lat"])), 2), ":lon": round(Decimal(str(plant["lon"])), 2),
-                                   ":tilt": Decimal(str(plant["tilt"])), ":az": Decimal(str(plant["azimuth"]))})
+        "lon = :lon, tilt = :tilt, azimuth = :az",
+        ExpressionAttributeValues={
+            ":p": plant_id,
+            ":url": inverter_url,
+            ":key": api_key,
+            ":kw": Decimal(str(plant["kw"])),
+            ":lat": round(Decimal(str(plant["lat"])), 2),
+            ":lon": round(Decimal(str(plant["lon"])), 2),
+            ":tilt": Decimal(str(plant["tilt"])),
+            ":az": Decimal(str(plant["azimuth"])),
+        },
+    )
     _start_analysis(house_id)
     return 200, {"house_id": house_id, "plant_id": plant_id}
 
@@ -509,9 +607,11 @@ def save_settings(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]
     saved = {key: _number(data, key, low, high) for key, (low, high) in SETTINGS.items() if key in data}
     if not saved:
         raise HttpError(400, "Send wash_cost_rs or tariff_rs")
-    table().update_item(Key={"pk": keys.house_pk(house_id), "sk": keys.META},
-                        UpdateExpression="SET " + ", ".join(f"{key} = :{key}" for key in saved),
-                        ExpressionAttributeValues={f":{key}": value for key, value in saved.items()})
+    table().update_item(
+        Key={"pk": keys.house_pk(house_id), "sk": keys.META},
+        UpdateExpression="SET " + ", ".join(f"{key} = :{key}" for key in saved),
+        ExpressionAttributeValues={f":{key}": value for key, value in saved.items()},
+    )
     _start_analysis(house_id)
     return 200, saved
 
@@ -521,8 +621,12 @@ def history(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     first appeared, not on every day it was repeated."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
+
     def items(prefix, **more):
-        return table().query(KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more)["Items"]
+        return table().query(
+            KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more
+        )["Items"]
+
     log: list[dict[str, Any]]
     last: tuple[str, str, str | None] | None
     log, last = [], None
@@ -530,15 +634,29 @@ def history(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         v = json.loads(item["json"])
         said = (v["verdict"], v["cause"], (v.get("evidence") or {}).get("wait_for"))
         if said != last:
-            log.append({"date": keys.tail(item["sk"]), "kind": "said", "verdict": said[0], "cause": said[1],
-                        "wait_for": said[2], "loss_pct": v.get("loss_pct")})
+            log.append(
+                {
+                    "date": keys.tail(item["sk"]),
+                    "kind": "said",
+                    "verdict": said[0],
+                    "cause": said[1],
+                    "wait_for": said[2],
+                    "loss_pct": v.get("loss_pct"),
+                }
+            )
         last = said
         check = v.get("check")
     latest = check if log else None  # the newest verdict carries the outcome of the newest wash or visit
     for item in items(keys.ACTION):
         date = keys.tail(item["sk"])
-        log.append({"date": date, "kind": "did", "type": item["type"],
-                    "status": latest["status"] if latest and latest["date"] == date else None})
+        log.append(
+            {
+                "date": date,
+                "kind": "did",
+                "type": item["type"],
+                "status": latest["status"] if latest and latest["date"] == date else None,
+            }
+        )
     return 200, {"log": sorted(log, key=lambda e: (e["date"], e["kind"] == "did"), reverse=True)}
 
 
@@ -547,7 +665,9 @@ def get_verdict(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     authorize(sub, house_id, "read")
     items = table().query(
         KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.VERDICT),
-        ScanIndexForward=False, Limit=1)["Items"]
+        ScanIndexForward=False,
+        Limit=1,
+    )["Items"]
     if not items:
         return 200, {"verdict": None}
     return 200, {**json.loads(items[0]["json"]), "computed_at": items[0]["at"]}
@@ -557,9 +677,11 @@ def list_readings(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     items = query_all(
-        table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.READING))
-    return 200, {"readings": [{"date": keys.tail(i["sk"]), "kwh": i["kwh"], "source": i["source"],
-                               "by": i["by"]} for i in items]}
+        table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.READING)
+    )
+    return 200, {
+        "readings": [{"date": keys.tail(i["sk"]), "kwh": i["kwh"], "source": i["source"], "by": i["by"]} for i in items]
+    }
 
 
 ROUTES = {
@@ -598,8 +720,13 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     except HttpError as e:
         status, payload = e.status, {"error": e.message}
     except Exception as e:  # nothing foreseen: the caller gets a number to quote, the log gets the rest
-        log(error="unhandled", route=event.get("routeKey"), exception=type(e).__name__, detail=str(e)[:500],
-             trace=traceback.format_exc()[-2000:])
+        log(
+            error="unhandled",
+            route=event.get("routeKey"),
+            exception=type(e).__name__,
+            detail=str(e)[:500],
+            trace=traceback.format_exc()[-2000:],
+        )
         status, payload = 500, {"error": "Something went wrong", "request_id": common.request_id}
     return {
         "statusCode": status,

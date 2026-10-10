@@ -43,6 +43,7 @@ and are not among the false alerts.
 The precision and recall lines print nan for a class that was never said (no precision) or never happened
 (no recall). When one does, a line under the accuracy line says which is which.
 """
+
 import datetime
 import sys
 from collections import Counter
@@ -76,26 +77,37 @@ Confusion = Counter[tuple[str, str]]  # (truth, verdict) -> how many checks; a n
 def truth(home: dict[str, Any], i: int, rain: pd.Series) -> str:
     """What a perfect detector would say for this home on day i."""
     daily, problem = home["daily"], home["meta"]["problem"]
-    faulty = daily["cause"].iloc[:i + 1] == "fault"
+    faulty = daily["cause"].iloc[: i + 1] == "fault"
     if problem in ("string_fault", "shading") and faulty.iloc[-1]:
         return "INSPECT"
     if problem == "inverter_trips" and faulty.tail(30).sum() >= 2:
         return "INSPECT"
-    if (daily["cause"].iloc[i - 2:i + 1] == "haze").sum() >= 2:
+    if (daily["cause"].iloc[i - 2 : i + 1] == "haze").sum() >= 2:
         return "WAIT"
     if daily["soiling"].iloc[i] >= 0.05:
         # The same wash plan the rules use, but fed the truth: the real dust, the roof's real normal, and
         # how much rain it really takes to clean this roof. What is scored is the measuring, not the policy.
         meta = home["meta"]
-        normal_kwh = meta["baseline"] * float(daily["expected"].iloc[i - 6:i + 1].mean())
-        plan = wash_plan(daily["soiling"].iloc[i], meta["soiling_rate"], normal_kwh, list(rain.iloc[i + 1:i + 8]),
-                         clean_mm=meta.get("clean_mm", config.CLEAN_RAIN_MM))
+        normal_kwh = meta["baseline"] * float(daily["expected"].iloc[i - 6 : i + 1].mean())
+        plan = wash_plan(
+            daily["soiling"].iloc[i],
+            meta["soiling_rate"],
+            normal_kwh,
+            list(rain.iloc[i + 1 : i + 8]),
+            clean_mm=meta.get("clean_mm", config.CLEAN_RAIN_MM),
+        )
         return "CLEAN" if plan["wash"] else "WAIT"
     return "OK"
 
 
-def evaluate(homes: dict[str, dict[str, Any]], rain: pd.Series, pm25: pd.Series, start: int = 60, every: int = 7,
-             alone: bool = False) -> Confusion:
+def evaluate(
+    homes: dict[str, dict[str, Any]],
+    rain: pd.Series,
+    pm25: pd.Series,
+    start: int = 60,
+    every: int = 7,
+    alone: bool = False,
+) -> Confusion:
     """Returns Counter of (truth, verdict) pairs over every home, checked every `every` days.
     alone=True gives the rules no neighbours to compare with."""
     ratios = pd.DataFrame({hid: h["daily"]["actual"] / h["daily"]["expected"] for hid, h in homes.items()})
@@ -104,9 +116,12 @@ def evaluate(homes: dict[str, dict[str, Any]], rain: pd.Series, pm25: pd.Series,
         others = None if alone else ratios.drop(columns=hid)
         for i in range(start, len(rain) - 7, every):
             got = verdict(
-                home["daily"].iloc[:i + 1], rain.iloc[:i + 1], list(rain.iloc[i + 1:i + 8]), pm25.iloc[:i + 1],
+                home["daily"].iloc[: i + 1],
+                rain.iloc[: i + 1],
+                list(rain.iloc[i + 1 : i + 8]),
+                pm25.iloc[: i + 1],
                 # others is None only when alone, and then .iloc is not reached
-                others if alone else others.iloc[:i + 1],  # type: ignore[union-attr]
+                others if alone else others.iloc[: i + 1],  # type: ignore[union-attr]
             )
             confusion[truth(home, i, rain), got["verdict"]] += 1
     return confusion
@@ -119,12 +134,19 @@ def wash_checks(homes: dict[str, dict[str, Any]]) -> Counter[tuple[str, str]]:
     outcome: Counter[tuple[str, str]] = Counter()
     for home in homes.values():
         daily, days = home["daily"], home["daily"].index
-        washed = [i for i in range(14, len(days) - 8) if str(days[i].date()) in home["meta"]["wash_days"]
-                  and daily["soiling"].iloc[i - 1] >= 0.05 and daily["cause"].iloc[i] != "fault"]
+        washed = [
+            i
+            for i in range(14, len(days) - 8)
+            if str(days[i].date()) in home["meta"]["wash_days"]
+            and daily["soiling"].iloc[i - 1] >= 0.05
+            and daily["cause"].iloc[i] != "fault"
+        ]
         faulty = (daily["cause"] == "fault").to_numpy()
-        not_dust = [int(faulty.argmax()) + 15] if home["meta"]["problem"] == "string_fault" and faulty.sum() > 30 else []
+        not_dust = (
+            [int(faulty.argmax()) + 15] if home["meta"]["problem"] == "string_fault" and faulty.sum() > 30 else []
+        )
         for i, kind in [(i, "real wash") for i in washed] + [(i, "wash of a faulty roof") for i in not_dust]:
-            ratio = _ratio(daily.iloc[:i + 8])
+            ratio = _ratio(daily.iloc[: i + 8])
             check = check_action(ratio, normal(ratio), {"date": str(days[i].date()), "type": "wash"})
             outcome[kind, check["status"] if check else "no data"] += 1
     return outcome
@@ -192,32 +214,50 @@ def beyond_accuracy(confusion: Confusion) -> list[str]:
     if any(not _said(confusion, c) or not _actual(confusion, c) for c in CLASSES):
         lines.append("nan above: a class never said has no precision, a class that never happened has no recall")
     commonest, share = baseline(confusion)
-    lines.append(f"baseline {share:.2f}: always saying {commonest}, the commonest truth "
-                 f"({_actual(confusion, commonest)} of {total} checks)")
+    lines.append(
+        f"baseline {share:.2f}: always saying {commonest}, the commonest truth "
+        f"({_actual(confusion, commonest)} of {total} checks)"
+    )
     scores = {c: f1(confusion, c) for c in CLASSES}
     for c, score in scores.items():
-        lines.append(f"{c:<8} F1 " + ("none (never happened, never said: left out of macro-F1)" if score is None else f"{score:.2f}"))
-    lines.append(f"macro-F1 {macro_f1(confusion):.2f}: the plain mean of the "
-                 f"{sum(s is not None for s in scores.values())} F1s above")
+        lines.append(
+            f"{c:<8} F1 "
+            + ("none (never happened, never said: left out of macro-F1)" if score is None else f"{score:.2f}")
+        )
+    lines.append(
+        f"macro-F1 {macro_f1(confusion):.2f}: the plain mean of the "
+        f"{sum(s is not None for s in scores.values())} F1s above"
+    )
     false, wrong_action = alert_counts(confusion)
-    lines.append(f"false alerts {per_roof_month(false, total):.2f} per roof per month: {false} of {total} checks, "
-                 f"{CHECK_EVERY} days apart, said CLEAN or INSPECT when the truth was OK or WAIT")
-    lines.append("  (the app alerts only when its advice changes, so a wrong verdict that lasts counts here every time "
-                 "and there once)")
-    lines.append(f"wrong-action alerts {wrong_action}: said CLEAN when the truth was INSPECT, or INSPECT when it was CLEAN")
+    lines.append(
+        f"false alerts {per_roof_month(false, total):.2f} per roof per month: {false} of {total} checks, "
+        f"{CHECK_EVERY} days apart, said CLEAN or INSPECT when the truth was OK or WAIT"
+    )
+    lines.append(
+        "  (the app alerts only when its advice changes, so a wrong verdict that lasts counts here every time "
+        "and there once)"
+    )
+    lines.append(
+        f"wrong-action alerts {wrong_action}: said CLEAN when the truth was INSPECT, or INSPECT when it was CLEAN"
+    )
     return lines
 
 
-def run(name: str, lat: float, lon: float, start: str, end: str, seed: int,
-        hidden: bool) -> tuple[list[Confusion], Counter[tuple[str, str]]]:
+def run(
+    name: str, lat: float, lon: float, start: str, end: str, seed: int, hidden: bool
+) -> tuple[list[Confusion], Counter[tuple[str, str]]]:
     """Prints the four scores for one neighbourhood. Returns their confusions, in VARIANTS order, and the
     wash checks (on the homes without weather error, as before)."""
     weather = fetch_weather(lat, lon, start, end)
     pm25 = fetch_pm25(lat, lon, start, end)
     rain = weather["rain"].resample("D").sum()
     # The same homes twice: the weather error has its own random draws, so nothing else about them differs.
-    homes = {noisy: simulate(weather, pm25, seed=seed, hidden=hidden, lat=lat, lon=lon,
-                             weather_noise=WEATHER_NOISE if noisy else 0.0) for noisy in (False, True)}
+    homes = {
+        noisy: simulate(
+            weather, pm25, seed=seed, hidden=hidden, lat=lat, lon=lon, weather_noise=WEATHER_NOISE if noisy else 0.0
+        )
+        for noisy in (False, True)
+    }
     # The first block is headed as it always was, so old numbers can be laid beside new ones.
     print(f"\n{name}: {len(homes[False])} homes, {start} to {end}, seed {seed}")
     confusions: list[Confusion] = []
@@ -243,7 +283,15 @@ def main(seed: str = "0") -> None:
             print(report(total))
     else:
         end = datetime.date.today() - datetime.timedelta(days=7)
-        _, washes = run("Delhi", config.SIM_LAT, config.SIM_LON, str(end - datetime.timedelta(days=365)), str(end), int(seed), hidden=False)
+        _, washes = run(
+            "Delhi",
+            config.SIM_LAT,
+            config.SIM_LON,
+            str(end - datetime.timedelta(days=365)),
+            str(end),
+            int(seed),
+            hidden=False,
+        )
     print("\nWash check:", ", ".join(f"{kind}: {status} {n}" for (kind, status), n in sorted(washes.items())))
 
 

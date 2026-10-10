@@ -1,4 +1,5 @@
 """What a roof should have produced: Open-Meteo weather in, pvlib physics, daily kWh out."""
+
 import datetime
 import json
 import random
@@ -31,9 +32,9 @@ _COLUMNS = {
 # What a dust storm is judged on, asked for in the same forecast call as the weather.
 _STORM_COLUMNS = {"wind_gusts_10m": "gust_kmh", "visibility": "visibility_m"}
 
-TRIES = 3         # in all, when Open-Meteo is busy (429), failing (5xx) or silent
-TIMEOUT_S = 25    # each try; three of them and the waits between fit inside one analysis run
-BACKOFF_S = 1.0   # the wait before a new try is a random time up to this, then up to twice this
+TRIES = 3  # in all, when Open-Meteo is busy (429), failing (5xx) or silent
+TIMEOUT_S = 25  # each try; three of them and the waits between fit inside one analysis run
+BACKOFF_S = 1.0  # the wait before a new try is a random time up to this, then up to twice this
 
 
 def http_get(url: str) -> Any:
@@ -57,9 +58,15 @@ get_json: Callable[[str], Any] = http_get
 
 
 def _fetch_hourly(url, lat, lon, variables, **params):
-    query = urllib.parse.urlencode({
-        "latitude": lat, "longitude": lon, "hourly": ",".join(variables), "timezone": config.TZ, **params,
-    })
+    query = urllib.parse.urlencode(
+        {
+            "latitude": lat,
+            "longitude": lon,
+            "hourly": ",".join(variables),
+            "timezone": config.TZ,
+            **params,
+        }
+    )
     hourly = get_json(f"{url}?{query}")["hourly"]
     index = pd.DatetimeIndex(hourly.pop("time")).tz_localize(config.TZ)
     return pd.DataFrame(hourly, index=index).astype(float)
@@ -75,8 +82,9 @@ def fetch_weather_with_forecast(lat: float, lon: float, start: datetime.date) ->
     """Same columns, from `start` (a date) through the next 7 days of forecast. The days the forecast API
     serves also carry gust_kmh and visibility_m, which fetch_dust_storms reads: one call, not two."""
     names = {**_COLUMNS, **_STORM_COLUMNS}
-    recent = _fetch_hourly(FORECAST_URL, lat, lon, names, past_days=FORECAST_PAST_DAYS, forecast_days=7,
-                           wind_speed_unit="ms").rename(columns=names)
+    recent = _fetch_hourly(
+        FORECAST_URL, lat, lon, names, past_days=FORECAST_PAST_DAYS, forecast_days=7, wind_speed_unit="ms"
+    ).rename(columns=names)
     # The call asks for wind in m/s (the physics wants it), so gusts come in m/s too. Open-Meteo's km/h figure
     # is this one times 3.6 to one decimal: hour for hour the same on the recorded answers (test_expected.py).
     recent["gust_kmh"] = (recent["gust_kmh"] * 3.6).round(1)
@@ -98,20 +106,34 @@ def fetch_dust_storms(lat: float, lon: float, weather: pd.DataFrame) -> pd.Serie
     weather: what fetch_weather_with_forecast returned for the same place, for its gusts and visibility."""
     air = _fetch_hourly(AIR_QUALITY_URL, lat, lon, ["dust"], forecast_days=7)
     hours = air.join(weather[list(_STORM_COLUMNS.values())], how="inner")
-    storm = ((hours["dust"] >= config.STORM_DUST) & (hours["gust_kmh"] >= config.STORM_GUST_KMH)
-             & (hours["visibility_m"] <= config.STORM_VISIBILITY_M))
+    storm = (
+        (hours["dust"] >= config.STORM_DUST)
+        & (hours["gust_kmh"] >= config.STORM_GUST_KMH)
+        & (hours["visibility_m"] <= config.STORM_VISIBILITY_M)
+    )
     return storm.resample("D").max().astype(bool)
 
 
-def expected_daily_kwh(weather: pd.DataFrame, lat: float, lon: float, kw: float, tilt: float = config.DEFAULT_TILT,
-                       azimuth: float = config.DEFAULT_AZIMUTH) -> pd.Series:
+def expected_daily_kwh(
+    weather: pd.DataFrame,
+    lat: float,
+    lon: float,
+    kw: float,
+    tilt: float = config.DEFAULT_TILT,
+    azimuth: float = config.DEFAULT_AZIMUTH,
+) -> pd.Series:
     """Daily kWh a clean, healthy system of `kw` should produce in this weather."""
     # Open-Meteo radiation is the mean over the hour ending at the timestamp,
     # so the sun's position is taken at the middle of that hour.
     sun = pvlib.solarposition.get_solarposition(weather.index - pd.Timedelta(minutes=30), lat, lon)
     poa = pvlib.irradiance.get_total_irradiance(
-        tilt, azimuth, sun["apparent_zenith"].to_numpy(), sun["azimuth"].to_numpy(),
-        dni=weather["dni"].to_numpy(), ghi=weather["ghi"].to_numpy(), dhi=weather["dhi"].to_numpy(),
+        tilt,
+        azimuth,
+        sun["apparent_zenith"].to_numpy(),
+        sun["azimuth"].to_numpy(),
+        dni=weather["dni"].to_numpy(),
+        ghi=weather["ghi"].to_numpy(),
+        dhi=weather["dhi"].to_numpy(),
     )["poa_global"]
     poa = np.nan_to_num(poa)
     cell_temp = pvlib.temperature.faiman(poa, weather["temp_air"].to_numpy(), weather["wind_speed"].to_numpy())
