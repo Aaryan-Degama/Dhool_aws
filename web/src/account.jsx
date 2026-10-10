@@ -72,7 +72,7 @@ export function Privacy() {
   return (
     <details className="note">
       <summary>{t("What Dhool keeps about you")}</summary>
-      <p>{t("Your email, to sign you in. Your home's name, its system size and its location to about 1 km, to look up the weather over it. The readings you add or your inverter sends, the washes and vendor visits you report, and the advice Dhool gave. Screenshots are deleted after 30 days. A vendor's reply you paste is read and not kept.")}</p>
+      <p>{t("Your email, to sign you in. Your home's name, its system size and its location to about 1 km, to look up the weather over it. The readings you add or your inverter sends, the washes and vendor visits you report, the advice Dhool gave, and whether you said it was useful. Screenshots are deleted after 30 days. A vendor's reply you paste is read and not kept.")}</p>
       <p>{t("Nothing is sold or shared. The location, with no name on it, goes to the weather service (Open-Meteo); everything else stays on Dhool's servers on AWS in Mumbai. Everyone you give your family code to sees the home.")}</p>
       <p>{t("The owner can delete a home with everything in it, and anyone can delete their account, in Setup.")}</p>
     </details>

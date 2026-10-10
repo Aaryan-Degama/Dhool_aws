@@ -99,7 +99,7 @@ bar, each with an icon and a word:
 
 | Tab | What it holds |
 |---|---|
-| Roof | Home name and "running at N% of normal"; the roof model; a strip of four readings (today's weather, next rain, units possible today, date of the last reading); the verdict card (what to do, a glowing meter, money lost, how sure, the reason, the action); two tiles leading to Forecast and Why |
+| Roof | Home name and "running at N% of normal"; the roof model; a strip of four readings (today's weather, next rain, units possible today, date of the last reading); the verdict card (what to do, a glowing meter, money lost, how sure, the reason, the action, and at its foot a quiet "Was this advice useful?" with a thumb up and a thumb down); two tiles leading to Forecast and Why |
 | Roof, on "Call your vendor" | Paste the vendor's WhatsApp reply: Dhool sorts it into four kinds (coming, wants something first, won't help, no clear answer), shows them as four buttons with its pick selected, and says the next step. The homeowner can change the pick; if the reader is unavailable the same buttons work by hand |
 | Forecast | The next 7 days: weather, likely against possible units |
 | Why | The reason, should-have-made against made, money lost, the chart (90 days, or from three weeks before a fault) |

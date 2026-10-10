@@ -100,8 +100,9 @@ function Useful({ house, date }) {
     <>
       <div className="useful" role="group" aria-labelledby={label}>
         <span id={label}>{t("Was this advice useful?")}</span>
-        <button type="button" disabled={state.busy} onClick={() => send(true)}>{t("Yes")}</button>
-        <button type="button" disabled={state.busy} onClick={() => send(false)}>{t("No")}</button>
+        {/* A thumb to look at, a word for a screen reader. */}
+        <button type="button" aria-label={t("Yes")} disabled={state.busy} onClick={() => send(true)}>👍</button>
+        <button type="button" aria-label={t("No")} disabled={state.busy} onClick={() => send(false)}>👎</button>
       </div>
       <ErrorLine error={state.error} />
     </>
