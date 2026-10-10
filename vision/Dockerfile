@@ -49,7 +49,7 @@ FROM public.ecr.aws/lambda/python:3.12
 COPY --from=build /build/bin/llama-server /opt/llama-server
 COPY models/ /opt/models/
 # After the 1.5 GB of weights, so changing anything below does not upload them again.
-RUN pip install --no-cache-dir pillow==12.3.0
+RUN pip install --no-cache-dir --timeout 120 --retries 10 pillow==12.3.0
 # No package versions: Amazon Linux's repository is locked to the base image's release, which fixes them.
 # hadolint ignore=DL3041
 RUN dnf install -y libpng libjpeg-turbo && dnf clean all
