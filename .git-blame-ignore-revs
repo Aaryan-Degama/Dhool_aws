@@ -1,0 +1,4 @@
+# Commits that only changed layout. `git blame --ignore-revs-file .git-blame-ignore-revs` looks past them,
+# and GitHub's blame view does so by itself.
+# ruff format over the Python
+3c1953183cc5a62f381faebd316552a285c91f67

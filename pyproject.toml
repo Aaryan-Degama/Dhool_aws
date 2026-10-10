@@ -1,6 +1,9 @@
 [tool.pytest.ini_options]
 pythonpath = ["backend", "vision"]
 testpaths = ["backend/tests"]
+# Coverage of the backend and the screenshot reader was 84% when this line was written (10 Oct 2026); a run
+# under 82% fails, so a change that drops tests is noticed. Raise the number as coverage rises, never lower it.
+addopts = "--cov=backend/dhool --cov=backend/handlers --cov=vision --cov-report=term:skip-covered --cov-fail-under=82"
 
 # Lint and format: `ruff check .` and `ruff format .`. The versions are pinned in backend/requirements-dev.txt.
 [tool.ruff]

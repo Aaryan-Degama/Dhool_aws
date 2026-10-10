@@ -1,5 +1,13 @@
 -r requirements-analysis.txt
-pytest
-boto3
-moto[dynamodb,s3]
+# Pinned to what the tests last passed with, so a run today and a run next month test the same thing.
+# Dependabot proposes the bumps. boto3 here is for the tests only: the zip Lambdas use the runtime's own.
+pytest==9.1.1
+pytest-cov==7.1.0
+boto3==1.43.111
+moto[dynamodb,s3]==5.2.3
 pillow==12.3.0  # the screenshot reader shrinks pictures with it (vision/); the same version as its container
+# Checks, run by CI and by pre-commit (pyproject.toml, .pre-commit-config.yaml).
+ruff==0.17.0
+mypy==2.4.0
+pip-audit==2.10.1
+pre-commit==4.6.2
