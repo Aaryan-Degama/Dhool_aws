@@ -76,10 +76,10 @@ export function AddData({ house, onSent }) {
 
   return (
     <section className="add-data">
-      <h1>{t("How should Dhool get your readings?")}</h1>
+      <h1>{t("Add readings")}</h1>
 
       <div className="card stack">
-        <h2>{t("Upload a screenshot")}</h2>
+        <h2>{t("Screenshot")}</h2>
         <p className="note">
           {t("A screenshot of your inverter app showing the units made each day: today's figure, or a list of days. Dhool reads the numbers printed on it; it does not guess from charts. Try it with a screen saved from the {app}.", { app: demoApp })}
         </p>
@@ -126,7 +126,7 @@ export function AddData({ house, onSent }) {
       {/* The key reaches a whole inverter account: it is the owner's to give, and the API refuses anyone else. */}
       {house.role === "owner" && (
         <form className="card" onSubmit={send("/inverter", () => ({ api_key: key.trim() }))}>
-          <h2>{t("Connect your inverter")}</h2>
+          <h2>{t("Inverter link")}</h2>
           <p className="note">
             {t("Dhool then reads every day on its own. Copy your API key from the {app}. It holds simulated homes, not a real inverter brand.", { app: demoApp })}
           </p>
@@ -137,7 +137,7 @@ export function AddData({ house, onSent }) {
       )}
 
       <form className="card" onSubmit={send("/readings", () => ({ date: reading.date, kwh: toNumber(reading.kwh) }))}>
-        <h2>{t("Or type today's number")}</h2>
+        <h2>{t("Type a reading")}</h2>
         <div className="row">
           <Field label={t("Date")} type="date" max={today} required value={reading.date} onChange={(e) => setReading({ ...reading, date: e.target.value })} />
           <Field label={t("Units made (kWh)")} id="typed-kwh" inputMode="decimal" required value={reading.kwh} onChange={(e) => setReading({ ...reading, kwh: e.target.value })} />

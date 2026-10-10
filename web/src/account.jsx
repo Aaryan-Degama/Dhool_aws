@@ -127,7 +127,7 @@ export function Setup({ onDone, onBack, children }) {
       </form>
 
       <form onSubmit={join} className="card">
-        <h2>{t("Someone at home already uses Dhool?")}</h2>
+        <h2>{t("Join a home")}</h2>
         <Field label={t("Family code")} required maxLength={6} autoCapitalize="characters" className="code-input"
                value={form.code} onChange={set("code")} hint={t("Ask them for the six-letter code from their Dhool app.")} />
         <button className="secondary" disabled={state.busy}>{t("Join their home")}</button>
@@ -141,7 +141,7 @@ export function Setup({ onDone, onBack, children }) {
 export function Homes({ house, homes }) {
   return (
     <section className="card stack">
-      <h2>{t("Your homes")}</h2>
+      <h2>{t("Homes")}</h2>
       {homes.all.length > 1 && (
         <label className="field">
           <span>{t("Show this home")}</span>
@@ -173,7 +173,7 @@ export function Family({ house, onChange, onGone }) {
     <section className="card stack">
       {house.role === "owner" ? (
         <>
-          <h2>{t("Who is in this home")}</h2>
+          <h2>{t("Members")}</h2>
           <ul className="members">
             {(house.members || []).map((m) => (
               <li key={m.sub}>
@@ -242,7 +242,7 @@ export function Alerts({ house }) {
 
   return (
     <section className="card stack">
-      <h2>{t("Alerts on this phone")}</h2>
+      <h2>{t("Alerts")}</h2>
       <p className="note">{t("Dhool will tell you when it is time to call the vendor, when it is time to wash, and when readings have stopped.")}</p>
       <div className="reply-kinds" role="group" aria-label={t("Alerts")}>
         <button type="button" aria-pressed={on} disabled={state.busy} onClick={turn(true)}>{t("On")}</button>
@@ -264,7 +264,7 @@ export function DeleteAccount({ houses, onGone }) {
   });
   return (
     <section className="card stack">
-      <h2>{t("Delete my account")}</h2>
+      <h2>{t("Delete account")}</h2>
       {owned.length ? (
         <p className="note">{t("You are the owner of {names}. Delete the home first, then your account.", { names: owned.join(", ") })}</p>
       ) : (

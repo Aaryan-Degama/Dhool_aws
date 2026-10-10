@@ -67,7 +67,7 @@ function StaleCard({ house, asOf, today, go }) {
   if (!(n >= STALE_DAYS)) return null;
   return (
     <section className="card check stack">
-      <h2>{t("No new reading for {n} days", { n })}</h2>
+      <h2>{t("No reading for {n} days", { n })}</h2>
       <p className="note">
         {t("The last reading Dhool has is from {date}. What you see below is from that day.", { date: day(asOf) })}{" "}
         {house.linked ? t("Your inverter may be offline. Check that it is switched on and that its Wi-Fi stick is connected.")
@@ -240,7 +240,7 @@ export function HistoryTab({ verdict: v, house, actions }) {
 export function WhyTab({ verdict: v, house, log }) {
   return (
     <article className={`tab ${tone(v)}`}>
-      <h1>{t("Why Dhool says this")}</h1>
+      <h1>{t("Synopsis")}</h1>
       <p className="lede">{reasonOf(v)}</p>
       <div className="card stack">
         <dl className="figures">
@@ -277,7 +277,7 @@ function Invite({ house }) {
   if (house.role !== "owner") return null;
   return (
     <section className="card invite">
-      <h2>{t("Share with your family")}</h2>
+      <h2>{t("Family code")}</h2>
       {code ? (
         <>
           <p className="code" aria-label={t("Family code {code}", { code: code.split("").join(" ") })}>{code}</p>

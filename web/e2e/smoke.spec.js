@@ -8,7 +8,7 @@ import { HI } from "../src/hi.js";
 
 const DEV = "http://localhost:5173", BUILT = "http://localhost:4173";
 const HEADLINES = ["Your solar has stopped", "Call your vendor", "Wash the panels", "Don't wash. It's haze.", "Your solar is working",
-  "Generation History", "Washes and vendor visits", "System size"];
+  "Generation History", "Washes and visits", "System size"];
 
 /** Everything the browser complains about while the page is open. A blocked file or script is one of them. */
 function complaints(page) {

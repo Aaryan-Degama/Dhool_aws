@@ -27,7 +27,7 @@ export function Costs({ house, onSent }) {
   };
   return (
     <form className="card" onSubmit={save}>
-      <h2>{t("Wash cost and electricity rate")}</h2>
+      <h2>{t("Costs")}</h2>
       <label className="field">
         <span>{t("Cost of one wash (₹)")}</span>
         <input inputMode="numeric" required value={cost} onChange={(e) => setCost(e.target.value)} />
@@ -91,7 +91,7 @@ export function Log({ house, entries }) {
   if (!log?.length) return null;
   return (
     <section className="card stack">
-      <h2>{t("What Dhool said, and what you did")}</h2>
+      <h2>{t("Advice log")}</h2>
       <ol className="log">
         {log.map((e) => (
           <li key={e.date + e.kind} className={`log-${e.kind}`}>
@@ -116,7 +116,7 @@ export function Actions({ house, entries }) {
   if (!list) return null;
   return (
     <section className="card stack">
-      <h2>{t("Washes and vendor visits")}</h2>
+      <h2>{t("Washes and visits")}</h2>
       {list.length ? (
         <ol className="log">
           {list.map((e) => (

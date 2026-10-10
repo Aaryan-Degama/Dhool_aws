@@ -17,7 +17,7 @@ await page.locator(".home-name").waitFor({ timeout: 30000 });
 await page.waitForTimeout(4000);  // the weather sky and the member list arrive after the verdict
 console.log("home:", await page.locator(".home-name").innerText());
 console.log("headline:", await page.locator("h1").first().innerText());
-console.log("stale card:", await page.getByText("No new reading", { exact: false }).count());
+console.log("stale card:", await page.getByText("No reading for", { exact: false }).count());
 console.log("useful question:", await page.getByText("Was this advice useful?").count());
 console.log("sideways scroll:", await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth));
 console.log("console errors:", JSON.stringify(complaints));

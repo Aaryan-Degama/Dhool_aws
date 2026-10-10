@@ -55,7 +55,7 @@ export const HI = {
     "इस साइट के लिए लोकेशन बंद है। दोनों नंबर ख़ुद लिखिए, या लोकेशन की अनुमति देकर फिर कोशिश कीजिए।",
   "Saving…": "सेव हो रहा है…",
   "Add home": "घर जोड़िए",
-  "Someone at home already uses Dhool?": "घर में कोई पहले से Dhool इस्तेमाल करता है?",
+  "Join a home": "किसी घर से जुड़िए",
   "Family code": "परिवार का कोड",
   "Ask them for the six-letter code from their Dhool app.": "उनसे उनके Dhool ऐप का छह अक्षरों वाला कोड माँगिए।",
   "Join their home": "उनके घर से जुड़िए",
@@ -70,7 +70,7 @@ export const HI = {
   "Thank you.": "धन्यवाद।",
 
   // Roof tab
-  "No new reading for {n} days": "{n} दिन से नई रीडिंग नहीं आई",
+  "No reading for {n} days": "{n} दिन से रीडिंग नहीं",
   "The last reading Dhool has is from {date}. What you see below is from that day.": "Dhool के पास आख़िरी रीडिंग {date} की है। नीचे जो दिख रहा है वह उसी दिन का है।",
   "Your inverter may be offline. Check that it is switched on and that its Wi-Fi stick is connected.":
     "हो सकता है आपका इन्वर्टर ऑफ़लाइन हो। देखिए कि वह चालू है और उसकी Wi-Fi स्टिक जुड़ी हुई है।",
@@ -115,10 +115,10 @@ export const HI = {
   "Readings on {n} of {total} days": "{total} में से {n} दिन की रीडिंग",
   "Units made each month, from the readings Dhool has.": "हर महीने बनी यूनिट, Dhool के पास मौजूद रीडिंग के हिसाब से।",
   " Tap a month for its weeks, and a week for its days.": " किसी महीने को दबाइए तो उसके हफ़्ते दिखेंगे, और हफ़्ते को दबाइए तो उसके दिन।",
-  "Washes and vendor visits": "धुलाई और वेंडर का आना",
+  "Washes and visits": "धुलाई और वेंडर का आना",
   "Nothing reported yet. When Dhool says to wash or to call the vendor, a button under that advice on the Roof tab lets you say you have done it.":
     "अभी तक कुछ दर्ज नहीं है। जब Dhool धोने या वेंडर को बुलाने को कहे, तो “छत” टैब पर उस सलाह के नीचे के बटन से बताइए कि आपने यह कर लिया।",
-  "Why Dhool says this": "Dhool ऐसा क्यों कहता है",
+  "Synopsis": "सारांश",
   "Should have made": "बनानी चाहिए थी",
   "Made": "बनाई",
   "units": "यूनिट",
@@ -148,8 +148,8 @@ export const HI = {
   "Type the number instead": "इसकी जगह नंबर लिखिए",
   "The upload did not go through. Check the image is under 5 MB, then try again.": "अपलोड नहीं हो पाया। देखिए कि तस्वीर 5 MB से छोटी है, फिर कोशिश कीजिए।",
   "demo inverter app": "डेमो इन्वर्टर ऐप",
-  "How should Dhool get your readings?": "Dhool आपकी रीडिंग कैसे ले?",
-  "Upload a screenshot": "स्क्रीनशॉट अपलोड कीजिए",
+  "Add readings": "रीडिंग जोड़ने के तरीक़े",
+  "Screenshot": "स्क्रीनशॉट",
   "A screenshot of your inverter app showing the units made each day: today's figure, or a list of days. Dhool reads the numbers printed on it; it does not guess from charts. Try it with a screen saved from the {app}.":
     "आपके इन्वर्टर ऐप का स्क्रीनशॉट जिसमें हर दिन बनी यूनिट दिखें: आज का आँकड़ा, या दिनों की सूची। Dhool उस पर छपे नंबर पढ़ता है; चार्ट देखकर अंदाज़ा नहीं लगाता। {app} से सेव की गई स्क्रीन के साथ आज़माइए।",
   "Dhool read {days} from your screenshot. Check them against it. Correct any number that is wrong, or clear a box to leave that day out.":
@@ -162,18 +162,18 @@ export const HI = {
   "Choose a screenshot": "स्क्रीनशॉट चुनिए",
   "Dhool could not read daily units from that image. Try a screen where the number is printed, or type it in.":
     "Dhool उस तस्वीर से रोज़ की यूनिट नहीं पढ़ पाया। ऐसी स्क्रीन आज़माइए जिस पर नंबर छपा हो, या ख़ुद लिख दीजिए।",
-  "Connect your inverter": "अपना इन्वर्टर जोड़िए",
+  "Inverter link": "इन्वर्टर जोड़िए",
   "Dhool then reads every day on its own. Copy your API key from the {app}. It holds simulated homes, not a real inverter brand.":
     "फिर Dhool हर दिन की रीडिंग ख़ुद ले लेता है। अपनी API key {app} से कॉपी कीजिए। उसमें सिम्युलेटेड घर हैं, कोई असली इन्वर्टर ब्रांड नहीं।",
   "API key from your inverter app": "आपके इन्वर्टर ऐप की API key",
   "Connect": "जोड़िए",
-  "Or type today's number": "या आज का नंबर लिखिए",
+  "Type a reading": "रीडिंग लिखिए",
   "Date": "तारीख़",
   "Units made (kWh)": "बनी यूनिट (kWh)",
   "Save reading": "रीडिंग सेव कीजिए",
 
   // Setup: costs, alerts, homes, family, language, sign out, deleting
-  "Wash cost and electricity rate": "धुलाई का ख़र्च और बिजली की दर",
+  "Costs": "ख़र्च",
   "{kw} kW": "{kw} किलोवाट",
   "Taken from your inverter when it was linked.": "यह आपके इन्वर्टर से लिया गया है, जब उसे जोड़ा गया था।",
   "Only the owner of this home can change it.": "इसे सिर्फ़ इस घर का मालिक बदल सकता है।",
@@ -181,7 +181,6 @@ export const HI = {
     "यह आपके इंस्टॉलेशन के काग़ज़ों और इन्वर्टर ऐप में लिखा होता है। Dhool इसी से हिसाब लगाता है कि आपकी छत को कितनी बिजली बनानी चाहिए।",
   "Electricity rate (₹ per unit)": "बिजली की दर (₹ प्रति यूनिट)",
   "It is on your electricity bill. Dhool uses it to work out the money lost.": "यह आपके बिजली के बिल पर लिखी होती है। Dhool इसी से नुक़सान का हिसाब लगाता है।",
-  "Alerts on this phone": "इस फ़ोन पर सूचनाएँ",
   "Dhool will tell you when it is time to call the vendor, when it is time to wash, and when readings have stopped.":
     "Dhool आपको बताएगा जब वेंडर को बुलाने का समय हो, जब धोने का समय हो, और जब रीडिंग आनी बंद हो जाएँ।",
   "Alerts": "सूचनाएँ",
@@ -189,10 +188,10 @@ export const HI = {
   "Off": "बंद",
   "Notifications are blocked for this site. Allow them in your browser's settings, then try again.":
     "इस साइट के लिए सूचनाएँ बंद हैं। ब्राउज़र की सेटिंग में अनुमति देकर फिर कोशिश कीजिए।",
-  "Your homes": "आपके घर",
+  "Homes": "घर",
   "Show this home": "यह घर दिखाइए",
   "Add another home": "एक और घर जोड़िए",
-  "Who is in this home": "इस घर में कौन-कौन है",
+  "Members": "सदस्य",
   "You": "आप",
   "Family member": "परिवार का सदस्य",
   "Family member, joined {date}": "परिवार का सदस्य, {date} को जुड़े",
@@ -205,6 +204,7 @@ export const HI = {
   "Leave this home": "यह घर छोड़िए",
   "Leave {name}? You will no longer see its readings and advice.": "{name} छोड़ें? फिर आप इसकी रीडिंग और सलाह नहीं देख पाएँगे।",
   "Delete my account": "मेरा खाता मिटाइए",
+  "Delete account": "खाता मिटाइए",
   "What Dhool keeps about you": "Dhool आपके बारे में क्या रखता है",
   "Your email, to sign you in. Your home's name, its system size and its location to about 1 km, to look up the weather over it. The readings you add or your inverter sends, the washes and vendor visits you report, the advice Dhool gave, and whether you said it was useful. Screenshots are deleted after 30 days. A vendor's reply you paste is read and not kept.":
     "आपका ईमेल, साइन इन के लिए। आपके घर का नाम, सिस्टम का साइज़ और लगभग 1 किमी तक की जगह, वहाँ का मौसम देखने के लिए। जो रीडिंग आप जोड़ते हैं या आपका इन्वर्टर भेजता है, जो धुलाई और वेंडर का आना आप बताते हैं, Dhool की दी हुई सलाह, और आपने उसे काम की बताया या नहीं। स्क्रीनशॉट 30 दिन बाद मिटा दिए जाते हैं। वेंडर का जो जवाब आप पेस्ट करते हैं वह पढ़ा जाता है, रखा नहीं जाता।",
@@ -222,7 +222,6 @@ export const HI = {
   "What you pay a cleaner, or about ₹50 for water and your time if you wash them yourself. Dhool tells you to wash only when the dust is costing more than this before the next rain or dust storm.":
     "जो आप सफ़ाई वाले को देते हैं, या ख़ुद धोते हैं तो पानी और समय के लगभग ₹50। Dhool धोने को तभी कहता है जब अगली बारिश या आँधी से पहले धूल का नुक़सान इससे ज़्यादा हो।",
   "Save": "सेव कीजिए",
-  "Share with your family": "अपने परिवार के साथ साझा कीजिए",
   "Family code {code}": "परिवार का कोड {code}",
   "Works for 7 days. Anyone who joins sees this home's readings and verdicts.": "7 दिन तक चलता है। जो भी जुड़ेगा, वह इस घर की रीडिंग और सलाह देख सकेगा।",
   "Join our home on Dhool with this code: {code}": "इस कोड से Dhool पर हमारे घर से जुड़िए: {code}",
@@ -299,7 +298,7 @@ export const HI = {
   "Output did not come back.": "बिजली उत्पादन वापस नहीं आया।",
   "Dhool is still measuring.": "Dhool अभी माप रहा है।",
   "The roof was already at its normal.": "छत पहले से अपने सामान्य स्तर पर थी।",
-  "What Dhool said, and what you did": "Dhool ने क्या कहा, और आपने क्या किया",
+  "Advice log": "सलाह का ब्योरा",
   "Dhool said: {what}": "Dhool ने कहा: {what}",
   " ({pct}% down)": " ({pct}% कम)",
 
