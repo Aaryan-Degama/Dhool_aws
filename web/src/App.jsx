@@ -483,7 +483,7 @@ function Preview() {
         <DeleteAccount houses={[house]} onGone={none} />
         <DeleteAccount houses={[guest]} onGone={none} />
       </article>
-      <Nav tab="roof" go={none} />
+      <Nav tab="roof" go={none} house={house} />
     </main>
   );
 }
