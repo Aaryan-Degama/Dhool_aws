@@ -149,15 +149,15 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
   return (
     <article className={`roof ${tone(v)}`}>
       <header className="top">
-        <div>
-          <p className="brand">Dhool</p>
+        <p className="brand">Dhool</p>
+        <div className="top-side">
+          {known && (
+            <p className="running" aria-label={t("Running at {pct}% of this roof's normal", { pct: running })}>
+              <Icon name="bolt" /> {running}%
+            </p>
+          )}
           <p className="home-name">{house.name}</p>
         </div>
-        {known && (
-          <p className="running" aria-label={t("Running at {pct}% of this roof's normal", { pct: running })}>
-            <Icon name="bolt" /> {running}%
-          </p>
-        )}
       </header>
 
       <div className="hero" ref={scene}><PanelModel verdict={v} /></div>
@@ -423,7 +423,7 @@ function Home({ house: listed, homes, onSignOut }) {
           : <p className="lede" aria-live="polite">{t("Loading your home…")}</p>
       ) : !has ? (
         <>
-          <header className="top"><div><p className="brand">Dhool</p><p className="home-name">{house.name}</p></div></header>
+          <header className="top"><p className="brand">Dhool</p><div className="top-side"><p className="home-name">{house.name}</p></div></header>
           {setup}
         </>
       ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} onAction={awaitVerdict} />
