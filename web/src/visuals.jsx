@@ -315,6 +315,7 @@ const ICONS = {
   why: <path d="M3 20h18M6 20v-6M12 20V5M18 20v-9" />,
   setup: <><path d="M4 7h9M19 7h1M4 17h1M11 17h9" /><circle cx="16" cy="7" r="2.5" /><circle cx="8" cy="17" r="2.5" /></>,
   gauge: <path d="M4 17a8 8 0 1 1 16 0M12 17l4.5-6" />,
+  thumb: <path d="M7 10.5v9.5H4v-9.5zM7 10.5 11 3a2.2 2.2 0 0 1 2.3 2.6L12.6 9H18a2 2 0 0 1 2 2.4l-1.2 6.2A3 3 0 0 1 15.9 20H7" />,
 };
 export const Icon = ({ name, label }) => (
   <svg className={`icon icon-${name}`} viewBox="0 0 24 24" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>

@@ -150,7 +150,7 @@ export function Homes({ house, homes }) {
           </select>
         </label>
       )}
-      <button className="secondary" onClick={homes.add}>{t("Add another home")}</button>
+      <button className="row-link" onClick={homes.add}><span>{t("Add another home")}</span></button>
     </section>
   );
 }

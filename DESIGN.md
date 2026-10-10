@@ -40,11 +40,12 @@ Surfaces use a 22px radius; things you press or type into use 14px.
 
 ## Scrolling: a pinned scene under frosted glass
 Modelled on the phone weather apps the owner showed. On the Roof tab the scene (terrace, city, panels) is
-pinned where it first appears, and everything after it slides over it. Once the page moves, the scene goes a
-little out of focus (5px, over the first 160 px of scrolling) and nothing else: it keeps its colours and the
-array stays in view, seen through the Roof sheets, which are thinner glass than sheets elsewhere. (A full
-dissolve into a wash of the sky's colour was tried on 10 Oct and dropped: the owner wanted the panels kept.)
-`.roof` is a block, not a grid: a sticky child of a grid is held inside its own row and scrolls away.
+not fixed at first: it rises with the page until it sits just under the top bar, and stays there while the
+sheets slide over it. So after a little scrolling the array is at the top of the screen with the advice under
+it. It goes out of focus (up to 5px) only as the sheets cover it (`--covered`, set in `RoofTab`), and keeps
+its colours. (A full dissolve into a wash of the sky's colour was tried on 10 Oct and dropped: the owner
+wanted the panels kept. Thin sheets with the array showing through the text were tried and dropped too: the
+text sat on a smear.) `.roof` is a block, not a grid: a sticky child of a grid is held inside its own row.
 
 Surfaces are frosted glass that mostly shows the sky through: a light white lift over a thin tint of the
 sky's own dark colour (`--glass`), 24 px blur. On glass this light, the verdict colours are too weak as

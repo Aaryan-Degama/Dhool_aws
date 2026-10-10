@@ -108,7 +108,7 @@ p { margin: 0; }
   --card-low: rgba(var(--glass), 0.74);
   --well: rgba(0, 0, 0, 0.26);
   --soft: #e6ebf6;
-  --muted: #b9c3d8;       /* labels and captions: still 4.5:1 and more on a sheet */
+  --muted: #c9d3e6;       /* labels and captions: 4.5:1 and more on a sheet under any sky */
   --line: rgba(255, 255, 255, 0.1);
   --raise: rgba(255, 255, 255, 0.17);
   --chart: rgba(255, 255, 255, 0.13);
@@ -121,7 +121,7 @@ p { margin: 0; }
    sky's own dark colour and lifted with a little white. */
 [data-sky] .card {
   /* No outline and no lit edge: the sheet is told from the sky by its tint and blur alone. */
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)), rgba(var(--glass), 0.42);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)), rgba(var(--glass), 0.6);  /* dark enough for small grey text under a bright day sky */
   backdrop-filter: blur(28px) saturate(1.3);
   box-shadow: none;
 }
@@ -131,14 +131,12 @@ p { margin: 0; }
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);
 }
 
-/* The scene stays put while the rest slides over it (see RoofTab). As the page moves it goes out of focus,
-   and no more: the array stays where it is and keeps its colours (--scrolled runs 0 to 1 over the first 160px). */
-.roof .hero { position: sticky; z-index: 0; filter: blur(calc(var(--scrolled, 0) * 5px)); }
+/* The scene rises with the page until it sits under the top bar, then stays while the sheets slide over it.
+   It goes out of focus only as far as they cover it (--covered, 0 to 1, set in RoofTab), and keeps its colours. */
+.roof .hero { position: sticky; top: 3.25rem; z-index: 0; filter: blur(calc(var(--covered, 0) * 5px)); }
 .roof > :not(.hero, .top) { position: relative; z-index: 2; }  /* not the bar: it is sticky, above them */
 /* A block, not a grid: in a grid a sticky child is held inside its own row, so the scene scrolled away. */
 .roof { display: block; }
-/* Over the scene the sheets are thinner glass than elsewhere, so the array is still seen through them. */
-[data-sky] .roof .card { background: rgba(var(--glass), 0.36); backdrop-filter: blur(7px); }
 .roof > * + * { margin-top: var(--space); }
 
 [data-sky="day"] {
@@ -370,6 +368,9 @@ button:disabled { opacity: 0.5; cursor: progress; }
 
 /* The weather around the roof: four readings in one quiet row on the sky, not a card */
 .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0.25rem 0; }
+/* The row passes over the scene's pale floor by day: a closer shadow than other text on the sky gets. */
+[data-sky] .strip { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+[data-sky] .strip .icon { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4)); }
 .strip > div { display: grid; justify-items: start; gap: 0.125rem; min-width: 0; }
 .strip .icon { width: 1.125rem; height: 1.125rem; margin-bottom: 0.25rem; color: var(--soft); }
 .strip .icon-sun { color: var(--current); }
@@ -406,7 +407,8 @@ button:disabled { opacity: 0.5; cursor: progress; }
 /* Was the advice any use: one quiet line at the foot of the sheet */
 .useful { display: flex; align-items: center; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--line); font-size: var(--step--1); color: var(--muted); }
 .useful span { flex: 1; }
-.useful button { min-width: 3rem; min-height: 2.75rem; padding: 0.25rem 0.5rem; background: rgba(255, 255, 255, 0.08); }
+.useful button { min-width: 3rem; min-height: 2.75rem; padding: 0.25rem 0.5rem; background: rgba(255, 255, 255, 0.08); color: var(--soft); }
+.useful .down .icon { rotate: 180deg; }
 
 /* Bottom navigation: a capsule of glass floating over the page, with a clearer lens behind the chosen tab
    that slides to the next one. Under it the page fades out into the sky's own colour, so nothing is read
@@ -414,7 +416,7 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .nav {
   position: fixed; inset: auto 0 0; z-index: 5; pointer-events: none;
   padding: 2.5rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
-  background: linear-gradient(transparent, color-mix(in srgb, var(--paper) 94%, transparent) 55%);
+  background: linear-gradient(transparent, var(--paper) 50%);
 }
 .nav > div {
   --pad: 0.25rem;

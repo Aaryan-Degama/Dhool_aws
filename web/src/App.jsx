@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Alerts, Auth, DeleteAccount, Family, Homes, Setup, stopPush } from "./account.jsx";
 import { api, signedIn, signOut } from "./api.js";
 import { CheckCard, ReportAction, VendorReply } from "./check.jsx";
@@ -101,8 +101,8 @@ function Useful({ house, date }) {
       <div className="useful" role="group" aria-labelledby={label}>
         <span id={label}>{t("Was this advice useful?")}</span>
         {/* A thumb to look at, a word for a screen reader. */}
-        <button type="button" aria-label={t("Yes")} disabled={state.busy} onClick={() => send(true)}>👍</button>
-        <button type="button" aria-label={t("No")} disabled={state.busy} onClick={() => send(false)}>👎</button>
+        <button type="button" aria-label={t("Yes")} disabled={state.busy} onClick={() => send(true)}><Icon name="thumb" /></button>
+        <button type="button" className="down" aria-label={t("No")} disabled={state.busy} onClick={() => send(false)}><Icon name="thumb" /></button>
       </div>
       <ErrorLine error={state.error} />
     </>
@@ -112,25 +112,19 @@ function Useful({ house, date }) {
 /** The first screen: the roof as a model, the weather around it, and what to do. `today` is given only by the preview. */
 export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
   const scene = useRef(null);
-  // The scene stays where it first appears while everything after it slides over, like a weather app's
-  // backdrop. Sticky needs a "top": measure where the scene sits in the page when it is not stuck.
-  useLayoutEffect(() => {
-    const el = scene.current;
-    const pin = () => {
-      el.style.position = "static";
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      el.style.position = "";
-      el.style.top = `${top}px`;
-    };
-    pin();
-    window.addEventListener("resize", pin);
-    return () => window.removeEventListener("resize", pin);
-  }, []);
-  // Once the page moves, the scene behind it goes out of focus (see .roof .hero).
+  // The scene rises with the page until it sits under the top bar, and stays there while the sheets slide over
+  // it (position: sticky, in the stylesheet). --scrolled (0 to 1) turns the bar to glass as soon as the page
+  // moves; --covered (0 to 1) is how far the sheets have come over the scene, which goes out of focus with it.
   useEffect(() => {
     let frame = 0;
-    const root = document.documentElement.style;
-    const update = () => { frame = 0; root.setProperty("--scrolled", Math.min(1, window.scrollY / 160).toFixed(3)); };
+    const root = document.documentElement.style, el = scene.current;
+    const update = () => {
+      frame = 0;
+      root.setProperty("--scrolled", Math.min(1, window.scrollY / 160).toFixed(3));
+      const box = el.getBoundingClientRect(), next = el.nextElementSibling.getBoundingClientRect();
+      // The weather row lies over the scene's foreground from the start: only what comes past the array counts.
+      el.style.setProperty("--covered", Math.min(1, Math.max(0, ((box.bottom - next.top) / box.height - 0.4) / 0.4)).toFixed(3));
+    };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -290,9 +284,9 @@ function Invite({ house }) {
              href={`https://wa.me/?text=${encodeURIComponent(t("Join our home on Dhool with this code: {code}", { code }))}`}>{t("Send on WhatsApp")}</a>
         </>
       ) : (
-        <button className="secondary" disabled={state.busy}
+        <button className="row-link" disabled={state.busy}
                 onClick={() => run(async () => setCode((await api(`/houses/${house.house_id}/invites`, {})).code))}>
-          {t("Get a family code")}
+          <span>{t("Get a family code")}</span>
         </button>
       )}
       <ErrorLine error={state.error} />
