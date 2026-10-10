@@ -51,8 +51,10 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
     for i in range(n_homes + dusty):
         meta = {
             "id": f"home-{i:02d}",
-            "lat": round(lat + rng.uniform(-0.02, 0.02), 4),
-            "lon": round(lon + rng.uniform(-0.02, 0.02), 4),
+            # To 2 decimals (about 1 km), as the API stores a home's location: the analysis must fetch weather
+            # at the same spot this data was made from.
+            "lat": round(lat + rng.uniform(-0.02, 0.02), 2),
+            "lon": round(lon + rng.uniform(-0.02, 0.02), 2),
             "kw": float(rng.choice([1, 2, 3, 3, 5])),
             "tilt": round(rng.uniform(15, 25), 1),
             "azimuth": round(rng.uniform(160, 200), 1),

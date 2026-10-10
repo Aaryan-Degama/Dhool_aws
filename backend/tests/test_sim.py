@@ -75,6 +75,11 @@ def test_same_seed_same_neighbourhood(weather, pm25, homes):
     assert again["home-03"]["daily"].equals(homes["home-03"]["daily"])
 
 
+def test_homes_sit_where_the_api_would_store_them(homes):
+    """The API keeps a location to 2 decimals; the demo data must be made from weather at that same spot."""
+    assert all(h["meta"][k] == round(h["meta"][k], 2) for h in homes.values() for k in ("lat", "lon"))
+
+
 def test_weather_error_changes_what_each_roof_made_and_nothing_else(weather, pm25, homes):
     same = simulate(weather, pm25, n_homes=8, seed=1, weather_noise=0.0)
     assert all(same[h]["daily"].equals(homes[h]["daily"]) and same[h]["meta"] == homes[h]["meta"] for h in homes)
