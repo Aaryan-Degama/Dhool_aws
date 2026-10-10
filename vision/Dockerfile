@@ -4,7 +4,7 @@
 
 # Base image on 10 Oct 2026, to pin when builds must repeat exactly:
 #   public.ecr.aws/lambda/python:3.12@sha256:145350008f3f67d82c0bc6ecd34d9eb0c95aecf11f9b69db6bab7de3d5d3cc61
-FROM public.ecr.aws/lambda/python:3.12 AS build
+FROM public.ecr.aws/lambda/python:3.14 AS build
 # No package versions: Amazon Linux's repository is locked to the base image's release, which fixes them.
 # hadolint ignore=DL3041
 RUN dnf install -y gcc gcc-c++ cmake git make && dnf clean all
@@ -20,7 +20,7 @@ RUN cmake -S /src -B /build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
 
 # Tesseract (Apache-2.0) and Leptonica (BSD-2-Clause), from pinned releases: the Lambda base has no package for
 # them. Read first, in about a second; the model is the fallback (see reader.py).
-FROM public.ecr.aws/lambda/python:3.12 AS tess
+FROM public.ecr.aws/lambda/python:3.14 AS tess
 # No package versions: Amazon Linux's repository is locked to the base image's release, which fixes them.
 # hadolint ignore=DL3041
 RUN dnf install -y gcc gcc-c++ cmake git make libpng-devel libjpeg-turbo-devel zlib-devel && dnf clean all
@@ -45,7 +45,7 @@ RUN mkdir -p /opt/tess/share/tessdata \
  && curl -fsSL -o /opt/tess/share/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/4.1.0/eng.traineddata \
  && echo "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2  /opt/tess/share/tessdata/eng.traineddata" | sha256sum -c
 
-FROM public.ecr.aws/lambda/python:3.12
+FROM public.ecr.aws/lambda/python:3.14
 COPY --from=build /build/bin/llama-server /opt/llama-server
 COPY models/ /opt/models/
 # After the 1.5 GB of weights, so changing anything below does not upload them again.
