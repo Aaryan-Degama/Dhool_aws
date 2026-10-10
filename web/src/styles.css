@@ -356,6 +356,7 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .pm-tower-hi { stop-color: color-mix(in srgb, var(--city-near, #171a20) 40%, var(--haze, #14171c)); }  /* the sky, mirrored */
 .pm-tower-lo { stop-color: var(--city-near, #171a20); }
 .pm-windows { fill: #dfe8ff; opacity: calc(var(--windows, 0) * 0.34); }  /* office floors lit after dark: cool and faint behind glass */
+.pm-windows.warm { fill: #ffd27a; opacity: calc(var(--windows, 0) * 0.75); }  /* and some rooms under a yellow lamp */
 .pm-shadow { fill: #000; opacity: 0.42; }
 .pm-frame path { fill: none; stroke: #6f7986; stroke-width: 2; stroke-linecap: round; }
 .pm-frame .pm-foot { stroke: #353b45; stroke-width: 4; }

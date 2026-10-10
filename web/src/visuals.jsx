@@ -72,18 +72,22 @@ const SKYLINE = (() => {
   for (const b of far) if (next() < 0.16) b.h *= 1.7;  // a few towers stand over the rest
   // A glass front: thin lines for the floors and the mullions between panes (one path), and a few panes lit
   // after dark (another).
-  let panes = "", lit = "";
+  // The glass runs the whole height of a tower: down past the horizon to where the parapet hides its foot.
+  let panes = "", lit = "", warm = "";
+  const FOOT = SKYLINE_ROOM + 60;
   const floors = (b, gapX, gapY, share) => {
     const top = SKYLINE_ROOM - b.h, cols = Math.max(1, Math.round(b.w / gapX)), w = b.w / cols;
-    for (let y = top + gapY; y < SKYLINE_ROOM; y += gapY) panes += `M${b.x.toFixed(1)} ${y.toFixed(1)}h${b.w.toFixed(1)}`;
-    for (let c = 1; c < cols; c++) panes += `M${(b.x + c * w).toFixed(1)} ${top.toFixed(1)}V${SKYLINE_ROOM}`;
-    for (let y = top; y < SKYLINE_ROOM - gapY; y += gapY) for (let c = 0; c < cols; c++) {
-      if (next() < share) lit += `M${(b.x + c * w + 0.3).toFixed(1)} ${(y + 0.3).toFixed(1)}h${(w - 0.6).toFixed(1)}v${(gapY - 0.6).toFixed(1)}h-${(w - 0.6).toFixed(1)}z`;
+    for (let y = top + gapY; y < FOOT; y += gapY) panes += `M${b.x.toFixed(1)} ${y.toFixed(1)}h${b.w.toFixed(1)}`;
+    for (let c = 1; c < cols; c++) panes += `M${(b.x + c * w).toFixed(1)} ${top.toFixed(1)}V${FOOT}`;
+    for (let y = top; y < FOOT; y += gapY) for (let c = 0; c < cols; c++) {
+      if (next() >= share) continue;
+      const pane = `M${(b.x + c * w + 0.3).toFixed(1)} ${(y + 0.3).toFixed(1)}h${(w - 0.6).toFixed(1)}v${(gapY - 0.6).toFixed(1)}h-${(w - 0.6).toFixed(1)}z`;
+      if (next() < 0.45) warm += pane; else lit += pane;  // some rooms under a yellow lamp, the rest office white
     }
   };
-  far.forEach((b) => floors(b, 3.2, 2.6, 0.07));
-  near.forEach((b) => floors(b, 4.6, 3.4, 0.1));
-  return { back, far, near, panes, lit };
+  far.forEach((b) => floors(b, 3.2, 2.6, 0.08));
+  near.forEach((b) => floors(b, 4.6, 3.4, 0.12));
+  return { back, far, near, panes, lit, warm };
 })();
 
 const DUST = (() => {  // the same speckles every time: a tiny seeded generator, not Math.random
@@ -208,7 +212,7 @@ export function PanelModel({ verdict }) {
           <stop offset="0" className="pm-ground-far" /><stop offset="0.72" className="pm-ground-near" /><stop offset="1" className="pm-ground-near" stopOpacity="0" />
         </linearGradient>
         {/* A tower's glass front mirrors the sky: paler toward the top. And one slanting streak of light across it. */}
-        <linearGradient id={`${id}tower`} gradientUnits="userSpaceOnUse" x1="0" y1={FIT.horizon - 46} x2="0" y2={FIT.horizon}>
+        <linearGradient id={`${id}tower`} gradientUnits="userSpaceOnUse" x1="0" y1={FIT.horizon - 46} x2="0" y2={FIT.horizon + 60}>
           <stop offset="0" className="pm-tower-hi" /><stop offset="1" className="pm-tower-lo" />
         </linearGradient>
         <linearGradient id={`${id}shine`} x1="0" y1="0" x2="1" y2="0.7">
@@ -247,7 +251,7 @@ export function PanelModel({ verdict }) {
                   {d > 0 && <polygon className="side" points={`${n(r)},${n(top)} ${n(r + d)},${n(up)} ${n(r + d)},${n(top + b.h + 120)} ${n(r)},${n(top + b.h + 120)}`} />}
                   {d > 0 && <polygon className="roof" points={`${n(b.x)},${n(top)} ${n(b.x + d)},${n(up)} ${n(r + d)},${n(up)} ${n(r)},${n(top)}`} />}
                   <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} fill={d > 0 ? `url(#${id}tower)` : undefined} />
-                  {depth === "near" && <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={b.h.toFixed(1)} fill={`url(#${id}shine)`} />}
+                  {depth === "near" && <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={(b.h + 60).toFixed(1)} fill={`url(#${id}shine)`} />}
                   {b.crown && <rect x={(b.x + b.w * 0.2).toFixed(1)} y={(top - 4).toFixed(1)} width={(b.w * 0.6).toFixed(1)} height="4" />}
                   {depth === "near" && b.tank && !b.crown && <rect x={(b.x + b.w * 0.22).toFixed(1)} y={(top - 4.5).toFixed(1)} width="6.5" height="4.5" rx="1.6" />}
                   {depth !== "back" && b.mast && <rect x={(b.x + b.w * 0.7).toFixed(1)} y={(top - 13).toFixed(1)} width="0.9" height="13" />}
@@ -258,6 +262,7 @@ export function PanelModel({ verdict }) {
         ))}
         <path className="pm-panes" d={SKYLINE.panes} />
         <path className="pm-windows" d={SKYLINE.lit} />
+        <path className="pm-windows warm" d={SKYLINE.warm} />
         {/* The air thickens toward the horizon, so the feet of the buildings fade into it. */}
         <rect x="-110" y={FIT.horizon - 46} width={VIEW_W + 220} height="170" fill={`url(#${id}haze)`} />
       </g>
