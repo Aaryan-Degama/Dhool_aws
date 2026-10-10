@@ -131,12 +131,14 @@ against the physics number, which no roof reaches.
 The bottom bar is a capsule of glass floating over the page (blurred, a little brighter, a lit top edge), with a clearer lens behind the chosen tab that slides to the next one with a small overshoot; a tab's page rises into place. None of it moves under "reduce motion". The bar is hidden until a home has its first verdict.
 
 ## Wide screens (60rem and up; 11 Oct 2026)
-The same app, not a second site: one media query at the end of `styles.css`. The tabs move from the bottom
-bar to a glass rail on the left, centred on the screen's height, with the lens sliding up and down. Roof
-becomes two columns: the reading, the scene and the weather row on the left (the scene's sides fade into the
-sky, so it is not a picture in a box), the advice on the right. History, Synopsis and Setup set their sheets
-in two columns; on Setup "Add readings" runs across the top. The top bar is a plain heading there, not
-sticky. The sign-in and add-home pages keep their single centred column. `RoofTab` wraps its two groups in
+The same app and code, laid out as a website: one media query at the end of `styles.css`. The tabs become the
+site's header across the top (the wordmark on the left, the tabs in the middle with the sliding lens, the
+home's name on the right); the phone's top bar is hidden there. Roof opens on a wide band: the reading on the
+left with the weather row under it, the scene large on the right, its sides fading into the sky. Below, the
+advice sheet takes the wider column and the smaller sheets the other. History, Synopsis and Setup set their
+sheets in two columns; on Setup "Add readings" runs across the top. A first version with a rail on the left
+and two narrow columns was dropped the same day: the owner found it still a phone screen, not a website.
+The sign-in and add-home pages keep their single centred column. `RoofTab` wraps its two groups in
 `.roof-scene` and `.roof-advice`, which make no box on a phone (`display: contents`).
 
 ## Reading a screenshot

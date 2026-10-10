@@ -557,28 +557,42 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
 @keyframes fill { from { transform: scaleX(0); } }
 
 /* ── A wide screen (a laptop, a desktop) ───────────────────────────────────────────────────────────────
-   The same app with room to spread. The tabs move from the bottom to a rail on the left, where a mouse
-   expects them and where they cost no height. On Roof the reading and the scene hold the left half and stay
-   put; the advice scrolls on the right. The other tabs set their sheets in two columns. */
+   A website, not a phone screen made wider. The tabs become the site's header across the top, with the name
+   on its left and the home on its right. Roof opens on a wide band: the reading on the left, the scene large
+   on the right, the weather under the reading. Below it the advice takes the wider column and the smaller
+   sheets the other. The other tabs set their sheets in two columns. */
+.nav > .brand, .nav > .home-name { display: none; }  /* the phone has these in the bar at the top of Roof */
 @media (min-width: 60rem) {
-  :root { --rail: 6.5rem; --space: 2rem; }
-  .page.has-nav, .page.preview { max-width: 78rem; padding-left: calc(var(--space) + var(--rail)); padding-bottom: 3rem; }
-  /* The bar is a plain heading here: the rail holds the tabs, so nothing needs to stay on top of the page. */
-  .top { position: relative; margin-inline: 0; padding-inline: 0; background: none; backdrop-filter: none; }
+  :root { --space: 1.5rem; --gutter: max(2.5rem, calc((100vw - 76rem) / 2)); }
+  .page.has-nav, .page.preview { max-width: none; padding: 6.5rem var(--gutter) 4rem; }
+  .page.has-nav .top { display: none; }  /* the header below says both things */
 
-  .nav { inset: 0 auto 0 0; display: grid; align-content: center; padding: 0 0 0 1.25rem; background: none; }
-  .nav > div { grid-template-columns: none; grid-template-rows: repeat(4, 1fr); width: 4.75rem; max-width: none; margin: 0; border-radius: 1.75rem; }
-  .nav-lens { right: var(--pad); bottom: auto; width: auto; height: calc((100% - 2 * var(--pad)) / 4); border-radius: 1.5rem; transform: translateY(calc(var(--at) * 100%)); }
-  .nav button { min-height: 4.5rem; border-radius: 1.5rem; }
+  .nav {
+    inset: 0 0 auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1.5rem;
+    padding: 0.75rem var(--gutter); pointer-events: auto;
+    background: rgba(var(--glass, 18, 21, 28), 0.28); backdrop-filter: blur(20px);
+  }
+  .nav > .brand, .nav > .home-name { display: block; }
+  .nav > .home-name { justify-self: end; }
+  .nav > div { width: 30rem; max-width: none; margin: 0; background: none; backdrop-filter: none; box-shadow: none; }
+  .nav button { grid-auto-flow: column; justify-content: center; align-items: center; gap: 0.5rem; min-height: 2.75rem; font-size: var(--step--1); }
 
-  article.roof { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 0 3.5rem; align-items: start; }
-  article.roof > .top { grid-column: 1 / -1; }
-  .roof-scene, .roof-advice { display: block; min-width: 0; }
-  .roof-scene { position: sticky; top: 5rem; }
-  /* In a column the scene has sides: let them fade into the sky, so it is not a picture in a box. */
-  .roof .hero { position: relative; top: auto; margin-inline: -2rem; filter: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
-  .reading-figure { font-size: 8rem; }
-  .reading-verdict { font-size: 2rem; }
+  article.roof { display: block; }
+  .roof-scene { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); grid-template-rows: 1fr auto; column-gap: 3rem; align-items: center; }
+  .roof-scene > * { margin-top: 0; }
+  .roof-scene > .reading { grid-area: 1 / 1; align-self: end; padding-bottom: 2.5rem; }
+  .roof-scene > .strip { grid-area: 2 / 1; align-self: start; padding-bottom: 2rem; }
+  /* The scene has sides here: they fade into the sky, so it is not a picture in a box. */
+  .roof-scene > .hero { grid-area: 1 / 2 / span 2; position: relative; top: auto; margin: 0; filter: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 12%, #000 90%, transparent); }
+  .reading-figure { font-size: 9rem; }
+  .reading-verdict { font-size: 2.25rem; }
+  .reading-sub { font-size: var(--step-1); }
+
+  .roof-advice { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: var(--space); align-items: start; margin-top: 1rem; }
+  .roof-advice > * { margin-top: 0; }
+  .roof-advice > .verdict-card { grid-column: 1; grid-row: span 4; padding: 2rem; }
+  .roof-advice > .verdict-card .reason { font-size: var(--step-1); max-width: 62ch; }
+  .roof-advice > .verdict-card .primary { justify-self: start; padding-inline: 2rem; }
 
   /* Two columns of sheets, each sheet kept whole; a page's heading runs across both. */
   article.tab { display: block; columns: 2; column-gap: var(--space); }

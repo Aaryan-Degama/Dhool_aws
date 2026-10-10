@@ -304,10 +304,12 @@ function Invite({ house }) {
 
 const TABS = [["roof", t("Roof")], ["history", t("History")], ["why", t("Why")], ["setup", t("Setup")]];
 
-function Nav({ tab, go }) {
+function Nav({ tab, go, house }) {
   return (
     <nav className="nav" aria-label={t("Sections")}>
       {/* The lens sits behind the chosen tab; --at is that tab's place, and CSS slides the lens there. */}
+      {/* On a wide screen this is the site's header: the name on the left, the tabs, and which home on the right. */}
+      <Wordmark />
       <div style={{ "--at": Math.max(0, TABS.findIndex(([id]) => id === tab)) }}>
         <span className="nav-lens" aria-hidden="true" />
         {TABS.map(([id, label]) => (
@@ -316,6 +318,7 @@ function Nav({ tab, go }) {
           </button>
         ))}
       </div>
+      <p className="home-name">{house.name}</p>
     </nav>
   );
 }
@@ -436,7 +439,7 @@ function Home({ house: listed, homes, onSignOut }) {
         : tab === "history" ? <HistoryTab verdict={verdict} house={house} />
         : tab === "why" ? <WhyTab verdict={verdict} house={house} />
         : <article className="tab">{setup}</article>}
-      {has && !waiting && <Nav tab={tab} go={go} />}
+      {has && !waiting && <Nav tab={tab} go={go} house={house} />}
     </main>
   );
 }
