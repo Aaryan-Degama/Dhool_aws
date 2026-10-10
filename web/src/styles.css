@@ -140,10 +140,11 @@ p { margin: 0; }
 /* The scene rises with the page until it sits under the top bar, then stays while the sheets slide over it.
    It goes out of focus only as far as they cover it (--covered, 0 to 1, set in RoofTab), and keeps its colours. */
 .roof .hero { position: sticky; top: 3.25rem; z-index: 0; filter: blur(calc(var(--covered, 0) * 5px)); }
-.roof > :not(.hero, .top) { position: relative; z-index: 2; }  /* not the bar: it is sticky, above them */
+.roof-scene, .roof-advice { display: contents; }  /* no box of their own on a phone: see the wide layout at the end */
+.roof-scene > :not(.hero), .roof-advice > * { position: relative; z-index: 2; }  /* over the scene; the bar, sticky, is above them */
 /* A block, not a grid: in a grid a sticky child is held inside its own row, so the scene scrolled away. */
 .roof { display: block; }
-.roof > * + * { margin-top: var(--space); }
+.roof-scene > *, .roof-advice > * { margin-top: var(--space); }
 
 [data-sky="day"] {
   --sky-top: #1b62c4; --haze: #a9d0f5; --reflect: #4477b3;
@@ -554,3 +555,37 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
 @keyframes settle { from { opacity: 0; } }
 @keyframes trip { 0%, 30%, 60%, 100% { opacity: 1; } 15%, 45% { opacity: 0.1; } }
 @keyframes fill { from { transform: scaleX(0); } }
+
+/* ── A wide screen (a laptop, a desktop) ───────────────────────────────────────────────────────────────
+   The same app with room to spread. The tabs move from the bottom to a rail on the left, where a mouse
+   expects them and where they cost no height. On Roof the reading and the scene hold the left half and stay
+   put; the advice scrolls on the right. The other tabs set their sheets in two columns. */
+@media (min-width: 60rem) {
+  :root { --rail: 6.5rem; --space: 2rem; }
+  .page.has-nav, .page.preview { max-width: 78rem; padding-left: calc(var(--space) + var(--rail)); padding-bottom: 3rem; }
+  /* The bar is a plain heading here: the rail holds the tabs, so nothing needs to stay on top of the page. */
+  .top { position: relative; margin-inline: 0; padding-inline: 0; background: none; backdrop-filter: none; }
+
+  .nav { inset: 0 auto 0 0; display: grid; align-content: center; padding: 0 0 0 1.25rem; background: none; }
+  .nav > div { grid-template-columns: none; grid-template-rows: repeat(4, 1fr); width: 4.75rem; max-width: none; margin: 0; border-radius: 1.75rem; }
+  .nav-lens { right: var(--pad); bottom: auto; width: auto; height: calc((100% - 2 * var(--pad)) / 4); border-radius: 1.5rem; transform: translateY(calc(var(--at) * 100%)); }
+  .nav button { min-height: 4.5rem; border-radius: 1.5rem; }
+
+  article.roof { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 0 3.5rem; align-items: start; }
+  article.roof > .top { grid-column: 1 / -1; }
+  .roof-scene, .roof-advice { display: block; min-width: 0; }
+  .roof-scene { position: sticky; top: 5rem; }
+  /* In a column the scene has sides: let them fade into the sky, so it is not a picture in a box. */
+  .roof .hero { position: relative; top: auto; margin-inline: -2rem; filter: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
+  .reading-figure { font-size: 8rem; }
+  .reading-verdict { font-size: 2rem; }
+
+  /* Two columns of sheets, each sheet kept whole; a page's heading runs across both. */
+  article.tab { display: block; columns: 2; column-gap: var(--space); }
+  article.tab > *, .add-data > * { break-inside: avoid; margin-bottom: var(--space); }
+  article.tab > h1, article.tab > .lede { column-span: all; }
+  /* Setup: adding readings is the page's first job and runs across the top; the settings sit in two columns under it. */
+  article.tab > .add-data { display: block; column-span: all; }
+  .add-data > .card { max-width: 40rem; }
+  article.tab > button { width: 100%; }
+}

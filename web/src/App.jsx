@@ -151,6 +151,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
 
       {/* The reading, set in the sky over the roof the way a weather app sets the temperature: how the roof is
           running, then what to do about it. Everything further down supports these three lines. */}
+      <div className="roof-scene">
       <section className="reading">
         {known && (
           <>
@@ -189,6 +190,10 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
         </div>
       </dl>
 
+      </div>
+      {/* On a phone these two groups are one column (they make no box of their own); on a wide screen the
+          scene stays on the left while the advice scrolls on the right. */}
+      <div className="roof-advice">
       <StaleCard house={house} asOf={v.as_of} today={date} go={go} />
       <section className="card verdict-card">
         <p className="reason">{reasonOf(v)}</p>
@@ -221,6 +226,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
           <span>{t("Why")}</span>
           <small>{whyLine(v)}</small>
         </button>
+      </div>
       </div>
     </article>
   );
