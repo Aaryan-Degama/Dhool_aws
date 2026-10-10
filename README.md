@@ -151,7 +151,13 @@ web/                 the app: React and Vite, no UI library; hi.js holds the Hin
 | [React](https://react.dev/), [Vite](https://vite.dev/) | The web app | MIT |
 | [Anek Devanagari](https://fonts.google.com/specimen/Anek+Devanagari) | The typeface, Hindi and English | SIL OFL 1.1 |
 | [boto3](https://github.com/boto/boto3), [moto](https://github.com/getmoto/moto), [pytest](https://pytest.org/) | AWS calls and tests | Apache-2.0, Apache-2.0, MIT |
+| [pywebpush](https://github.com/web-push-libs/pywebpush) | Sending alerts by Web Push | MPL-2.0 |
+| [ESLint](https://eslint.org/), [eslint-plugin-react-hooks](https://react.dev/) | Linting the web app | MIT |
 
 The app's design follows phone weather apps and a car-maker's app the team looked at for reference; no code or artwork was taken from them. The fine-tuned Laya weights are in this repo's `laya-models` release.
 
 Built with Claude Code (Anthropic) as the AI coding tool throughout: code, tests, the Hindi text and these documents, directed by the team.
+
+## License
+
+Dhool's own code, documents and the vendor-reply examples in this repository are under the [Apache License 2.0](LICENSE). Everything listed above keeps its own license; the full list with versions is in [`CREDITS.md`](CREDITS.md).

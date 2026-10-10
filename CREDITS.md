@@ -1,7 +1,9 @@
 # CREDITS.md — what Dhool is built on
 
 Everything here is used under its own licence. Versions are the ones pinned or installed when this was
-written (3 Oct 2026).
+written (3 Oct 2026); the pywebpush, safetensors and ESLint lines were added on 10 Oct 2026, after a check
+against the requirements files, the Dockerfiles and `web/package.json`. Dhool's own code is under
+Apache-2.0 (`LICENSE`).
 
 ## Models and data
 
@@ -21,12 +23,14 @@ written (3 Oct 2026).
 | [Pillow](https://python-pillow.github.io) 12.3.0 | Shrinking screenshots for the vision model, and refusing oversized ones | MIT-CMU |
 | [laya](https://github.com/NandhaKishorM/laya) 0.3.24 Python package, and its CPU fine-tuning script `notebooks/laya_finetune_typed_decisions_mps.py`, which `scripts/laya-tune.py` is adapted from | Running, fine-tuning and calibrating Laya | Apache-2.0 |
 | Laya's `scripts/export_onnx.py` (commit `c829d5a`), whose int8 step `scripts/laya-tune.py` adapts; [ONNX](https://github.com/onnx/onnx) 1.23 and [ONNX Runtime](https://github.com/microsoft/onnxruntime) 1.30 | Exporting the fine-tuned Laya to ONNX, shrinking it to int8 and running it | Apache-2.0, Apache-2.0, MIT |
-| PyTorch 2.14 (CPU), Transformers 5.18 | Fine-tuning Laya on a laptop | BSD-3-Clause, Apache-2.0 |
+| PyTorch 2.14 (CPU), Transformers 5.18, safetensors 0.8 | Fine-tuning Laya on a laptop; imported by the `laya` package in the reply reader's image | BSD-3-Clause, Apache-2.0, Apache-2.0 |
 | [pvlib](https://github.com/pvlib/pvlib-python) 0.16.1 | Solar position, sunlight on the panel, cell temperature, expected output | BSD-3-Clause |
 | pandas 3.0.6, NumPy 2.5.3 (with SciPy and h5py pulled in by pvlib) | Time series for the physics and the verdict rules | BSD-3-Clause |
 | boto3 | AWS calls from the Lambdas | Apache-2.0 |
+| [pywebpush](https://github.com/web-push-libs/pywebpush) 2.5.0 (with py-vapid, http-ece and cryptography, which it pulls in) | Signing and sending alerts by Web Push from the nightly run. Used as installed, not modified | MPL-2.0 (pywebpush, py-vapid), MIT (http-ece), Apache-2.0 or BSD-3-Clause (cryptography) |
 | React 19.3, React DOM 19.3 | The web app | MIT |
 | Vite 8.3, @vitejs/plugin-react 6.1 | Building the web app | MIT |
+| ESLint 10.12, @eslint/js 10.0, eslint-plugin-react-hooks 7.1 | Linting the web app | MIT |
 | pytest 9.1, moto 5.2 | Tests (moto fakes DynamoDB and S3) | MIT, Apache-2.0 |
 | AWS SAM CLI | Building and deploying the backend | Apache-2.0 |
 
