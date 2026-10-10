@@ -50,7 +50,8 @@ Resources:
       ExplicitAuthFlows: [ALLOW_USER_SRP_AUTH, ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
 
   # One table: HOUSE#<id> (META, MEMBER#<sub>, READING#<date>, VERDICT#<date>, ACTION#<date>, SHOT#<id>,
-  # PUSH#<hash>), USER#<sub> -> HOUSE#<id>, HOUSES -> <id>, INVITE#<code> and JOINFAIL#<sub> (expire through TTL).
+  # PUSH#<hash>), USER#<sub> -> HOUSE#<id>, HOUSES -> <id>, INVITE#<code>, JOINFAIL#<sub> and WXCACHE#<hash>
+  # (the last three expire through TTL).
   Table:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain

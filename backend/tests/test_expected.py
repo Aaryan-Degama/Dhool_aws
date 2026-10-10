@@ -41,7 +41,7 @@ def open_meteo(monkeypatch):
             return recorded("air_dust")
         assert url.startswith(expected.FORECAST_URL) and "wind_gusts_10m" in query["hourly"][0], url
         return recorded("forecast_combined")
-    monkeypatch.setattr(expected, "http_get", answer)
+    monkeypatch.setattr(expected, "get_json", answer)
     return asked
 
 

@@ -35,7 +35,7 @@ BACKOFF_S = 1.0   # the wait before a new try is a random time up to this, then 
 
 
 def http_get(url):
-    """One GET, JSON back. The analysis Lambda puts its cache around this (handlers/weather_cache.py)."""
+    """One GET, JSON back."""
     for tries_left in reversed(range(TRIES)):
         try:
             with urllib.request.urlopen(url, timeout=TIMEOUT_S) as response:
@@ -49,11 +49,16 @@ def http_get(url):
         time.sleep(random.uniform(0, BACKOFF_S * 2 ** (TRIES - 1 - tries_left)))
 
 
+# What every fetch below asks through. The analysis Lambda puts its cache here (handlers/weather_cache.py);
+# this module itself makes no AWS call.
+get_json = http_get
+
+
 def _fetch_hourly(url, lat, lon, variables, **params):
     query = urllib.parse.urlencode({
         "latitude": lat, "longitude": lon, "hourly": ",".join(variables), "timezone": config.TZ, **params,
     })
-    hourly = http_get(f"{url}?{query}")["hourly"]
+    hourly = get_json(f"{url}?{query}")["hourly"]
     index = pd.DatetimeIndex(hourly.pop("time")).tz_localize(config.TZ)
     return pd.DataFrame(hourly, index=index).astype(float)
 

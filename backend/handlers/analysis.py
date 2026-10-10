@@ -14,10 +14,10 @@ from zoneinfo import ZoneInfo
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
-from dhool import config, connectors, notify
+from dhool import config, connectors, expected, notify
 from dhool.analyse import analyse
 from dhool.expected import fetch_dust_storms, fetch_pm25, fetch_weather_with_forecast
-from handlers import common
+from handlers import common, weather_cache
 from handlers.common import client, log, query_all, table
 
 # ponytail: this account may run 10 Lambdas at once, and each run also calls the demo inverter (two more).
@@ -27,6 +27,8 @@ NIGHTLY_PACE_S = 1.5
 NIGHTLY_PAGE = 25       # houses started between looks at the clock
 VERDICT_TTL_S = 400 * 24 * 3600  # a day's verdict is kept a little over a year; the readings behind it are kept
 PUSH_TTL_S = 24 * 3600  # a phone that is off gets the alert within a day or not at all
+
+expected.get_json = weather_cache.cached(expected.http_get)  # Open-Meteo's answers, kept for three hours
 
 _vapid = False  # the key that signs notifications: False until looked up, None when there is none
 
