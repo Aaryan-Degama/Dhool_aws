@@ -301,7 +301,9 @@ const TABS = [["roof", t("Roof")], ["history", t("History")], ["why", t("Why")],
 function Nav({ tab, go }) {
   return (
     <nav className="nav" aria-label={t("Sections")}>
-      <div>
+      {/* The lens sits behind the chosen tab; --at is that tab's place, and CSS slides the lens there. */}
+      <div style={{ "--at": Math.max(0, TABS.findIndex(([id]) => id === tab)) }}>
+        <span className="nav-lens" aria-hidden="true" />
         {TABS.map(([id, label]) => (
           <button key={id} aria-current={tab === id ? "page" : undefined} onClick={() => go(id)}>
             <Icon name={id} />{label}

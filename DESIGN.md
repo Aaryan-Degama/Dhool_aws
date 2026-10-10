@@ -113,7 +113,7 @@ shown beside them is exactly their difference.
 
 The meter and the percentage show output against **this roof's own normal** (100 minus the loss), not
 against the physics number, which no roof reaches.
-The bottom bar is hidden until a home has its first verdict.
+The bottom bar is a capsule of glass floating over the page (blurred, a little brighter, a lit top edge), with a clearer lens behind the chosen tab that slides to the next one with a small overshoot; a tab's page rises into place. None of it moves under "reduce motion". The bar is hidden until a home has its first verdict.
 
 ## Reading a screenshot
 Reading takes a minute or two (a small model on two CPU cores), so the upload screen says so and shows a
