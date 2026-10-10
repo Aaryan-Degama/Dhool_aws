@@ -28,7 +28,7 @@
 {"text": "Our engineer will visit on Thursday between 10 and 12.", "label": "visit_scheduled", "lang": "en", "split": "train"}
 {"text": "Sending a technician today evening", "label": "visit_scheduled", "lang": "en", "split": "train"}
 {"text": "Ok sir, will be there on Saturday", "label": "visit_scheduled", "lang": "en", "split": "train"}
-{"text": "Service visit booked for 6th Oct. Technician will call before coming.", "label": "visit_scheduled", "lang": "en", "split": "train"}
+{"text": "Service visit booked for 9th Oct. Technician will call before coming.", "label": "visit_scheduled", "lang": "en", "split": "train"}
 {"text": "On the way, reaching in 30 mins", "label": "visit_scheduled", "lang": "en", "split": "train"}
 {"text": "Can't make it today but I'll come day after tomorrow for sure", "label": "visit_scheduled", "lang": "en", "split": "train"}
 {"text": "We will inspect the strings this week, my team will come", "label": "visit_scheduled", "lang": "en", "split": "train"}

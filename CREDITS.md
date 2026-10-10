@@ -1,7 +1,7 @@
 # CREDITS.md — what Dhool is built on
 
 Everything here is used under its own licence. Versions are the ones pinned or installed when this was
-written (3 Oct 2026).
+written (8 Oct 2026).
 
 ## Models and data
 

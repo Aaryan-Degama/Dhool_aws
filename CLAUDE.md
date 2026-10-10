@@ -61,7 +61,7 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 
 **Checked on 7 Oct** (scripted Chrome at phone width against the live backend, English and Hindi; and the Android emulator): the three cases (fault, wash, all good), the vendor-reply box, wash and visit report with undo, the wash-cost field, the log, the language choice, screenshot upload in Hindi, and every form with the phone keyboard up (the field stays visible; the nav bar stays under the keyboard). No sideways scrolling or clipped text in either language. Not seen with the keyboard: the family-code box on "Add your home" (it is the same field component).
 
-**Costs:** charges were effectively zero on 3 Oct. Two model Lambdas are pinged every 5 minutes to stay loaded, and about 14 GB of container images sit in ECR. The `Dhool-laya` worktree can be removed; its v1 and v2 model folders are also in the release.
+**Costs:** charges were effectively zero on 8 Oct. Two model Lambdas are pinged every 5 minutes to stay loaded, and about 14 GB of container images sit in ECR. The `Dhool-laya` worktree can be removed; its v1 and v2 model folders are also in the release.
 
 ## Project layout
 _Code lives in the `Dhool_aws` repo._
