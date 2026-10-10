@@ -268,6 +268,9 @@ def remove_member(sub, event):
     role = authorize(sub, house_id, "leave" if member == sub else "remove_member")
     if member == sub and role == "owner":
         raise HttpError(400, "The owner cannot leave. Delete the home instead.")
+    # Nobody to remove: say so, and leave the home's codes and alerts as they are.
+    if "Item" not in table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{member}"}):
+        raise HttpError(404, "That person is not in this home")
     with table().batch_writer() as batch:
         batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{member}"})
         batch.delete_item(Key={"pk": f"USER#{member}", "sk": f"HOUSE#{house_id}"})

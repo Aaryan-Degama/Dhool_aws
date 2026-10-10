@@ -459,6 +459,17 @@ def test_the_owner_removes_a_member_who_then_has_no_access_or_alerts(house, tabl
     assert {m["sub"] for m in call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["members"]} == {FATHER, STRANGER}
 
 
+def test_removing_someone_who_is_not_in_the_home_is_a_404_and_revokes_nothing(house, table):
+    join(MOTHER, house)
+    call(MOTHER, "POST /houses/{houseId}/push", {"subscription": SUBSCRIPTION}, house)
+    code = call(FATHER, "POST /houses/{houseId}/invites", house_id=house)[1]["code"]
+    before = sorted(i["sk"] for i in everything_of(table, house))
+    assert call(FATHER, "DELETE /houses/{houseId}/members/{sub}", house_id=house, member="sub-nobody") == (
+        404, {"error": "That person is not in this home"})
+    assert sorted(i["sk"] for i in everything_of(table, house)) == before  # her alerts and the code are still there
+    assert call(STRANGER, "POST /join", {"code": code})[0] == 200
+
+
 def test_a_member_can_leave_and_the_owner_cannot(house):
     route = "DELETE /houses/{houseId}/members/{sub}"
     join(MOTHER, house)

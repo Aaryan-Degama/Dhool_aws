@@ -294,6 +294,7 @@ export const HI = {
   "Please sign in again": "कृपया फिर साइन इन कीजिए",
   "Something went wrong. Try again.": "कुछ गड़बड़ हो गई। फिर कोशिश कीजिए।",
   "Something went wrong": "कुछ गड़बड़ हो गई",
+  "That person is not in this home": "वह व्यक्ति इस घर में नहीं है",
   "You can be in up to 5 homes. Leave or delete one first.": "आप ज़्यादा से ज़्यादा 5 घरों में हो सकते हैं। पहले कोई एक छोड़िए या मिटाइए।",
   "This home already has 10 people. Ask its owner to remove someone first.": "इस घर में पहले से 10 लोग हैं। घर के मालिक से कहिए कि पहले किसी को हटाएँ।",
   "Sign-in failed": "साइन इन नहीं हो पाया",
@@ -320,5 +321,5 @@ export const ARRIVES = [
   "Too many wrong codes. Try again in an hour.", "The owner cannot leave. Delete the home instead.",
   "This browser's notifications are not supported.",
   "You can be in up to 5 homes. Leave or delete one first.",
-  "This home already has 10 people. Ask its owner to remove someone first.",
+  "This home already has 10 people. Ask its owner to remove someone first.", "That person is not in this home",
 ];
