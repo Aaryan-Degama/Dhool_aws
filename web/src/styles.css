@@ -135,7 +135,7 @@ p { margin: 0; }
 .veil {
   position: fixed; inset: 30vh 0 0; z-index: 1; pointer-events: none;
   opacity: var(--scrolled, 0);
-  backdrop-filter: blur(18px) saturate(1.1); -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  backdrop-filter: blur(36px) saturate(1.15); -webkit-backdrop-filter: blur(36px) saturate(1.15);
   -webkit-mask-image: linear-gradient(transparent, #000 9vh); mask-image: linear-gradient(transparent, #000 9vh);
 }
 
