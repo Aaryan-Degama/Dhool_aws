@@ -17,7 +17,7 @@ test("the sky follows the weather and the time", () => {
 });
 
 test("dust in the air alone is not a sandstorm", () => {
-  // Delhi on a calm clear night, as measured on 9 Oct 2026: dust 302, gusts 7.9 km/h, visibility 9.4 km.
+  // Delhi on a calm clear night, as measured on 3 Oct 2026: dust 302, gusts 7.9 km/h, visibility 9.4 km.
   assert.equal(sky({ code: 0, isDay: false, dust: 302, gusts: 7.9, visibility: 9360 }), "night dark");
   assert.equal(sky({ code: 0, isDay: true, dust: 384, gusts: 4.7, visibility: 9560 }), "day");
   assert.equal(sky({ code: 0, isDay: true, dust: 600, gusts: 55, visibility: 9000 }), "day");   // windy but clear

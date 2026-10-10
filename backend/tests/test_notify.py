@@ -9,7 +9,7 @@ from moto import mock_aws
 from dhool import notify
 from handlers import analysis
 
-FAULT = {"verdict": "INSPECT", "cause": "fault", "reason": "Output fell by a third on 8 Oct.", "reason_hi": "8 अक्टूबर को बिजली एक तिहाई गिर गई।"}
+FAULT = {"verdict": "INSPECT", "cause": "fault", "reason": "Output fell by a third on 3 Oct.", "reason_hi": "3 अक्टूबर को बिजली एक तिहाई गिर गई।"}
 OUTAGE = {**FAULT, "cause": "outage"}
 DUSTY = {"verdict": "CLEAN", "cause": "dust", "reason": "Dust is costing ₹90; a wash costs ₹50.", "reason_hi": "धूल से ₹90 का नुकसान; धुलाई ₹50 की।"}
 FINE = {"verdict": "OK", "cause": "ok", "reason": "All good."}
@@ -28,7 +28,7 @@ def test_a_change_to_call_the_vendor_or_wash_is_sent_once(previous, new, sent):
 
 def test_the_message_is_the_verdicts_own_reason_in_the_phones_language():
     assert notify.message(FINE, FAULT, 1, "en") == {
-        "title": "Dhool: call your vendor", "body": "Output fell by a third on 8 Oct.", "url": "/#/roof"}
+        "title": "Dhool: call your vendor", "body": "Output fell by a third on 3 Oct.", "url": "/#/roof"}
     hindi = notify.message(FINE, DUSTY, 1, "hi")
     assert hindi == {"title": "Dhool: पैनल धो दीजिए", "body": "धूल से ₹90 का नुकसान; धुलाई ₹50 की।", "url": "/#/roof"}
     assert notify.message(None, {"verdict": "CLEAN", "cause": "dust"}, 1, "hi")["body"].startswith("धूल")  # no reason stored
