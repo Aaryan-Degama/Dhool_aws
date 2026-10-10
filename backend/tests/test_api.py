@@ -83,6 +83,8 @@ def join(sub, house_id):
         ("member", "remove_member", False),
         ("member", "connect_inverter", False),
         ("member", "delete_house", False),
+        ("member", "set_size", False),
+        ("owner", "set_size", True),
         ("member", "leave", True),
         ("owner", "connect_inverter", True),
         ("owner", "delete_house", True),
@@ -509,6 +511,7 @@ def test_a_home_holds_ten_people_and_no_more(house):
 def test_the_quota_lines_have_their_hindi():
     hindi = (pathlib.Path(__file__).parents[2] / "web/src/hi.js").read_text()
     assert f'"{api.TOO_MANY_HOUSES}"' in hindi and f'"{api.HOUSE_FULL}"' in hindi
+    assert hindi.count(f'"{api.SIZE_FROM_INVERTER}"') == 2  # its Hindi, and in the list of lines that arrive
 
 
 def test_a_new_home_never_overwrites_one_whose_id_it_drew(house, table, monkeypatch):
@@ -766,3 +769,48 @@ def test_the_log_lists_what_dhool_advised_and_what_the_household_did(house, tabl
         ("2026-09-26", "said", "OK"),
     ]
     assert log[1]["status"] == "verified" and log[3]["wait_for"] == "rain"
+
+
+def test_the_last_twenty_washes_and_visits_come_newest_first_each_with_what_a_verdict_said_of_it(house, table):
+    def said(date, check):
+        item = {"pk": f"HOUSE#{house}", "sk": f"VERDICT#{date}", "at": 1}
+        table.put_item(Item={**item, "json": json.dumps({"verdict": "OK", "cause": "ok", "check": check})})
+
+    route = "POST /houses/{houseId}/actions"
+    for day in range(1, 23):  # 22 reports: the two oldest fall off
+        call(FATHER, route, {"type": "visit" if day == 20 else "wash", "date": f"2026-08-{day:02d}"}, house)
+    said("2026-08-19", {"type": "wash", "date": "2026-08-19", "status": "not_recovered"})
+    said("2026-08-20", {"type": "visit", "date": "2026-08-20", "status": "waiting"})  # the next wash came too soon
+    said("2026-08-21", {"type": "visit", "date": "2026-08-21", "status": "verified"})  # a visit since taken back
+    said("2026-08-22", {"type": "wash", "date": "2026-08-22", "status": "waiting"})
+    body = call(FATHER, "GET /houses/{houseId}/history", house_id=house)[1]
+    actions = body["actions"]
+    assert [a["date"] for a in actions] == [f"2026-08-{day:02d}" for day in range(22, 2, -1)]
+    assert [(a["type"], a["status"]) for a in actions[:5]] == [
+        ("wash", "waiting"),  # the newest: Dhool is still measuring
+        ("wash", None),  # the outcome on record was for a visit that day, not this wash
+        ("visit", None),  # never measured: nothing is said, not "still measuring"
+        ("wash", "not_recovered"),
+        ("wash", None),
+    ]
+    assert [e for e in body["log"] if e["kind"] == "did"] == actions
+
+
+def test_the_system_size_is_the_owners_to_change_until_an_inverter_gives_it(house, table):
+    route = "POST /houses/{houseId}/settings"
+    join(MOTHER, house)
+    assert call(MOTHER, route, {"kw": 3.3}, house)[0] == 403
+    assert call(MOTHER, route, {"wash_cost_rs": 80}, house)[0] == 200  # the other figures stay anyone's in the home
+    for bad in ({"kw": 0}, {"kw": 101}, {"kw": "3.3"}, {"kw": True}):
+        assert call(FATHER, route, bad, house)[0] == 400
+    assert call(FATHER, route, {"kw": 3.3}, house) == (200, {"kw": 3.3})
+    assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["kw"] == 3.3 and ANALYSED == [house, house]
+    # A 3.3 kW roof can make 39.6 units in a day; the 3 kW it was could not.
+    assert call(FATHER, "POST /houses/{houseId}/readings", {"date": "2026-09-30", "kwh": 39}, house)[0] == 201
+    table.update_item(
+        Key={"pk": f"HOUSE#{house}", "sk": "META"},
+        UpdateExpression="SET plant_id = :p, inverter_key = :k",
+        ExpressionAttributeValues={":p": "home-00", ":k": "inv_x"},
+    )
+    assert call(FATHER, route, {"kw": 5}, house) == (409, {"error": api.SIZE_FROM_INVERTER})
+    assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["kw"] == 3.3

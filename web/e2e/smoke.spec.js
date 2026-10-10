@@ -7,7 +7,8 @@ import { FIXTURES } from "../src/fixtures.js";
 import { HI } from "../src/hi.js";
 
 const DEV = "http://localhost:5173", BUILT = "http://localhost:4173";
-const HEADLINES = ["Your solar has stopped", "Call your vendor", "Wash the panels", "Don't wash. It's haze.", "Your solar is working"];
+const HEADLINES = ["Your solar has stopped", "Call your vendor", "Wash the panels", "Don't wash. It's haze.", "Your solar is working",
+  "What your roof made", "Washes and vendor visits", "System size"];
 
 /** Everything the browser complains about while the page is open. A blocked file or script is one of them. */
 function complaints(page) {

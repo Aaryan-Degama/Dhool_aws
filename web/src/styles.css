@@ -35,7 +35,6 @@
   --line: #2a2f38;
   --raise: #2a2f38;       /* icon badges, meter tracks */
   --chart: #262d39;       /* the should-have-made area in charts */
-  --possible: #40516c;    /* what the roof could make, behind the likely bar */
   --edge: #3a414d;        /* outline of a secondary button */
   --bar: rgba(13, 14, 17, 0.84);  /* the bottom navigation, see-through */
   --current: #ffc21a;     /* electricity: the rail light, likely-output bars, the main action */
@@ -84,7 +83,7 @@ p { margin: 0; }
 .note, .sure, small { font-size: var(--step--1); color: var(--muted); }
 .error { color: var(--fault); font-weight: 600; }
 .icon { width: 1.375rem; height: 1.375rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-.icon-sun, .sky-sun { color: var(--current); }
+.icon-sun { color: var(--current); }
 .icon .drops { stroke: var(--wash); }
 
 /* ── The sky ────────────────────────────────────────────────────────────────────────────────────────
@@ -108,7 +107,6 @@ p { margin: 0; }
   --line: rgba(255, 255, 255, 0.16);
   --raise: rgba(255, 255, 255, 0.17);
   --chart: rgba(255, 255, 255, 0.13);
-  --possible: rgba(255, 255, 255, 0.36);
   --edge: rgba(255, 255, 255, 0.44);
   --bar: rgba(var(--glass), 0.86);
   --wash: #9dd8ff;        /* lighter than on graphite, to stay readable on glass */
@@ -414,27 +412,20 @@ button:disabled { opacity: 0.55; cursor: progress; }
 .step line { stroke: var(--fault); stroke-width: 1.5; stroke-dasharray: 3 3; }
 .step text { fill: var(--fault); font-size: 11px; font-weight: 700; }
 .axis { fill: var(--muted); font-size: 11px; }
-figcaption, .key-row { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5rem; font-size: var(--step--1); color: var(--muted); }
+figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5rem; font-size: var(--step--1); color: var(--muted); }
 .key::before { content: ""; display: inline-block; width: 1rem; height: 0.625rem; margin-right: 0.375rem; vertical-align: baseline; }
 .key-expected::before { background: var(--chart); border-top: 1.5px dashed #7386a0; }
 .key-actual::before { height: 0; border-top: 2.5px solid var(--ink); vertical-align: middle; }
 .key-rain::before { width: 0.25rem; background: var(--wash); border-radius: 2px; }
-.key-likely::before, .key-possible::before { height: 0.375rem; border-radius: 1rem; vertical-align: middle; }
-.key-likely::before { background: var(--current); }
-.key-possible::before { background: var(--possible); }
 
-/* The coming week */
-.forecast { display: grid; gap: 0.75rem; }
-.forecast ol { list-style: none; margin: 0; padding: 0.25rem 1rem; }
-.forecast li { display: grid; grid-template-columns: 2.75rem 1.5rem 2.5rem 1fr 3rem; align-items: center; gap: 0.5rem; min-height: 3rem; }
-.forecast li + li { border-top: 1px solid var(--line); }
-.forecast .icon { color: var(--muted); }
-.forecast .sky-sun { color: var(--current); }
-.forecast .temp { color: var(--muted); }
-.forecast .units { text-align: right; font-weight: 700; }
+/* What the roof made, month by month */
+.months { list-style: none; margin: 0; padding: 0; }
+.months li { display: grid; grid-template-columns: 3.5rem 1fr 4rem; align-items: center; gap: 0 0.5rem; padding: 0.625rem 0; }
+.months li + li { border-top: 1px solid var(--line); }
+.months .units { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.months small { grid-column: 2 / -1; }
 .meter { height: 0.5rem; border-radius: 1rem; background: var(--well); overflow: hidden; }
-.meter i { display: block; height: 100%; border-radius: 1rem; background: var(--possible); }        /* what the roof could make */
-.meter b { display: block; height: 100%; border-radius: 1rem; background: var(--current); } /* what it likely will */
+.meter b { display: block; height: 100%; border-radius: 1rem; background: var(--current); }
 
 /* Setup */
 .stack { display: grid; gap: 0.875rem; }

@@ -34,7 +34,8 @@ Built for [Environmental Hacks](https://www.wemakedevs.org/aws/env) (WeMakeDevs 
 5. **Reads the vendor's reply.** Paste the WhatsApp reply (Hinglish, Hindi or English) and Dhool sorts it into coming, wants something first, refusing, or no clear answer, with the next step.
 6. **One home, the whole family.** Each person has their own login; a six-letter code joins them to the home. The owner can remove a member or delete the home with all its data; anyone can leave, or delete their account.
 7. **Tells you, without being opened.** With alerts switched on, the phone gets a notification when the nightly check turns to "call your vendor" or "wash", or when readings have stopped for three days. In the app, a card says so whenever the last reading is three or more days old.
-8. **Your own rates.** What a wash costs you and what a unit of electricity is worth to you are both settable per home; every rupee figure uses them.
+8. **Your own rates.** What a wash costs you and what a unit of electricity is worth to you are both settable per home; every rupee figure uses them. The system size is a typed number (3.3 kW, say) that the owner can correct later.
+9. **Keeps the record.** The History tab shows the units the roof made in each of the last six months, and the last 20 washes and vendor visits with whether each one worked.
 
 No model makes the verdict or produces a number. It is physics and plain rules, and every verdict carries its reason.
 

@@ -6,12 +6,12 @@ import { TARIFF_RS } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
 import { ErrorLine, useAction } from "./form.jsx";
 import { lang, setLang, t } from "./i18n.js";
-import { Costs, Log } from "./plan.jsx";
+import { Actions, Costs, Log, Size } from "./plan.jsx";
 import { AddData } from "./readings.jsx";
 import { setSky, skyOver } from "./sky.js";
 import { daysSince, keep, kept, POLL_MS, STALE_DAYS } from "./store.js";
 import { headline } from "./words.js";
-import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, when, WhyChart } from "./visuals.jsx";
+import { day, Icon, monthName, Months, PanelModel, skyOf, weekday, when, WhyChart } from "./visuals.jsx";
 
 const SURE = { high: t("Dhool is sure about this."), medium: t("Dhool is fairly sure about this."), low: t("Dhool is not sure yet.") };
 const SURE_SHORT = { high: t("Dhool is sure"), medium: t("Fairly sure"), low: t("Not sure yet") };
@@ -141,7 +141,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
   const week = v.forecast || [];
   const today = week[0];
   const rain = week.find((d) => d.rain_mm >= 5);
-  const totals = weekTotals(v);
+  const month = v.months?.at(-1);  // the month of the last reading
   const lost = !known ? t("Needs two weeks of readings")
     : acting(v) && v.loss_rs_per_week > 0 ? t("About ₹{rs} a week lost", { rs: v.loss_rs_per_week })
     : t("Nothing to fix");
@@ -176,7 +176,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
           <dt>{t("Units possible")}</dt><dd>{today ? today.possible_kwh : "–"}</dd>
         </div>
         <div>
-          <Icon name="week" />
+          <Icon name="history" />
           <dt>{t("Last reading")}</dt><dd>{day(v.as_of)}</dd>
         </div>
       </dl>
@@ -210,10 +210,10 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
       {v.check && <CheckCard check={v.check} house={house} onSent={onAction} />}
 
       <div className="tiles">
-        <button className="card tile" onClick={() => go("week")}>
-          <span className="badge"><Icon name="week" /></span>
-          <strong>{t("Next 7 days")}</strong>
-          <span>{totals ? t("{likely} of {possible} units likely", { likely: totals[0], possible: totals[1] }) : t("No forecast yet")}</span>
+        <button className="card tile" onClick={() => go("history")}>
+          <span className="badge"><Icon name="history" /></span>
+          <strong>{t("History")}</strong>
+          <span>{month ? t("{units} units in {month}", { units: month.kwh, month: monthName(month.month) }) : t("Month by month")}</span>
         </button>
         <button className="card tile" onClick={() => go("why")}>
           <span className="badge"><Icon name="why" /></span>
@@ -226,11 +226,13 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
   );
 }
 
-export function WeekTab({ verdict: v }) {
+/** What the roof made month by month, and the washes and vendor visits the household reported. `actions` is given only by the preview. */
+export function HistoryTab({ verdict: v, house, actions }) {
   return (
     <article className={`tab ${tone(v)}`}>
-      <h1>{t("The next 7 days")}</h1>
-      <Forecast verdict={v} />
+      <h1>{t("What your roof made")}</h1>
+      <Months verdict={v} />
+      <Actions house={house} entries={actions} />
     </article>
   );
 }
@@ -294,7 +296,7 @@ function Invite({ house }) {
   );
 }
 
-const TABS = [["roof", t("Roof")], ["week", t("Forecast")], ["why", t("Why")], ["setup", t("Setup")]];
+const TABS = [["roof", t("Roof")], ["history", t("History")], ["why", t("Why")], ["setup", t("Setup")]];
 
 function Nav({ tab, go }) {
   return (
@@ -311,7 +313,7 @@ function Nav({ tab, go }) {
 }
 
 
-// Each tab has its own address (#/roof, #/week, #/why, #/setup, and #/add for adding a home), so the phone's
+// Each tab has its own address (#/roof, #/history, #/why, #/setup, and #/add for adding a home), so the phone's
 // back button moves between them instead of leaving the app.
 const onHash = (changed) => { window.addEventListener("hashchange", changed); return () => window.removeEventListener("hashchange", changed); };
 const useHash = () => useSyncExternalStore(onHash, () => location.hash);
@@ -382,6 +384,7 @@ function Home({ house: listed, homes, onSignOut }) {
     <>
       <AddData house={house} onSent={awaitVerdict} />
       <Costs key={details ? "saved" : "default"} house={house} onSent={awaitVerdict} />
+      <Size key={details ? "size" : "no-size"} house={house} onSent={awaitVerdict} />
       <Alerts house={house} />
       <Homes house={house} homes={homes} />
       <Invite house={house} />
@@ -422,7 +425,7 @@ function Home({ house: listed, homes, onSignOut }) {
           {setup}
         </>
       ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} onAction={awaitVerdict} />
-        : tab === "week" ? <WeekTab verdict={verdict} />
+        : tab === "history" ? <HistoryTab verdict={verdict} house={house} />
         : tab === "why" ? <WhyTab verdict={verdict} house={house} />
         : <article className="tab">{setup}</article>}
       {has && !waiting && <Nav tab={tab} go={go} />}
@@ -431,7 +434,7 @@ function Home({ house: listed, homes, onSignOut }) {
 }
 
 function Preview() {
-  const house = { house_id: "preview", name: t("Sharma house"), role: "owner", wash_cost_rs: 50, tariff_rs: 7,
+  const house = { house_id: "preview", name: t("Sharma house"), role: "owner", kw: 3.3, wash_cost_rs: 50, tariff_rs: 7,
     members: [{ sub: "a", role: "owner", joined_at: null, me: true }, { sub: "b", role: "member", joined_at: 1791158400 }] };
   const guest = { ...house, role: "member" };
   const none = () => {};
@@ -441,7 +444,13 @@ function Preview() {
       {FIXTURES.map((v, i) => <RoofTab key={i} house={house} verdict={v} today={v.as_of} go={none} onAction={none} />)}
       <StaleCard house={{ linked: true }} {...stale} />
       <StaleCard house={house} {...stale} />
-      <WeekTab verdict={FIXTURES[0]} />
+      <HistoryTab verdict={FIXTURES[0]} actions={[
+        { date: "2026-09-16", type: "wash", status: "verified" },
+        { date: "2026-08-19", type: "visit", status: "not_recovered" },
+        { date: "2026-07-02", type: "wash", status: null },
+      ]} />
+      {/* A verdict from before the months were counted, and a home that has reported nothing. */}
+      <HistoryTab verdict={{ ...FIXTURES[0], months: undefined }} actions={[]} />
       <WhyTab verdict={FIXTURES[0]} log={[
         { date: "2026-09-25", kind: "said", verdict: "OK", cause: "ok", loss_pct: 1 },
         { date: "2026-09-16", kind: "did", type: "wash", status: "verified" },
@@ -452,6 +461,9 @@ function Preview() {
       {/* The Setup cards that came with the home switcher and deletion. Their buttons call the live API: look, don't press. */}
       <article className="tab">
         <Costs house={house} onSent={none} />
+        <Size house={house} onSent={none} />
+        <Size house={{ ...house, linked: true }} onSent={none} />
+        <Size house={guest} onSent={none} />
         <Homes house={house} homes={{ all: [house, { house_id: "other", name: "Verma house" }], pick: none, add: none }} />
         <Family house={house} onChange={none} onGone={none} />
         <Family house={guest} onChange={none} onGone={none} />

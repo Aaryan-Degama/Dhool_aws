@@ -86,7 +86,29 @@ def test_analyse_turns_readings_into_a_verdict_and_a_chart():
     assert result["series"][0]["actual"] == pytest.approx(result["series"][0]["expected"], abs=0.02)
     assert all(d["likely_kwh"] == pytest.approx(d["possible_kwh"] * 0.67, abs=0.2) for d in week)
     assert week[0]["temp_max"] == 28 and week[0]["rain_mm"] == 0.0
+    # Two months of readings: two months listed, not six, and the day never sent is not counted.
+    assert [(m["month"], m["days"]) for m in result["months"]] == [("2026-03", 30), ("2026-04", 29)]
+    assert result["months"][0]["kwh"] == pytest.approx(sum(k for d, k in readings.items() if d < "2026-04"), abs=0.05)
     json.dumps(result)  # must be storable as JSON
+
+
+def test_the_months_made_are_the_last_six_and_a_month_with_no_reading_is_listed_empty():
+    weather = clear_weather(247)  # 1 March to 26 October, and a week of forecast
+    expected = expected_daily_kwh(weather, META["lat"], META["lon"], META["kw"], META["tilt"], META["azimuth"])
+    readings = {str(day.date()): round(kwh * 0.93, 2) for day, kwh in expected[:240].items()}
+    readings = {day: kwh for day, kwh in readings.items() if day[:7] != "2026-07"}  # the inverter was off all July
+    months = analyse(META, readings, weather)["months"]
+    assert [(m["month"], m["days"]) for m in months] == [
+        ("2026-05", 31),
+        ("2026-06", 30),
+        ("2026-07", 0),
+        ("2026-08", 31),
+        ("2026-09", 30),
+        ("2026-10", 26),  # the month of the last reading, so far
+    ]
+    assert months[2]["kwh"] == 0.0 and months[0]["kwh"] == round(
+        sum(k for d, k in readings.items() if d[:7] == "2026-05"), 1
+    )
 
 
 def test_the_chart_reaches_back_to_a_fault_older_than_its_90_days():

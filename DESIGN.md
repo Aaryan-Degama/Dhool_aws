@@ -69,7 +69,7 @@ Dust in the air alone is not a sandstorm: Delhi's air read 300 to 380 µg/m³ of
 night, which wrongly triggered the first version of the rule.
 
 The sun and the moon hang behind the roof scene, so they are drawn only on a page that has the scene (the
-Roof tab, sign-in, "Working it out"). Forecast, Why and Setup open with a heading right where the sun
+Roof tab, sign-in, "Working it out"). History, Why and Setup open with a heading right where the sun
 would be, so there the sky keeps its colour, clouds and stars but not the sun or moon (`#sky::after`,
 faded out with `:has()`).
 
@@ -99,9 +99,9 @@ bar, each with an icon and a word:
 
 | Tab | What it holds |
 |---|---|
-| Roof | Home name and "running at N% of normal"; the roof model; a strip of four readings (today's weather, next rain, units possible today, date of the last reading); the verdict card (what to do, a glowing meter, money lost, how sure, the reason, the action, and at its foot a quiet "Was this advice useful?" with a thumb up and a thumb down); two tiles leading to Forecast and Why |
+| Roof | Home name and "running at N% of normal"; the roof model; a strip of four readings (today's weather, next rain, units possible today, date of the last reading); the verdict card (what to do, a glowing meter, money lost, how sure, the reason, the action, and at its foot a quiet "Was this advice useful?" with a thumb up and a thumb down); two tiles leading to History (with the units made this month) and Why |
 | Roof, on "Call your vendor" | Paste the vendor's WhatsApp reply: Dhool sorts it into four kinds (coming, wants something first, won't help, no clear answer), shows them as four buttons with its pick selected, and says the next step. The homeowner can change the pick; if the reader is unavailable the same buttons work by hand |
-| Forecast | The next 7 days: weather, likely against possible units |
+| History | What the roof made in each of the last six months (fewer for a newer home): a bar and the units for each month, the total above, and a plain note under a month with no readings, with days missing, or still running. Below it, the last 20 washes and vendor visits, newest first, each with whether it worked where Dhool measured it |
 | Why | The reason, should-have-made against made, money lost, the chart (90 days, or from three weeks before a fault) |
 
 **What "should have made" and "possible" mean.** What this roof makes when it is clean and healthy: the
@@ -109,7 +109,7 @@ physics at the roof's own normal share, the same basis the verdict measures agai
 alone, which no roof reaches; a healthy roof would otherwise look a few percent short everywhere. On the
 Why tab, should-have-made and made are a day, averaged over the week to the last reading, and the loss
 shown beside them is exactly their difference.
-| Setup | Upload a screenshot (the model reads it, then the homeowner checks and corrects every number before saving; while it reads, a timer, "about a minute", and "Type the number instead" one tap away, with the other forms still usable), connect an inverter with its API key, type a reading, family code, sign out |
+| Setup | Upload a screenshot (the model reads it, then the homeowner checks and corrects every number before saving; while it reads, a timer, "about a minute", and "Type the number instead" one tap away, with the other forms still usable), connect an inverter with its API key, type a reading, the wash cost and electricity rate, the system size in kW (a typed number the owner can change; only shown, with where it came from, on a home linked to an inverter or for a family member), family code, sign out |
 
 The meter and the percentage show output against **this roof's own normal** (100 minus the loss), not
 against the physics number, which no roof reaches.

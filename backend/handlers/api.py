@@ -31,6 +31,7 @@ INVITE_TTL_S = 7 * 24 * 3600
 MAX_KWH_PER_KW = 12  # no roof makes more than this per installed kW in a day
 MAX_READINGS = 120  # in one request: a screenshot's history chart, not a bulk import
 HISTORY_DAYS = 45  # how far back the log of advice looks
+HISTORY_ACTIONS = 20  # the newest washes and vendor visits the log and the History tab show
 MAX_UPLOAD_BYTES = 5_000_000
 IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg"}
 SHOT_KEY = re.compile(r"houses/([0-9a-f]{12})/([0-9a-f]{32})\.(?:png|jpg)")
@@ -46,7 +47,8 @@ JOIN_TRIES, JOIN_LOCK_S = 5, 3600  # wrong invite codes one person may try, and 
 MAX_HOUSES, MAX_MEMBERS = 5, 10  # homes one person may be in, and people in one home
 TOO_MANY_HOUSES = f"You can be in up to {MAX_HOUSES} homes. Leave or delete one first."
 HOUSE_FULL = f"This home already has {MAX_MEMBERS} people. Ask its owner to remove someone first."
-SETTINGS = {"wash_cost_rs": (0, 5000), "tariff_rs": (1, 30)}
+SETTINGS = {"wash_cost_rs": (0, 5000), "tariff_rs": (1, 30), "kw": (Decimal("0.1"), 100)}  # kw: as create_house
+SIZE_FROM_INVERTER = "This home's system size comes from its inverter."
 # The server posts to a subscription's endpoint, so it must be a browser push service and nothing else.
 PUSH_ENDPOINT = re.compile(
     r"https://(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)+(?:push\.services\.mozilla\.com"
@@ -599,14 +601,19 @@ def connect_inverter(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, An
 
 
 def save_settings(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
-    """What one wash costs this household and what it pays per unit, in ₹: the figures the wash-or-wait sums are
-    done against. Either or both."""
+    """What one wash costs this household and what it pays per unit, in ₹ (the figures the wash-or-wait sums are
+    done against), and the system's size in kW. Any of them. The size is the owner's to change, and only on a
+    home with no inverter linked: a linked home's size is the inverter's, written again each time it is linked."""
     house_id = event["pathParameters"]["houseId"]
-    authorize(sub, house_id, "write")
     data = _body(event)
+    authorize(sub, house_id, "set_size" if "kw" in data else "write")
     saved = {key: _number(data, key, low, high) for key, (low, high) in SETTINGS.items() if key in data}
     if not saved:
-        raise HttpError(400, "Send wash_cost_rs or tariff_rs")
+        raise HttpError(400, "Send wash_cost_rs, tariff_rs or kw")
+    if "kw" in saved:
+        meta = _house_meta(house_id)
+        if meta.get("plant_id") and meta.get("inverter_key"):
+            raise HttpError(409, SIZE_FROM_INVERTER)
     table().update_item(
         Key={"pk": keys.house_pk(house_id), "sk": keys.META},
         UpdateExpression="SET " + ", ".join(f"{key} = :{key}" for key in saved),
@@ -618,7 +625,8 @@ def save_settings(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]
 
 def history(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """What Dhool advised and what the household did, newest first. A piece of advice is listed on the day it
-    first appeared, not on every day it was repeated."""
+    first appeared, not on every day it was repeated. `actions` is the household's part alone: the newest
+    HISTORY_ACTIONS washes and vendor visits, each with how it came out where a stored verdict says."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
 
@@ -628,8 +636,9 @@ def history(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         )["Items"]
 
     log: list[dict[str, Any]]
+    came: dict[tuple[str, str], str]  # how a wash or visit came out, by (date, type): the newest verdict on it
     last: tuple[str, str, str | None] | None
-    log, last = [], None
+    log, last, came = [], None, {}
     for item in reversed(items(keys.VERDICT, ScanIndexForward=False, Limit=HISTORY_DAYS)):  # oldest of them first
         v = json.loads(item["json"])
         said = (v["verdict"], v["cause"], (v.get("evidence") or {}).get("wait_for"))
@@ -646,18 +655,26 @@ def history(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
             )
         last = said
         check = v.get("check")
-    latest = check if log else None  # the newest verdict carries the outcome of the newest wash or visit
-    for item in items(keys.ACTION):
-        date = keys.tail(item["sk"])
-        log.append(
-            {
-                "date": date,
-                "kind": "did",
-                "type": item["type"],
-                "status": latest["status"] if latest and latest["date"] == date else None,
-            }
-        )
-    return 200, {"log": sorted(log, key=lambda e: (e["date"], e["kind"] == "did"), reverse=True)}
+        if check:
+            came[check["date"], check["type"]] = check["status"]
+    # A verdict checks only the newest wash or visit. An older one keeps the last outcome a verdict gave it,
+    # unless that was "waiting": a newer report took its place before Dhool finished measuring, so it is unknown.
+    newest = check["date"] if log and check else None
+    actions = [
+        {
+            "date": date,
+            "kind": "did",
+            "type": item["type"],
+            "status": status if date == newest or status != "waiting" else None,
+        }
+        for item in items(keys.ACTION, ScanIndexForward=False, Limit=HISTORY_ACTIONS)
+        for date in [keys.tail(item["sk"])]
+        for status in [came.get((date, item["type"]))]
+    ]
+    return 200, {
+        "log": sorted(log + actions, key=lambda e: (e["date"], e["kind"] == "did"), reverse=True),
+        "actions": actions,
+    }
 
 
 def get_verdict(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:

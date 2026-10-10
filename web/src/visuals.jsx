@@ -281,12 +281,11 @@ const SKY = {
   cloud: <path d="M7 18a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 9.5 4.25 4.25 0 0 1 17 18z" />,
   rain: <><path d="M7 15a4 4 0 0 1-.5-8A5.5 5.5 0 0 1 17 6.5 4.25 4.25 0 0 1 17 15z" /><path className="drops" d="M8 18v3M12 18v3M16 18v3" /></>,
 };
-const SKY_NAME = { sun: t("Sunny"), cloud: t("Cloudy"), rain: t("Rain") };
 const ICONS = {
   ...SKY,
   bolt: <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z" />,
   roof: <><path d="M6 6h12l3.5 12h-19z" /><path d="M10 6 8.5 18M14 6l1.5 12M4.2 12h15.6" /></>,
-  week: <><path d="M4 6h16v14H4zM4 10.5h16M8 3.5v4M16 3.5v4" /></>,
+  history: <><path d="M4 6h16v14H4zM4 10.5h16M8 3.5v4M16 3.5v4" /></>,
   why: <path d="M3 20h18M6 20v-6M12 20V5M18 20v-9" />,
   setup: <><path d="M4 7h9M19 7h1M4 17h1M11 17h9" /><circle cx="16" cy="7" r="2.5" /><circle cx="8" cy="17" r="2.5" /></>,
   gauge: <path d="M4 17a8 8 0 1 1 16 0M12 17l4.5-6" />,
@@ -299,6 +298,9 @@ export const Icon = ({ name, label }) => (
 
 export const day = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(LOCALE, { day: "numeric", month: "short" });
 export const when = (ms) => new Date(ms).toLocaleString(LOCALE, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+/** "2026-10" as the month's name: short beside a bar, in full with its year in a sentence. */
+export const monthName = (iso, full) =>
+  new Date(iso + "-01T00:00:00").toLocaleDateString(LOCALE, full ? { month: "long", year: "numeric" } : { month: "short" });
 export const weekday = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(LOCALE, { weekday: "short" });
 /** sun, cloud or rain for one forecast day, judged against the best day of that week. */
 export const skyOf = (d, week) => (d.rain_mm >= 1 ? "rain" : d.possible_kwh < 0.7 * Math.max(...week.map((w) => w.possible_kwh)) ? "cloud" : "sun");
@@ -350,47 +352,39 @@ export function WhyChart({ verdict }) {
   );
 }
 
-/** The coming week: weather, what the roof could make, and what it will likely make as it is running now. */
-export function Forecast({ verdict }) {
-  const week = verdict.forecast || [];
-  if (!week.length) return <p className="lede">{t("No forecast yet. It appears with the next reading.")}</p>;
-  const best = Math.max(...week.map((d) => d.possible_kwh));
-  const [likely, possible] = weekTotals(verdict);
+/**
+ * What the roof made in each of the last months (six at most), with the total. A verdict worked out before
+ * the analysis counted months has none: say when they will appear.
+ */
+export function Months({ verdict }) {
+  const months = verdict.months;
+  if (!months?.length) return <p className="lede">{t("The monthly totals appear with the next reading, or after tonight's check.")}</p>;
+  const best = Math.max(...months.map((m) => m.kwh)) || 1;
+  const note = (m) => {
+    const [year, month] = m.month.split("-");
+    const total = new Date(year, month, 0).getDate();  // day 0 of the next month: the last day of this one
+    if (!m.days) return t("No readings");
+    if (m.month === verdict.as_of.slice(0, 7)) return t("{n} days so far", { n: m.days });
+    return m.days < total ? t("Readings on {n} of {total} days", { n: m.days, total }) : "";
+  };
   return (
-    <section className="forecast">
+    <>
       <p className="lede">
-        {possible - likely >= 2
-          ? t("About {likely} units likely, out of {possible} this roof could make in this weather if it were clean and healthy.", { likely, possible })
-          : t("About {likely} units likely.", { likely })}
+        {t("{units} units made since {month}.", { units: Math.round(months.reduce((sum, m) => sum + m.kwh, 0)), month: monthName(months[0].month, true) })}
       </p>
       <div className="card stack">
-      <ol>
-        {week.map((d) => {
-          const sky = skyOf(d, week);
-          const units = d.likely_kwh ?? d.possible_kwh;
-          return (
-            <li key={d.date}>
-              <span>{weekday(d.date)}</span>
-              <svg className={`icon sky-${sky}`} viewBox="0 0 24 24" role="img" aria-label={SKY_NAME[sky]}>{SKY[sky]}</svg>
-              <span className="temp">{d.temp_max}°</span>
-              <span className="meter" aria-hidden="true">
-                <i style={{ width: `${(100 * d.possible_kwh) / best}%` }}><b style={{ width: `${(100 * units) / d.possible_kwh}%` }} /></i>
-              </span>
-              <span className="units">{units}</span>
+        <ol className="months">
+          {months.map((m) => (
+            <li key={m.month}>
+              <span>{monthName(m.month)}</span>
+              <span className="meter" aria-hidden="true"><b style={{ width: `${(100 * m.kwh) / best}%` }} /></span>
+              <span className="units">{m.kwh}</span>
+              {note(m) && <small>{note(m)}</small>}
             </li>
-          );
-        })}
-      </ol>
-      <p className="key-row"><span className="key key-likely">{t("Likely")}</span><span className="key key-possible">{t("Possible if clean and healthy")}</span></p>
+          ))}
+        </ol>
+        <p className="note">{t("Units made each month, from the readings Dhool has.")}</p>
       </div>
-    </section>
+    </>
   );
-}
-
-/** Sums the week for the home tile: [likely, possible] units, or null when there is no forecast. */
-export function weekTotals(verdict) {
-  const week = verdict.forecast || [];
-  if (!week.length) return null;
-  const sum = (key) => Math.round(week.reduce((total, d) => total + (d[key] ?? d.possible_kwh), 0));
-  return [sum("likely_kwh"), sum("possible_kwh")];
 }

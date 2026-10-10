@@ -12,6 +12,7 @@ from .verdict import verdict
 CHART_DAYS = 90
 CHART_LEAD_DAYS = 21  # a fault older than the chart: start this long before it, so the drop is on the chart
 FORECAST_DAYS = 7  # the weather frame ends with this many forecast days
+HISTORY_MONTHS = 6  # what the roof made, month by month, for the History tab
 
 
 def _days(readings):
@@ -99,5 +100,20 @@ def analyse(
             "temp_max": round(float(temp_max[day])),
         }
         for day, kwh in expected.tail(FORECAST_DAYS).items()
+    ]
+    # What the roof made, month by month, oldest first: the month of the last reading and the five before it,
+    # starting no earlier than the first reading. A month in between with no reading is listed with 0 days.
+    # Reporting only: no rule reads this.
+    made = actual.dropna()
+    by_month = made.groupby(made.index.strftime("%Y-%m")).agg(["sum", "count"])
+    first = actual.index[0].strftime("%Y-%m")
+    result["months"] = [
+        {
+            "month": month,
+            "kwh": round(float(by_month["sum"].get(month, 0.0)), 1),
+            "days": int(by_month["count"].get(month, 0)),
+        }
+        for month in map(str, pd.period_range(end=last.strftime("%Y-%m"), periods=HISTORY_MONTHS, freq="M"))
+        if month >= first
     ]
     return result

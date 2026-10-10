@@ -1,6 +1,6 @@
 """Who may do what in a house. Pure: the caller's role is looked up by the handler."""
 
-OWNER_ONLY = {"create_invite", "remove_member", "connect_inverter", "disconnect_inverter", "delete_house"}
+OWNER_ONLY = {"create_invite", "remove_member", "connect_inverter", "disconnect_inverter", "delete_house", "set_size"}
 
 
 def decide(role: str | None, action: str) -> bool:

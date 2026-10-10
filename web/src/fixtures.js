@@ -13,7 +13,10 @@ const week = (running) =>
       date: new Date(Date.UTC(2026, 8, 26 + i)).toISOString().slice(0, 10),
       possible_kwh, likely_kwh: +(possible_kwh * running).toFixed(1), rain_mm, temp_max,
     }));
-const base = { as_of: "2026-09-25", expected_kwh: 13.6, confidence: "high", evidence: {}, forecast: week(0.99) };
+// What the roof made: a month with no reading (the inverter was off), one with days missing, and the month so far.
+const months = [["2026-04", 402.6, 30], ["2026-05", 438.1, 31], ["2026-06", 0, 0], ["2026-07", 251.4, 22], ["2026-08", 371.9, 31], ["2026-09", 318.2, 25]]
+  .map(([month, kwh, days]) => ({ month, kwh, days }));
+const base = { as_of: "2026-09-25", expected_kwh: 13.6, confidence: "high", evidence: {}, forecast: week(0.99), months };
 
 export const FIXTURES = [
   { ...base, verdict: "INSPECT", cause: "outage", actual_kwh: 9.6, loss_pct: 100, loss_kwh_per_day: 13.6, loss_rs_per_week: 666, tariff_rs: 7,

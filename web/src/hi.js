@@ -45,6 +45,8 @@ export const HI = {
   "Name for this home": "इस घर का नाम",
   "Sharma house": "शर्मा निवास",
   "System size": "सिस्टम का आकार",
+  "System size (kW)": "सिस्टम का आकार (kW में)",
+  "Type the system size in kW: a number from 0.1 to 100.": "सिस्टम का आकार kW में लिखिए: 0.1 से 100 के बीच की संख्या।",
   "It is on your installation papers and in your inverter app.": "यह आपके इंस्टॉलेशन के काग़ज़ों और इन्वर्टर ऐप में लिखा होता है।",
   "Latitude": "अक्षांश",
   "Longitude": "देशांतर",
@@ -100,13 +102,21 @@ export const HI = {
   "Yes": "हाँ",
   "No": "नहीं",
   "Thanks for telling Dhool.": "Dhool को बताने के लिए धन्यवाद।",
-  "Next 7 days": "अगले 7 दिन",
-  "{likely} of {possible} units likely": "{possible} में से {likely} यूनिट की उम्मीद",
-  "No forecast yet": "अभी अनुमान नहीं",
+  "{units} units in {month}": "{month} में {units} यूनिट",
+  "Month by month": "महीने-दर-महीने",
   "Why": "क्यों",
 
-  // Forecast and Why tabs
-  "The next 7 days": "अगले 7 दिन",
+  // History and Why tabs
+  "What your roof made": "आपकी छत ने कितनी बिजली बनाई",
+  "{units} units made since {month}.": "{month} से अब तक {units} यूनिट बनीं।",
+  "The monthly totals appear with the next reading, or after tonight's check.": "हर महीने का जोड़ अगली रीडिंग के साथ, या आज रात की जाँच के बाद दिखेगा।",
+  "No readings": "कोई रीडिंग नहीं",
+  "{n} days so far": "अब तक {n} दिन",
+  "Readings on {n} of {total} days": "{total} में से {n} दिन की रीडिंग",
+  "Units made each month, from the readings Dhool has.": "हर महीने बनी यूनिट, Dhool के पास मौजूद रीडिंग के हिसाब से।",
+  "Washes and vendor visits": "धुलाई और वेंडर का आना",
+  "Nothing reported yet. When Dhool says to wash or to call the vendor, a button under that advice on the Roof tab lets you say you have done it.":
+    "अभी तक कुछ दर्ज नहीं है। जब Dhool धोने या वेंडर को बुलाने को कहे, तो “छत” टैब पर उस सलाह के नीचे के बटन से बताइए कि आपने यह कर लिया।",
   "Why Dhool says this": "Dhool ऐसा क्यों कहता है",
   "Should have made": "बनानी चाहिए थी",
   "Made": "बनाई",
@@ -121,15 +131,6 @@ export const HI = {
     "{from} से {to} तक रोज़ का बिजली उत्पादन। आख़िरी दिन छत को {expected} यूनिट बनानी चाहिए थीं; बनीं: {made}।",
   "no reading": "कोई रीडिंग नहीं",
   "Rain that washes panels": "पैनल धोने वाली बारिश",
-  "No forecast yet. It appears with the next reading.": "अभी अनुमान नहीं। अगली रीडिंग के साथ आ जाएगा।",
-  "About {likely} units likely.": "लगभग {likely} यूनिट की उम्मीद।",
-  "About {likely} units likely, out of {possible} this roof could make in this weather if it were clean and healthy.":
-    "लगभग {likely} यूनिट की उम्मीद, जबकि साफ़ और ठीक हालत में यह छत इस मौसम में {possible} बना सकती है।",
-  "Likely": "उम्मीद",
-  "Possible if clean and healthy": "साफ़ और ठीक हो तो संभव",
-  "Sunny": "धूप",
-  "Cloudy": "बादल",
-  "Rain": "बारिश",
 
   // The roof picture
   "Rooftop solar array with {n} of {cols} columns dark": "छत का सोलर ऐरे, {cols} में से {n} कॉलम बंद",
@@ -172,6 +173,11 @@ export const HI = {
 
   // Setup: costs, alerts, homes, family, language, sign out, deleting
   "Wash cost and electricity rate": "धुलाई का ख़र्च और बिजली की दर",
+  "{kw} kW": "{kw} किलोवाट",
+  "Taken from your inverter when it was linked.": "यह आपके इन्वर्टर से लिया गया है, जब उसे जोड़ा गया था।",
+  "Only the owner of this home can change it.": "इसे सिर्फ़ इस घर का मालिक बदल सकता है।",
+  "It is on your installation papers and in your inverter app. Dhool works out what your roof should make from it.":
+    "यह आपके इंस्टॉलेशन के काग़ज़ों और इन्वर्टर ऐप में लिखा होता है। Dhool इसी से हिसाब लगाता है कि आपकी छत को कितनी बिजली बनानी चाहिए।",
   "Electricity rate (₹ per unit)": "बिजली की दर (₹ प्रति यूनिट)",
   "It is on your electricity bill. Dhool uses it to work out the money lost.": "यह आपके बिजली के बिल पर लिखी होती है। Dhool इसी से नुक़सान का हिसाब लगाता है।",
   "Alerts on this phone": "इस फ़ोन पर सूचनाएँ",
@@ -226,7 +232,7 @@ export const HI = {
 
   // Navigation and waiting
   "Roof": "छत",
-  "Forecast": "अनुमान",
+  "History": "इतिहास",
   "Setup": "सेटअप",
   "Sections": "हिस्से",
   "Working it out": "हिसाब लगाया जा रहा है",
@@ -318,6 +324,7 @@ export const HI = {
   "Too many wrong codes. Try again in an hour.": "बहुत बार ग़लत कोड डाला गया। एक घंटे बाद फिर कोशिश कीजिए।",
   "The owner cannot leave. Delete the home instead.": "घर का मालिक घर नहीं छोड़ सकता। इसकी जगह घर मिटाइए।",
   "This browser's notifications are not supported.": "इस ब्राउज़र की सूचनाएँ काम नहीं करतीं।",
+  "This home's system size comes from its inverter.": "इस घर के सिस्टम का आकार उसके इन्वर्टर से आता है।",
 };
 
 // Lines above that the app never writes out itself (they arrive in a variable), so the test does not expect to find them in the source.
@@ -331,4 +338,5 @@ export const ARRIVES = [
   "This browser's notifications are not supported.",
   "You can be in up to 5 homes. Leave or delete one first.",
   "This home already has 10 people. Ask its owner to remove someone first.", "That person is not in this home",
+  "This home's system size comes from its inverter.",
 ];

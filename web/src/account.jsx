@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, confirmSignUp, deleteAccount, mySub, signIn, signUp } from "./api.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
-import { ErrorLine, Field, useAction } from "./form.jsx";
+import { ErrorLine, Field, kwOf, useAction } from "./form.jsx";
 import { lang, setLang, t } from "./i18n.js";
 import { keep, kept, localDay, toNumber } from "./store.js";
 import { day, PanelModel } from "./visuals.jsx";
@@ -80,7 +80,7 @@ export function Privacy() {
 }
 
 export function Setup({ onDone, onBack, children }) {
-  const [form, setForm] = useState({ name: "", kw: "3", lat: "", lon: "", code: "" });
+  const [form, setForm] = useState({ name: "", kw: "", lat: "", lon: "", code: "" });
   const [state, run] = useAction();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -94,7 +94,7 @@ export function Setup({ onDone, onBack, children }) {
   const create = (e) => {
     e.preventDefault();
     run(async () => {
-      await api("/houses", { name: form.name, kw: toNumber(form.kw), lat: toNumber(form.lat), lon: toNumber(form.lon) });
+      await api("/houses", { name: form.name, kw: kwOf(form.kw), lat: toNumber(form.lat), lon: toNumber(form.lon) });
       onDone();
     });
   };
@@ -114,13 +114,8 @@ export function Setup({ onDone, onBack, children }) {
       <p className="lede">{t("Dhool needs to know where your roof is and how big the system is. That is all.")}</p>
       <form onSubmit={create} className="card">
         <Field label={t("Name for this home")} required maxLength={60} placeholder={t("Sharma house")} value={form.name} onChange={set("name")} />
-        <label className="field">
-          <span>{t("System size")}</span>
-          <select value={form.kw} onChange={set("kw")}>
-            {[1, 2, 3, 4, 5, 6, 8, 10].map((kw) => <option key={kw} value={kw}>{kw} kW</option>)}
-          </select>
-          <small>{t("It is on your installation papers and in your inverter app.")}</small>
-        </label>
+        <Field label={t("System size (kW)")} inputMode="decimal" required placeholder="3.3" value={form.kw} onChange={set("kw")}
+               hint={t("It is on your installation papers and in your inverter app.")} />
         <div className="row">
           <Field label={t("Latitude")} inputMode="decimal" required value={form.lat} onChange={set("lat")} />
           <Field label={t("Longitude")} inputMode="decimal" required value={form.lon} onChange={set("lon")} />
