@@ -1,0 +1,23 @@
+# Headers Amplify Hosting sends with every file of the web app. At the repo root and in the monorepo form,
+# as Amplify asks. `vite preview` reads this same file (web/vite.config.js), so the browser test meets them too.
+#
+# The Content-Security-Policy lets the page load only its own files, and talk only to: this stack's API,
+# Cognito sign-in, the uploads bucket (a screenshot is posted straight to S3) and Open-Meteo (the sky).
+# The API host and the region are this deployment's (web/src/config.js); a test fails if they drift apart.
+applications:
+  - appRoot: web
+    customHeaders:
+      - pattern: '**/*'
+        headers:
+          - key: 'Content-Security-Policy'
+            value: "default-src 'self'; connect-src 'self' https://fmq7cl7jqb.execute-api.ap-south-1.amazonaws.com https://cognito-idp.ap-south-1.amazonaws.com https://*.s3.ap-south-1.amazonaws.com https://api.open-meteo.com https://air-quality-api.open-meteo.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+          - key: 'Strict-Transport-Security'
+            value: "max-age=31536000; includeSubDomains"
+          - key: 'X-Content-Type-Options'
+            value: "nosniff"
+          - key: 'X-Frame-Options'
+            value: "DENY"
+          - key: 'Referrer-Policy'
+            value: "strict-origin-when-cross-origin"
+          - key: 'Permissions-Policy'
+            value: "geolocation=(self), camera=(), microphone=()"

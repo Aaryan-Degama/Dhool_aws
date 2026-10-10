@@ -38,7 +38,7 @@ Apache-2.0 (`LICENSE`).
 
 | What | Licence |
 |---|---|
-| [Anek Devanagari](https://fonts.google.com/specimen/Anek+Devanagari) (Ek Type), served by Google Fonts | SIL Open Font License 1.1 |
+| [Anek Devanagari](https://fonts.google.com/specimen/Anek+Devanagari) (Ek Type; copyright 2021 The Anek Project Authors). The Devanagari and Latin subsets as Google Fonts serves them (v17), unchanged, kept in `web/public/fonts/` with the licence text beside them (`OFL.txt`) and served by the app itself | SIL Open Font License 1.1 |
 
 ## AI tools
 

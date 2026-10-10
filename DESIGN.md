@@ -81,7 +81,7 @@ directly on the sky except large headings: everything small is on a surface. Not
 reduced motion. The graphite tokens above are the fallback when no sky is set.
 
 ## Type
-One family, **Anek Devanagari** (SIL OFL, Google Fonts): it covers Hindi and English and has a width axis.
+One family, **Anek Devanagari** (SIL OFL; served from the app's own `public/fonts/`, not from Google Fonts): it covers Hindi and English and has a width axis.
 Headlines are heavy and wide (800, 112%), the home's name is widest (125%), small labels slightly narrow
 (92%), body regular. Numbers are tabular. Sentence case everywhere; no all-caps labels.
 

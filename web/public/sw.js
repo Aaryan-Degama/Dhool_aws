@@ -1,9 +1,10 @@
 // Dhool's service worker, written by hand: the app opens without a network, and alerts arrive when it is closed.
 // It keeps only the app's own files. Calls to the API, to sign-in and to the weather go straight to the
 // network and are never kept here; the last verdict is kept by the app itself (src/store.js).
-// ponytail: the fonts (another site) are not kept, so offline text falls back to the phone's own font; and
-// files of older builds stay until CACHE is renamed. Fine at this size (about 100 KB a build).
-const CACHE = "dhool-shell-1";
+// ponytail: files of older builds stay until CACHE is renamed. Fine at this size (about 100 KB a build, and
+// the two font files, 840 KB, once).
+const CACHE = "dhool-shell-2";
+const FONTS = ["/fonts/anek-devanagari-latin.woff2", "/fonts/anek-devanagari-devanagari.woff2"];
 
 // Keep the page and the files it names, so the app opens offline after one visit, not two.
 self.addEventListener("install", (event) => {
@@ -13,7 +14,7 @@ self.addEventListener("install", (event) => {
     const files = [...(await page.clone().text()).matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]);
     const cache = await caches.open(CACHE);
     await cache.put("/", page);
-    await cache.addAll([...files, "/icon.svg", "/manifest.webmanifest"]);
+    await cache.addAll([...files, "/icon.svg", "/manifest.webmanifest", ...FONTS]);
   })());
 });
 
@@ -26,7 +27,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event, url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== location.origin) return;  // API, Cognito, weather, fonts: not ours to keep
+  if (request.method !== "GET" || url.origin !== location.origin) return;  // API, Cognito, weather: not ours to keep
   if (request.mode === "navigate") {
     // The page: the network's copy when there is one (a new build shows at once), the kept one otherwise.
     event.respondWith(fetch(request).then((page) => {
