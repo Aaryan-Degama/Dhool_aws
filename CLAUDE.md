@@ -29,7 +29,7 @@ Hackathon project for Environmental Hacks (WeMakeDevs × AWS, Oct 8 – 11, 2026
 
 **Complete and live**
 - Sign-in and family sharing: one house, several logins, joined by a 6-letter code.
-- Verdicts (wash, call the vendor, wait, all good) with a reason, money lost, a chart and a 7-day forecast; re-run nightly (one run per home) and when data arrives. A sunny day at almost nothing is "call the vendor" at once (outage).
+- Verdicts (wash, call the vendor, wait, all good) with a reason, money lost and a chart (the 7-day forecast is still in the verdict and on the Roof strip; its tab became History on 10 Oct: six months of units made, and the last 20 washes and visits); re-run nightly (one run per home) and when data arrives. A sunny day at almost nothing is "call the vendor" at once (outage).
 - Verdict rules, scored four ways on the hidden test set (never tune against it): with neighbours 84%, alone 83%, with 15% weather error 48%, alone with weather error 56% and almost no faults caught. Development seeds: 94–95% in the best case. Quote the hard case first.
 - Alerts by Web Push from the nightly run (call the vendor, wash, readings stopped). Built and deployed; not yet seen arriving on a real phone, which needs the public URL.
 - Per-home tariff and wash cost; delete a home, remove a member, leave, delete account; home picker; back button; offline shell; a card when readings are 3 or more days old.
