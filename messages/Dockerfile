@@ -4,7 +4,7 @@
 
 # Base image on 10 Oct 2026, to pin when builds must repeat exactly:
 #   public.ecr.aws/lambda/python:3.12@sha256:145350008f3f67d82c0bc6ecd34d9eb0c95aecf11f9b69db6bab7de3d5d3cc61
-FROM public.ecr.aws/lambda/python:3.12
+FROM public.ecr.aws/lambda/python:3.14
 COPY constraints.txt ${LAMBDA_TASK_ROOT}/
 # constraints.txt is requirements.txt worked out in full, each package with its published SHA-256 hashes, for
 # the reasons given in backend/Dockerfile (no searching for versions; any mirror may serve the files). Regenerate:
