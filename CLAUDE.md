@@ -23,7 +23,7 @@ Hackathon project for Environmental Hacks (WeMakeDevs × AWS, Oct 8 – 11, 2026
 4. **Ship the smallest thing that works.** Pick a working vertical slice over breadth.
 5. Every piece of third-party code gets a credit and needs a compatible license.
 
-## Status (7 Oct 2026; keep this current, details and numbers are in `CONTEXT.md`)
+## Status (8 Oct2026; keep this current, details and numbers are in `CONTEXT.md`)
 
 All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1).
 
@@ -46,7 +46,7 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 
 **Pending, needs the owner**
 1. Public URL: connect the repo to Amplify Hosting in Singapore (ap-southeast-1), monorepo root `web`. Dhool is not on Amplify; the only Amplify app on the account is Slate's (Mumbai). When the link exists: put it in `README.md` and `WRITEUP.md`, check it signed out with the showcase accounts, and tighten the two `AllowOrigins` in `template.yaml` to it.
-2. Read the Hindi through once, on the review page (https://claude.ai/artifact/JByxFCkVnqs5HfEXQST4L1, private to the owner): it was written by Claude, checked twice by Claude, and no native speaker has read it. About 45 lines added on 7 Oct (alerts, family, deletion, tariff, outage) are in `hi.js`, `reasons.py` and `notify.py` and not on that page.
+2. Read the Hindi through once, on the review page (https://claude.ai/artifact/JByxFCkVnqs5HfEXQST4L1, private to the owner): it was written by Claude, checked twice by Claude, and no native speaker has read it. About 45 lines added on 8 Oct(alerts, family, deletion, tariff, outage) are in `hi.js`, `reasons.py` and `notify.py` and not on that page.
 3. Real inverter screenshots (a today screen and a daily list) and 20 to 30 real vendor replies: none exist yet. Commands, below, say what to do when they arrive.
 4. 
 5. A license for the repo (there is no `LICENSE` file).
@@ -87,7 +87,7 @@ _All confirmed unless a line says otherwise._
 - Score the verdict rules against the simulator: `cd backend && ../.venv/bin/python -m dhool.evaluate <seed>` (seeds 0–2 are development data). It prints four cases: with neighbours, alone, with weather error, and both. The hidden test set is `... -m dhool.evaluate hidden`: never tune against it; after any rule change rerun it and report the number as it comes.
 - Real-rooftop check (nine NREL PVDAQ homes, downloads to `~/.cache/dhool` on first run): `cd backend && ../.venv/bin/python -m dhool.realcheck`. Run it after any rule change: the simulator is far cleaner than real data.
 - Deploy settings are in `samconfig.toml`: stack `dhool-aws`, region `ap-south-1` (a `staging` environment is defined and not deployed). Template parameters: `WebOrigin` (CORS, `*` until the Amplify URL exists), `AlarmEmail`, `VapidParam`, `VapidSubject`.
-- After regenerating the demo data and deploying, the demo homes need no relinking; a home linked before 7 Oct keeps its old 4-decimal location until its owner links it again.
+- After regenerating the demo data and deploying, the demo homes need no relinking; a home linked before 8 Octkeeps its old 4-decimal location until its owner links it again.
 - Failed background runs: `aws sqs get-queue-attributes --queue-url <FailureQueueUrl output> --attribute-names ApproximateNumberOfMessages`. Logs are in `/dhool/dhool/{api,analysis,vision,messages,mock-inverter}`.
 - Web Push key: the private half is the SSM SecureString `/dhool/vapid-private-key`, the public half is `VAPID_PUBLIC_KEY` in `web/src/config.js`. They are a pair: replacing one without the other breaks every phone's subscription.
 - Live endpoints, pool IDs, the demo accounts and the three showcase accounts (`SHOWCASE_USERS`, one home each: wash on `home-30`, call the vendor on `home-01`, all good on `home-05`): `.env` (gitignored, never commit)
@@ -105,7 +105,7 @@ _All confirmed unless a line says otherwise._
 - Design decisions live in `DESIGN.md`; read it before changing the UI.
 - Android emulator (AVD `dhool`, Android 15; it needs its window, `-no-window` crashes on this machine): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 
-## Bedrock is out (7 Oct 2026)
+## Bedrock is out (8 Oct2026)
 _AWS Support rejected the request to enable Bedrock inference on the owner's account. Do not plan or build anything on Bedrock._
 
 What that settles:
