@@ -409,6 +409,18 @@ def test_members_are_listed_with_when_they_joined_and_which_one_is_you(house, ta
     assert members[FATHER]["role"] == "owner"
 
 
+def test_a_home_is_fetched_with_one_read_of_its_members_and_the_decision_is_still_logged(house, monkeypatch, capsys):
+    join(MOTHER, house)
+    monkeypatch.setattr(api, "authorize", lambda *a: pytest.fail("the member list already says who is asking"))
+    assert call(MOTHER, "GET /houses/{houseId}", house_id=house)[0] == 200
+    assert json.loads(capsys.readouterr().out.strip().splitlines()[-1]) == {
+        "authz": "allow", "sub": MOTHER, "house": house, "action": "read", "role": "member", "request_id": None}
+    assert call(STRANGER, "GET /houses/{houseId}", house_id=house) == (403, {"error": "Not allowed"})
+    assert call(STRANGER, "GET /houses/{houseId}", house_id="nosuchhouse0")[0] == 403
+    assert json.loads(capsys.readouterr().out.strip().splitlines()[-1]) == {
+        "authz": "deny", "sub": STRANGER, "house": "nosuchhouse0", "action": "read", "role": None, "request_id": None}
+
+
 SUBSCRIPTION = {"endpoint": "https://fcm.googleapis.com/fcm/send/abc:APA91b-x_y", "keys": {"p256dh": "BPA" + "x" * 84, "auth": "y" * 22}}
 
 

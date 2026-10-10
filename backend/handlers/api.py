@@ -78,15 +78,19 @@ def _number(data, key, low, high, default=None):
     return value
 
 
-def authorize(sub, house_id, action):
-    """Every access to house data goes through here. One JSON log line per decision."""
-    item = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}"}).get("Item")
-    role = item["role"] if item else None
+def _decide(sub, house_id, action, role):
+    """Allow or refuse what someone with this role asks, and say which in one JSON log line."""
     allowed = authz.decide(role, action)
     log(authz="allow" if allowed else "deny", sub=sub, house=house_id, action=action, role=role)
     if not allowed:
         raise HttpError(403, "Not allowed")
     return role
+
+
+def authorize(sub, house_id, action):
+    """Every access to house data goes through here. One JSON log line per decision."""
+    item = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}"}).get("Item")
+    return _decide(sub, house_id, action, item["role"] if item else None)
 
 
 def _house_meta(house_id):
@@ -156,10 +160,12 @@ def create_house(sub, event):
 
 def get_house(sub, event):
     house_id = event["pathParameters"]["houseId"]
-    authorize(sub, house_id, "read")
-    meta = _house_meta(house_id)
+    # The member list is wanted anyway and holds the caller's own role: one read answers both. Nothing of
+    # it leaves this function unless the decision below allows.
     members = list(query_all(
         table(), KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("MEMBER#")))
+    _decide(sub, house_id, "read", next((m["role"] for m in members if m["sk"] == f"MEMBER#{sub}"), None))
+    meta = _house_meta(house_id)
     return 200, {
         "house_id": house_id,
         **{k: meta[k] for k in ("name", "kw", "lat", "lon", "tilt", "azimuth")},
