@@ -293,6 +293,7 @@ export const HI = {
   // message stays in English.
   "Please sign in again": "कृपया फिर साइन इन कीजिए",
   "Something went wrong. Try again.": "कुछ गड़बड़ हो गई। फिर कोशिश कीजिए।",
+  "Something went wrong": "कुछ गड़बड़ हो गई",
   "Sign-in failed": "साइन इन नहीं हो पाया",
   "Incorrect username or password.": "ईमेल या पासवर्ड ग़लत है।",
   "Not allowed": "इसकी अनुमति नहीं है",
@@ -309,7 +310,8 @@ export const HI = {
 
 // Lines above that the app never writes out itself (they arrive in a variable), so the test does not expect to find them in the source.
 export const ARRIVES = [
-  "Please sign in again", "Something went wrong. Try again.", "Sign-in failed", "Incorrect username or password.",
+  "Please sign in again", "Something went wrong. Try again.", "Something went wrong", "Sign-in failed",
+  "Incorrect username or password.",
   "Not allowed", "Invite code not found or expired", "date cannot be in the future",
   "Dhool could not read the reply just now. Pick what it says below.", "The screenshot must be a PNG or JPEG image",
   "That API key did not work. Copy it again from your inverter app.", "No connection. Check your internet and try again.",

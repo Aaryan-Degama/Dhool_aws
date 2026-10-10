@@ -11,6 +11,7 @@ import os
 import re
 import secrets
 import time
+import traceback
 import uuid
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -65,7 +66,10 @@ class HttpError(Exception):
 def _body(event):
     raw = event.get("body") or "{}"
     if event.get("isBase64Encoded"):
-        raw = base64.b64decode(raw)
+        try:
+            raw = base64.b64decode(raw, validate=True)
+        except ValueError:
+            raise HttpError(400, "Body is not valid base64")
     try:
         data = json.loads(raw, parse_float=Decimal)
     except ValueError:
@@ -540,10 +544,17 @@ def handler(event, context):
     global _request_id
     _request_id = getattr(context, "aws_request_id", None)
     try:
+        route = ROUTES.get(event.get("routeKey"))
+        if route is None:
+            raise HttpError(404, "No such route")
         sub = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
-        status, payload = ROUTES[event["routeKey"]](sub, event)
+        status, payload = route(sub, event)
     except HttpError as e:
         status, payload = e.status, {"error": e.message}
+    except Exception as e:  # nothing foreseen: the caller gets a number to quote, the log gets the rest
+        _log(error="unhandled", route=event.get("routeKey"), exception=type(e).__name__, detail=str(e)[:500],
+             trace=traceback.format_exc()[-2000:])
+        status, payload = 500, {"error": "Something went wrong", "request_id": _request_id}
     return {
         "statusCode": status,
         "headers": {"content-type": "application/json"},

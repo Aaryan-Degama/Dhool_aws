@@ -146,6 +146,30 @@ def test_body_that_is_not_json_is_rejected():
     assert api.handler(event, None)["statusCode"] == 400
 
 
+def test_a_body_that_is_not_base64_when_it_says_so_is_rejected():
+    event = {"routeKey": "POST /houses", "body": "not base64!", "isBase64Encoded": True,
+             "requestContext": {"authorizer": {"jwt": {"claims": {"sub": FATHER}}}}}
+    assert api.handler(event, None)["statusCode"] == 400
+
+
+def test_a_route_the_api_does_not_have_is_not_found():
+    assert call(FATHER, "PATCH /houses") == (404, {"error": "No such route"})
+    assert api.handler({}, None)["statusCode"] == 404
+
+
+def test_an_error_nobody_foresaw_is_a_500_with_the_request_id_and_is_logged(monkeypatch, capsys):
+    def broken(sub, event):
+        raise RuntimeError("the table is on fire")
+    monkeypatch.setitem(api.ROUTES, "GET /me", broken)
+    event = {"routeKey": "GET /me", "requestContext": {"authorizer": {"jwt": {"claims": {"sub": FATHER}}}}}
+    response = api.handler(event, type("Context", (), {"aws_request_id": "req-123"})())
+    assert response["statusCode"] == 500
+    assert json.loads(response["body"]) == {"error": "Something went wrong", "request_id": "req-123"}
+    line = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert line["error"] == "unhandled" and line["exception"] == "RuntimeError" and line["request_id"] == "req-123"
+    assert "the table is on fire" in line["detail"] and line["route"] == "GET /me"
+
+
 def test_new_reading_starts_an_analysis_and_verdict_is_shared(house, table):
     assert call(FATHER, "GET /houses/{houseId}/verdict", house_id=house) == (200, {"verdict": None})
     call(FATHER, "POST /houses/{houseId}/readings", {"date": "2026-09-30", "kwh": 12.4}, house)

@@ -359,10 +359,38 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions: [!Ref AlarmTopic]
 
+  # The API function catches what it did not foresee and answers 500, so its Errors metric only sees a crash
+  # or a timeout. What a caller saw as a failure is counted here, as a share of all calls.
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: One call in a hundred or more to the API was answered with a 5xx.
+      Metrics:
+        - Id: rate
+          Expression: 100 * errors / requests
+          Label: 5xx, percent of calls
+        - Id: errors
+          ReturnData: false
+          MetricStat:
+            Metric: {Namespace: AWS/ApiGateway, MetricName: 5xx, Dimensions: [{Name: ApiId, Value: !Ref Api}]}
+            Period: 300
+            Stat: Sum
+        - Id: requests
+          ReturnData: false
+          MetricStat:
+            Metric: {Namespace: AWS/ApiGateway, MetricName: Count, Dimensions: [{Name: ApiId, Value: !Ref Api}]}
+            Period: 300
+            Stat: Sum
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
   ApiErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmDescription: The API raised an error it did not handle.
+      AlarmDescription: The API function crashed or timed out (an error it caught is a 5xx, see Api5xxAlarm).
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
