@@ -10,7 +10,7 @@ from boto3.dynamodb.conditions import Key
 from moto import mock_aws
 
 from dhool import authz
-from handlers import api
+from handlers import api, common
 
 FATHER, MOTHER, STRANGER = "sub-father", "sub-mother", "sub-stranger"
 HOUSE = {"name": "Sharma house", "kw": 3, "lat": 28.61, "lon": 77.21}
@@ -360,6 +360,23 @@ def test_a_new_home_never_overwrites_one_whose_id_it_drew(house, table, monkeypa
     assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["name"] == "Sharma house"
     assert call(MOTHER, "GET /houses/{houseId}", house_id=house)[0] == 403
     assert [h["name"] for h in call(MOTHER, "GET /me")[1]["houses"]] == ["Verma house"]
+
+
+def test_lists_longer_than_one_page_come_back_whole(house, table, monkeypatch):
+    asked = []
+
+    def two_at_a_time(table, **query):  # DynamoDB pages at 1 MB; a page of two shows the same seam
+        asked.append(query)
+        return common.query_all(table, Limit=2, **query)
+    monkeypatch.setattr(api, "query_all", two_at_a_time)
+    days = [f"2026-09-{d:02d}" for d in range(1, 8)]
+    call(FATHER, "POST /houses/{houseId}/readings", {"readings": [{"date": d, "kwh": 9} for d in days]}, house)
+    for n in range(4):
+        join(f"sub-cousin-{n}", house)
+    assert [r["date"] for r in call(FATHER, "GET /houses/{houseId}/readings", house_id=house)[1]["readings"]] == days
+    assert len(call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["members"]) == 5
+    assert call(FATHER, "DELETE /houses/{houseId}", house_id=house)[0] == 200
+    assert everything_of(table, house) == [] and len(asked) == 3
 
 
 def test_the_location_is_kept_to_two_decimals(table, monkeypatch):

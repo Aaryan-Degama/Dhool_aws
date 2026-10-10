@@ -18,6 +18,7 @@ from botocore.exceptions import ClientError
 from dhool import config, connectors, notify
 from dhool.analyse import analyse
 from dhool.expected import fetch_dust_storms, fetch_pm25, fetch_weather_with_forecast
+from handlers.common import query_all
 
 # ponytail: this account may run 10 Lambdas at once, and each run also calls the demo inverter (two more).
 # Starting a house every 1.5 s keeps the night under that, and fits about 70 houses in the 120 s timeout.
@@ -95,8 +96,8 @@ def run_house(house_id, nightly=False):
             readings, fleet = readings.result(), fleet.result()
             fleet.pop(meta["plant_id"], None)
         else:  # screenshots and typed-in readings
-            items = table().query(
-                KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("READING#"))["Items"]
+            items = query_all(
+                table(), KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("READING#"))
             readings = {i["sk"].split("#", 1)[1]: float(i["kwh"]) for i in items}
         if not readings:
             return None

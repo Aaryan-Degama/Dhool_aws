@@ -22,6 +22,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from dhool import authz, config, connectors
+from handlers.common import query_all
 
 INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I/L
 INVITE_TTL_S = 7 * 24 * 3600
@@ -109,16 +110,11 @@ def _house_meta(house_id):
 
 def _house_keys(house_id, prefix=None):
     """The sort key (and who wrote it) of every item of a house, or of those starting with prefix, page by page."""
-    condition, more = Key("pk").eq(f"HOUSE#{house_id}"), {}
+    condition = Key("pk").eq(f"HOUSE#{house_id}")
     if prefix:
         condition &= Key("sk").begins_with(prefix)
-    while True:
-        page = table().query(KeyConditionExpression=condition,
-                             ProjectionExpression="sk, #by", ExpressionAttributeNames={"#by": "by"}, **more)
-        yield from page["Items"]
-        if "LastEvaluatedKey" not in page:
-            return
-        more = {"ExclusiveStartKey": page["LastEvaluatedKey"]}
+    return query_all(table(), KeyConditionExpression=condition,
+                     ProjectionExpression="sk, #by", ExpressionAttributeNames={"#by": "by"})
 
 
 def _count(pk, prefix):
@@ -177,8 +173,8 @@ def get_house(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     meta = _house_meta(house_id)
-    members = table().query(
-        KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("MEMBER#"))["Items"]
+    members = list(query_all(
+        table(), KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("MEMBER#")))
     return 200, {
         "house_id": house_id,
         **{k: meta[k] for k in ("name", "kw", "lat", "lon", "tilt", "azimuth")},
@@ -544,8 +540,8 @@ def get_verdict(sub, event):
 def list_readings(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
-    items = table().query(
-        KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("READING#"))["Items"]
+    items = query_all(
+        table(), KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("READING#"))
     return 200, {"readings": [{"date": i["sk"].split("#", 1)[1], "kwh": i["kwh"], "source": i["source"],
                                "by": i["by"]} for i in items]}
 

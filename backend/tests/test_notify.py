@@ -7,7 +7,7 @@ import pytest
 from moto import mock_aws
 
 from dhool import notify
-from handlers import analysis
+from handlers import analysis, common
 
 FAULT = {"verdict": "INSPECT", "cause": "fault", "reason": "Output fell by a third on 3 Oct.", "reason_hi": "3 अक्टूबर को बिजली एक तिहाई गिर गई।"}
 OUTAGE = {**FAULT, "cause": "outage"}
@@ -131,6 +131,16 @@ def test_without_a_key_nothing_is_sent_and_the_verdict_is_still_saved(home, monk
     assert analysis.handler({"house_id": "h1", "nightly": True}, None) == {"verdict": "INSPECT"}  # moto has no such parameter
     analysis.handler({"house_id": "h1", "nightly": True}, None)
     assert capsys.readouterr().out.count('"push_off"') == 1  # looked up once per container, said once
+
+
+def test_a_run_reads_every_typed_reading_however_many_pages_they_fill(home, monkeypatch):
+    seen = []
+    for day in range(1, 8):
+        home.put_item(Item={"pk": "HOUSE#h1", "sk": f"READING#2026-09-{day:02d}", "kwh": 9})
+    monkeypatch.setattr(analysis, "query_all", lambda table, **query: common.query_all(table, Limit=2, **query))
+    monkeypatch.setattr(analysis, "analyse", lambda meta, readings, *a: seen.append(readings) or {**FINE, "as_of": "2026-09-07", "confidence": "high"})
+    analysis.handler({"house_id": "h1"}, None)
+    assert len(seen[0]) == 8  # the seven here and the fixture's own
 
 
 def test_a_house_deleted_before_its_run_is_skipped(home):
