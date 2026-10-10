@@ -17,14 +17,15 @@ TEXT = {
 }
 
 
-def message(previous, new, days_since_reading, lang):
-    """previous is the verdict stored before this run (or None), new is this run's. Returns
-    {"title", "body", "url"} to send, or None when there is nothing new to say."""
+def message(told, new, days_since_reading, lang):
+    """told is what the family's phones were last told, {"verdict", "cause"} (or None: nothing yet, or the
+    trouble has passed since). new is this run's verdict. Returns {"title", "body", "url"} to send, or None
+    when there is nothing new to say."""
     lang = lang if lang in ("en", "hi") else "en"
     if days_since_reading == STOPPED_AFTER_DAYS:
         title, body = TEXT["stopped"][lang]
     elif new["verdict"] in ("INSPECT", "CLEAN") and (
-            not previous or (previous.get("verdict"), previous.get("cause")) != (new["verdict"], new.get("cause"))):
+            not told or (told.get("verdict"), told.get("cause")) != (new["verdict"], new.get("cause"))):
         title, body = TEXT[new["verdict"]][lang]
         body = new.get("reason_hi" if lang == "hi" else "reason") or body
     else:

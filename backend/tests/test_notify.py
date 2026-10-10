@@ -105,11 +105,55 @@ def test_a_nightly_run_tells_each_phone_in_its_language_and_only_when_the_advice
     monkeypatch.setattr(analysis, "_webpush", lambda item, message, key: sent.append((item["sk"], message["title"], key)))
     assert analysis.handler({"house_id": "h1"}, None) == {"verdict": "INSPECT"}
     assert sent == []  # a run that follows a tap in the app: the person is looking at the verdict already
-    home.delete_item(Key={"pk": "HOUSE#h1", "sk": max(i["sk"] for i in home.scan()["Items"] if i["sk"].startswith("VERDICT#"))})
+    # That run stored "call your vendor" and told no phone. The night's run finds the same verdict already
+    # stored, and must still say it: the rest of the family has not heard (this alert used to be lost).
     assert analysis.handler({"house_id": "h1", "nightly": True}, None) == {"verdict": "INSPECT"}
     assert sent == [("PUSH#a", "Dhool: call your vendor", "the-key"), ("PUSH#b", "Dhool: वेंडर को बुलाइए", "the-key")]
+    assert told(home) == {"verdict": "INSPECT", "cause": "fault"}
     analysis.handler({"house_id": "h1", "nightly": True}, None)  # the next night, the same advice
     assert len(sent) == 2
+
+
+def told(table):
+    return table.get_item(Key={"pk": "HOUSE#h1", "sk": "META"})["Item"].get("last_notified")
+
+
+def test_a_night_when_no_phone_could_be_reached_is_tried_again_the_next(home, monkeypatch):
+    sent = []
+
+    def down(item, message, key):
+        raise TimeoutError("the push service did not answer")
+    monkeypatch.setattr(analysis, "_webpush", down)
+    analysis.handler({"house_id": "h1", "nightly": True}, None)
+    assert told(home) is None  # nobody was told, so nothing is marked as said
+    monkeypatch.setattr(analysis, "_webpush", lambda item, message, key: sent.append(item["sk"]))
+    analysis.handler({"house_id": "h1", "nightly": True}, None)
+    assert sent == ["PUSH#a", "PUSH#b"] and told(home) == {"verdict": "INSPECT", "cause": "fault"}
+
+
+def test_trouble_that_passes_and_comes_back_is_news_again(home, monkeypatch):
+    sent = []
+    as_of = str(datetime.datetime.now(analysis.ZoneInfo(analysis.config.TZ)).date() - datetime.timedelta(days=1))
+    monkeypatch.setattr(analysis, "_webpush", lambda item, message, key: sent.append(message["title"]))
+    analysis.handler({"house_id": "h1", "nightly": True}, None)
+    monkeypatch.setattr(analysis, "analyse", lambda *a: {**FINE, "as_of": as_of, "confidence": "high"})
+    analysis.handler({"house_id": "h1", "nightly": True}, None)  # the vendor came: all good, and nothing to ring about
+    assert len(sent) == 2 and told(home) is None
+    monkeypatch.setattr(analysis, "analyse", lambda *a: {**FAULT, "as_of": as_of, "confidence": "high"})
+    analysis.handler({"house_id": "h1", "nightly": True}, None)  # the same fault, months later
+    assert len(sent) == 4 and told(home) == {"verdict": "INSPECT", "cause": "fault"}
+
+
+def test_the_readings_stopped_alert_does_not_count_as_having_given_the_advice(home, monkeypatch):
+    sent = []
+    today = datetime.datetime.now(analysis.ZoneInfo(analysis.config.TZ)).date()
+    monkeypatch.setattr(analysis, "_webpush", lambda item, message, key: sent.append(message["title"]))
+    monkeypatch.setattr(analysis, "analyse", lambda *a: {**FAULT, "as_of": str(today - datetime.timedelta(days=3)), "confidence": "high"})
+    analysis.handler({"house_id": "h1", "nightly": True}, None)
+    assert sent == ["Dhool: no readings for 3 days", "Dhool: 3 दिन से कोई रीडिंग नहीं"] and told(home) is None
+    monkeypatch.setattr(analysis, "analyse", lambda *a: {**FAULT, "as_of": str(today - datetime.timedelta(days=4)), "confidence": "high"})
+    analysis.handler({"house_id": "h1", "nightly": True}, None)  # the next night: the advice itself, once
+    assert sent[2:] == ["Dhool: call your vendor", "Dhool: वेंडर को बुलाइए"] and told(home) == {"verdict": "INSPECT", "cause": "fault"}
 
 
 def test_a_dead_subscription_is_dropped_and_a_failed_send_never_fails_the_run(home, monkeypatch, capsys):

@@ -52,22 +52,35 @@ def _webpush(item, message, key):
             vapid_claims={"sub": os.environ["VAPID_SUBJECT"]}, ttl=PUSH_TTL_S, timeout=10)
 
 
-def _notify(house_id, previous, result):
-    """Tell every subscribed phone of the house, each in its own language, if this run has news."""
+def _notify(house_id, told, result):
+    """Tell every subscribed phone of the house, each in its own language, if this run has news.
+
+    News is measured against what the phones were last told (told, the house's last_notified), not against
+    the verdict stored before: a verdict that first appeared in a run started from the app (a typed reading)
+    has been stored and never sent. last_notified is written only once a phone has been reached, so a night
+    when every send fails is tried again the next; and it is removed when the advice goes back to "all good"
+    or "wait", so the same trouble coming back months later is news again."""
     days = (datetime.datetime.now(ZoneInfo(config.TZ)).date() - datetime.date.fromisoformat(result["as_of"])).days
-    if not notify.message(previous, result, days, "en") or not _vapid_key():
+    advice = {"verdict": result["verdict"], "cause": result.get("cause")}
+    alerting, meta = advice["verdict"] in ("INSPECT", "CLEAN"), {"pk": f"HOUSE#{house_id}", "sk": "META"}
+    if told and not alerting:
+        table().update_item(Key=meta, UpdateExpression="REMOVE last_notified", ConditionExpression="attribute_exists(pk)")
+    if not notify.message(told, result, days, "en") or not _vapid_key():
         return
     sent = 0
     for item in table().query(
             KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("PUSH#"))["Items"]:
         try:
-            _webpush(item, notify.message(previous, result, days, item.get("lang")), _vapid_key())
+            _webpush(item, notify.message(told, result, days, item.get("lang")), _vapid_key())
             sent += 1
         except Exception as e:
             status = getattr(getattr(e, "response", None), "status_code", None)
             if status in (404, 410):  # the browser dropped this subscription
                 table().delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
             log(analysis="push_failed", house=house_id, status=status, error=type(e).__name__)
+    if sent and alerting and days != notify.STOPPED_AFTER_DAYS:  # "readings stopped" went out, not the advice
+        table().update_item(Key=meta, UpdateExpression="SET last_notified = :told", ExpressionAttributeValues={":told": advice},
+                            ConditionExpression="attribute_exists(pk)")
     log(analysis="pushed", house=house_id, sent=sent)
 
 
@@ -115,7 +128,6 @@ def run_house(house_id, nightly=False):
     # What the homeowner told Dhool they did (washed the panels, had the vendor in), for the before-and-after check.
     actions = [{"date": i["sk"].split("#", 1)[1], "type": i["type"]} for i in items("ACTION#")]
     result = analyse(meta, readings, weather, pm25, fleet, actions, storms)
-    previous = items("VERDICT#", ScanIndexForward=False, Limit=1) if nightly else []
     try:
         # Only while the home still stands: a run takes many seconds, and a verdict written after its owner
         # deleted the home would be a piece of it left behind for 400 days.
@@ -136,7 +148,7 @@ def run_house(house_id, nightly=False):
          verdict=result["verdict"], cause=result["cause"], confidence=result["confidence"])
     if nightly:
         try:
-            _notify(house_id, json.loads(previous[0]["json"]) if previous else None, result)
+            _notify(house_id, meta.get("last_notified"), result)
         except Exception as e:  # the verdict is saved; a notification that could not go out never fails the run
             log(analysis="push_failed", house=house_id, error=type(e).__name__)
     return result["verdict"]
