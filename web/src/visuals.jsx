@@ -261,6 +261,7 @@ export function PanelModel({ verdict }) {
           </g>
         ))}
         <path className="pm-panes" d={SKYLINE.panes} />
+        <path className="pm-tint" d={SKYLINE.lit + SKYLINE.warm} />
         <path className="pm-windows" d={SKYLINE.lit} />
         <path className="pm-windows warm" d={SKYLINE.warm} />
         {/* The air thickens toward the horizon, so the feet of the buildings fade into it. */}

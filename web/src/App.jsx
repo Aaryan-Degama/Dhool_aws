@@ -122,13 +122,15 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
       frame = 0;
       root.setProperty("--scrolled", Math.min(1, window.scrollY / 160).toFixed(3));
       const box = el.getBoundingClientRect(), next = el.nextElementSibling.getBoundingClientRect();
+      // Where rain in the sky stops. Only a scene that is on screen says so (the preview page has several).
+      if (box.bottom > 0 && box.top < window.innerHeight) root.setProperty("--floor", `${Math.round(box.top + box.height * 0.8)}px`);
       // The weather row lies over the scene's foreground from the start: only what comes past the array counts.
       el.style.setProperty("--covered", Math.min(1, Math.max(0, ((box.bottom - next.top) / box.height - 0.4) / 0.4)).toFixed(3));
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); root.removeProperty("--scrolled"); };
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); root.removeProperty("--scrolled"); root.removeProperty("--floor"); };
   }, []);
   const known = v.cause !== "no_data";
   const running = Math.max(0, Math.round(100 - v.loss_pct));
@@ -166,7 +168,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
         <p className="reading-sub">{lost}{known && <span>{SURE_SHORT[v.confidence]}</span>}</p>
       </section>
 
-      <div className="hero" ref={scene}><PanelModel verdict={v} /></div>
+      <div className="hero" ref={scene}><PanelModel verdict={v} /><div className="fall" /></div>
 
       <dl className="strip">
         <div>
