@@ -116,4 +116,10 @@ def analyse(
         for month in map(str, pd.period_range(end=last.strftime("%Y-%m"), periods=HISTORY_MONTHS, freq="M"))
         if month >= first
     ]
+    # The same months day by day, so the phone can open a month into its weeks and days without asking again.
+    # Only days with a reading: a day that is missing here was never sent.
+    since = result["months"][0]["month"]
+    result["daily_kwh"] = {
+        str(day.date()): round(float(kwh), 2) for day, kwh in made.items() if day.strftime("%Y-%m") >= since
+    }
     return result

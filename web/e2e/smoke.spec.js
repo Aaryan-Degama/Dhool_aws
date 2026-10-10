@@ -8,7 +8,7 @@ import { HI } from "../src/hi.js";
 
 const DEV = "http://localhost:5173", BUILT = "http://localhost:4173";
 const HEADLINES = ["Your solar has stopped", "Call your vendor", "Wash the panels", "Don't wash. It's haze.", "Your solar is working",
-  "What your roof made", "Washes and vendor visits", "System size"];
+  "Generation History", "Washes and vendor visits", "System size"];
 
 /** Everything the browser complains about while the page is open. A blocked file or script is one of them. */
 function complaints(page) {
@@ -28,6 +28,26 @@ for (const lang of ["en", "hi"]) {
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
     expect(seen).toEqual([]);
+  });
+
+  test(`a month opens to its weeks and a week to its days in ${lang}`, async ({ page }) => {
+    await page.goto(`${DEV}/?lang=${lang}#preview`);
+    const months = page.locator(".months").first();
+    const figure = months.getByText(String(FIXTURES[0].daily_kwh["2026-09-23"]), { exact: true });
+    await expect(figure).toBeHidden();
+    await months.locator("> li > details > summary").last().click();  // September, the month still running
+    await expect(figure).toBeHidden();
+    const week = months.locator("summary").filter({ hasText: /^22–25 / });
+    await expect(week.getByText(lang === "hi" ? HI["Readings on {n} of {total} days"] : "Readings on")).toHaveCount(0);  // all four days read
+    await week.click();
+    await expect(figure).toBeVisible();
+    await expect(months.locator("> li").last().locator(".weeks summary")).toHaveCount(4);  // nothing after the last reading
+    await week.click();
+    await expect(figure).toBeHidden();
+    // A verdict stored before the days were sent: its months are there and do not open.
+    await expect(page.locator(".months").nth(1)).toBeVisible();
+    await expect(page.locator(".months").nth(1).locator("summary")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   });
 }
 

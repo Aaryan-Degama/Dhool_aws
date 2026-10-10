@@ -111,6 +111,24 @@ def test_the_months_made_are_the_last_six_and_a_month_with_no_reading_is_listed_
     )
 
 
+def test_the_days_made_cover_the_listed_months_add_up_to_them_and_leave_out_a_day_with_no_reading():
+    weather = clear_weather(247)  # 1 March to 26 October, and a week of forecast
+    expected = expected_daily_kwh(weather, META["lat"], META["lon"], META["kw"], META["tilt"], META["azimuth"])
+    readings = {str(day.date()): round(kwh * 0.93, 2) for day, kwh in expected[:240].items()}
+    readings = {day: kwh for day, kwh in readings.items() if day[:7] != "2026-07" and day != "2026-09-10"}
+    result = analyse(META, readings, weather)
+    months, daily = result["months"], result["daily_kwh"]
+    # March and April have readings and are older than the six months listed: their days are not carried.
+    assert daily == {day: kwh for day, kwh in readings.items() if day >= "2026-05"}
+    assert {day[:7] for day in daily} == {m["month"] for m in months if m["days"]}
+    assert "2026-09-10" not in daily and not any(day.startswith("2026-07") for day in daily)
+    for m in months:
+        in_month = [kwh for day, kwh in daily.items() if day[:7] == m["month"]]
+        assert len(in_month) == m["days"]
+        assert sum(in_month) == pytest.approx(m["kwh"], abs=0.05)
+    assert len(json.dumps(daily)) < 5000  # six months of days: a few kB beside DynamoDB's 400 kB an item
+
+
 def test_the_chart_reaches_back_to_a_fault_older_than_its_90_days():
     weather = clear_weather(157)  # 150 days of readings + a week of forecast
     expected = expected_daily_kwh(weather, META["lat"], META["lon"], META["kw"], META["tilt"], META["azimuth"])

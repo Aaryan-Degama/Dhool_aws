@@ -16,7 +16,19 @@ const week = (running) =>
 // What the roof made: a month with no reading (the inverter was off), one with days missing, and the month so far.
 const months = [["2026-04", 402.6, 30], ["2026-05", 438.1, 31], ["2026-06", 0, 0], ["2026-07", 251.4, 22], ["2026-08", 371.9, 31], ["2026-09", 318.2, 25]]
   .map(([month, kwh, days]) => ({ month, kwh, days }));
-const base = { as_of: "2026-09-25", expected_kwh: 13.6, confidence: "high", evidence: {}, forecast: week(0.99), months };
+const AS_OF = "2026-09-25";
+// The same months day by day, adding up to each total. A month's missing days are its first ones: the inverter
+// came back on 10 July.
+const daily_kwh = Object.fromEntries(months.flatMap(({ month, kwh, days }) => {
+  const [year, number] = month.split("-").map(Number);
+  const first = (month === AS_OF.slice(0, 7) ? Number(AS_OF.slice(8)) : new Date(year, number, 0).getDate()) - days + 1;
+  const weights = Array.from({ length: days }, (_, i) => 1 + 0.25 * Math.sin(i * 1.3));
+  const share = kwh / weights.reduce((sum, w) => sum + w, 0);
+  const made = weights.map((w) => +(w * share).toFixed(2));
+  if (days) made[days - 1] = +(kwh - made.slice(0, -1).reduce((sum, k) => sum + k, 0)).toFixed(2);  // rounding lands on the last day
+  return made.map((k, i) => [`${month}-${String(first + i).padStart(2, "0")}`, k]);
+}));
+const base = { as_of: AS_OF, expected_kwh: 13.6, confidence: "high", evidence: {}, forecast: week(0.99), months, daily_kwh };
 
 export const FIXTURES = [
   { ...base, verdict: "INSPECT", cause: "outage", actual_kwh: 9.6, loss_pct: 100, loss_kwh_per_day: 13.6, loss_rs_per_week: 666, tariff_rs: 7,

@@ -1,6 +1,7 @@
 // Dhool's pictures: the rooftop array that shows what is wrong, the chart that shows why, and the icons.
 import { useEffect, useId, useRef, useState } from "react";
 import { LOCALE, t } from "./i18n.js";
+import { weeksOf } from "./store.js";
 
 // ── The rooftop array, drawn in perspective ────────────────────────────────────────────────────────────
 // Six columns by two rows of modules on a tilted frame: three strings of two columns each.
@@ -352,12 +353,43 @@ export function WhyChart({ verdict }) {
   );
 }
 
+/** One month's weeks, each opening to its days. A day with no reading says so: it is not a day that made 0. */
+function Weeks({ month, daily, asOf }) {
+  return (
+    <ol className="weeks">
+      {weeksOf(month, daily, asOf).map((w) => (
+        <li key={w.from}>
+          <details>
+            <summary>
+              <span className="line">
+                <span>{w.from === w.to ? w.from : `${w.from}–${w.to}`} {monthName(month)}</span>
+                <span className="units">{w.read > 0 && w.kwh}</span>
+                {w.read < w.days.length && (
+                  <small>{w.read ? t("Readings on {n} of {total} days", { n: w.read, total: w.days.length }) : t("No readings")}</small>)}
+              </span>
+            </summary>
+            <ol className="days">
+              {w.days.map((d) => (
+                <li key={d.date} className="line">
+                  <span>{weekday(d.date)} {day(d.date)}</span>
+                  {d.kwh == null ? <small>{t("no reading")}</small> : <span className="units">{d.kwh}</span>}
+                </li>
+              ))}
+            </ol>
+          </details>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /**
- * What the roof made in each of the last months (six at most), with the total. A verdict worked out before
- * the analysis counted months has none: say when they will appear.
+ * What the roof made in each of the last months (six at most), with the total. A month opens to its weeks and
+ * a week to its days when the verdict carries the days (`daily_kwh`); one worked out before it did shows the
+ * months alone. A verdict from before the analysis counted months has none: say when they will appear.
  */
 export function Months({ verdict }) {
-  const months = verdict.months;
+  const { months, daily_kwh: daily } = verdict;
   if (!months?.length) return <p className="lede">{t("The monthly totals appear with the next reading, or after tonight's check.")}</p>;
   const best = Math.max(...months.map((m) => m.kwh)) || 1;
   const note = (m) => {
@@ -374,16 +406,26 @@ export function Months({ verdict }) {
       </p>
       <div className="card stack">
         <ol className="months">
-          {months.map((m) => (
-            <li key={m.month}>
-              <span>{monthName(m.month)}</span>
-              <span className="meter" aria-hidden="true"><b style={{ width: `${(100 * m.kwh) / best}%` }} /></span>
-              <span className="units">{m.kwh}</span>
-              {note(m) && <small>{note(m)}</small>}
-            </li>
-          ))}
+          {months.map((m) => {
+            const line = (
+              <span className="line">
+                <span>{monthName(m.month)}</span>
+                <span className="meter" aria-hidden="true"><b style={{ width: `${(100 * m.kwh) / best}%` }} /></span>
+                <span className="units">{m.kwh}</span>
+                {note(m) && <small>{note(m)}</small>}
+              </span>
+            );
+            return (
+              <li key={m.month}>
+                {daily && m.days ? <details><summary>{line}</summary><Weeks month={m.month} daily={daily} asOf={verdict.as_of} /></details> : line}
+              </li>
+            );
+          })}
         </ol>
-        <p className="note">{t("Units made each month, from the readings Dhool has.")}</p>
+        <p className="note">
+          {t("Units made each month, from the readings Dhool has.")}
+          {daily && t(" Tap a month for its weeks, and a week for its days.")}
+        </p>
       </div>
     </>
   );

@@ -107,13 +107,14 @@ export const HI = {
   "Why": "क्यों",
 
   // History and Why tabs
-  "What your roof made": "आपकी छत ने कितनी बिजली बनाई",
+  "Generation History": "बिजली उत्पादन का इतिहास",
   "{units} units made since {month}.": "{month} से अब तक {units} यूनिट बनीं।",
   "The monthly totals appear with the next reading, or after tonight's check.": "हर महीने का जोड़ अगली रीडिंग के साथ, या आज रात की जाँच के बाद दिखेगा।",
   "No readings": "कोई रीडिंग नहीं",
   "{n} days so far": "अब तक {n} दिन",
   "Readings on {n} of {total} days": "{total} में से {n} दिन की रीडिंग",
   "Units made each month, from the readings Dhool has.": "हर महीने बनी यूनिट, Dhool के पास मौजूद रीडिंग के हिसाब से।",
+  " Tap a month for its weeks, and a week for its days.": " किसी महीने को दबाइए तो उसके हफ़्ते दिखेंगे, और हफ़्ते को दबाइए तो उसके दिन।",
   "Washes and vendor visits": "धुलाई और वेंडर का आना",
   "Nothing reported yet. When Dhool says to wash or to call the vendor, a button under that advice on the Roof tab lets you say you have done it.":
     "अभी तक कुछ दर्ज नहीं है। जब Dhool धोने या वेंडर को बुलाने को कहे, तो “छत” टैब पर उस सलाह के नीचे के बटन से बताइए कि आपने यह कर लिया।",

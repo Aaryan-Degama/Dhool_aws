@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { daysSince, kept, localDay, POLL_MS, toNumber } from "./store.js";
+import { FIXTURES } from "./fixtures.js";
+import { daysSince, kept, localDay, POLL_MS, toNumber, weeksOf } from "./store.js";
 
 test("days since the last reading", () => {
   assert.equal(daysSince("2026-10-07", "2026-10-07"), 0);
@@ -34,4 +35,33 @@ test("a figure typed with a decimal comma is the same number", () => {
   assert.equal(toNumber("7"), 7);
   assert.ok(Number.isNaN(toNumber("1,234.5")));  // not guessed at: the API then says it must be a number
   assert.ok(Number.isNaN(toNumber("five")));
+});
+
+test("a month splits into weeks by date, each with its total and its days", () => {
+  const daily = { "2026-10-01": 10, "2026-10-02": 11.25, "2026-10-04": 9.5, "2026-10-08": 12, "2026-10-31": 7.04 };
+  const weeks = weeksOf("2026-10", daily, "2026-11-03");
+  assert.deepEqual(weeks.map((w) => [w.from, w.to, w.kwh, w.read]),
+    [[1, 7, 30.8, 3], [8, 14, 12, 1], [15, 21, 0, 0], [22, 28, 0, 0], [29, 31, 7, 1]]);
+  assert.deepEqual(weeks[0].days.slice(0, 3),
+    [{ date: "2026-10-01", kwh: 10 }, { date: "2026-10-02", kwh: 11.25 }, { date: "2026-10-03", kwh: null }]);  // no reading is not 0
+  assert.deepEqual(weeks.map((w) => w.days.length), [7, 7, 7, 7, 3]);
+});
+
+test("the month still running stops at the last reading, and February has four weeks or five", () => {
+  const running = weeksOf("2026-10", { "2026-10-09": 5 }, "2026-10-09");
+  assert.deepEqual(running.map((w) => [w.from, w.to]), [[1, 7], [8, 9]]);
+  assert.equal(running[1].days.at(-1).date, "2026-10-09");
+  assert.deepEqual(weeksOf("2026-10", {}, "2026-10-29").at(-1).days, [{ date: "2026-10-29", kwh: null }]);
+  assert.deepEqual(weeksOf("2026-02", {}, "2026-03-01").map((w) => w.to), [7, 14, 21, 28]);
+  assert.deepEqual(weeksOf("2028-02", {}, "2028-03-01").map((w) => w.to), [7, 14, 21, 28, 29]);
+});
+
+test("the sample days add up to the sample months", () => {
+  const { months, daily_kwh: daily, as_of: asOf } = FIXTURES[0];
+  assert.deepEqual(new Set(Object.keys(daily).map((d) => d.slice(0, 7))), new Set(months.filter((m) => m.days).map((m) => m.month)));
+  for (const m of months) {
+    const weeks = weeksOf(m.month, daily, asOf);
+    assert.equal(weeks.reduce((n, w) => n + w.read, 0), m.days, m.month);
+    assert.equal(+weeks.flatMap((w) => w.days).reduce((sum, d) => sum + (d.kwh ?? 0), 0).toFixed(2), m.kwh, m.month);
+  }
 });

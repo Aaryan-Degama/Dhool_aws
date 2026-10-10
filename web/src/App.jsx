@@ -230,7 +230,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
 export function HistoryTab({ verdict: v, house, actions }) {
   return (
     <article className={`tab ${tone(v)}`}>
-      <h1>{t("What your roof made")}</h1>
+      <h1>{t("Generation History")}</h1>
       <Months verdict={v} />
       <Actions house={house} entries={actions} />
     </article>
@@ -451,6 +451,8 @@ function Preview() {
       ]} />
       {/* A verdict from before the months were counted, and a home that has reported nothing. */}
       <HistoryTab verdict={{ ...FIXTURES[0], months: undefined }} actions={[]} />
+      {/* A verdict from before the days were sent with the months: the months do not open. */}
+      <HistoryTab verdict={{ ...FIXTURES[0], daily_kwh: undefined }} actions={[]} />
       <WhyTab verdict={FIXTURES[0]} log={[
         { date: "2026-09-25", kind: "said", verdict: "OK", cause: "ok", loss_pct: 1 },
         { date: "2026-09-16", kind: "did", type: "wash", status: "verified" },
