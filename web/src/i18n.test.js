@@ -26,6 +26,13 @@ test("no Hindi is left behind for a line the app no longer uses", () => {
   assert.deepEqual(Object.keys(HI).filter((en) => !used.has(en) && !ARRIVES.includes(en)), []);
 });
 
+// The Hindi is found by the English line itself, so "Try again" and "try  again" are two keys: one can miss
+// its Hindi, or carry a different one, for what a reader sees as the same line.
+test("no two lines differ only by capital letters or spacing", () => {
+  const alike = Map.groupBy(new Set([...used, ...Object.keys(HI), ...ARRIVES]), (en) => en.toLowerCase().replace(/\s+/g, " ").trim());
+  assert.deepEqual([...alike.values()].filter((lines) => lines.length > 1), []);
+});
+
 test("no text is left bare between tags", () => {
   // Words sitting directly in the JSX, outside t(): what a missed line looks like. Brand and language names are meant to be.
   const bare = [...source.matchAll(/>\s*([A-Z][a-z]+(?: [A-Za-z']+)+[^<>{}]*?)\s*</g)].map((m) => m[1]).filter((s) => !/^Language/.test(s));
