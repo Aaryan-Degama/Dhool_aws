@@ -13,6 +13,35 @@ The hidden test set is three other cities' real weather for a fixed past year, w
 drawn afresh and wider than the rules were built against, and readings missing (see sim.simulate, hidden=True).
 The rules were frozen before it was first run, and it is not used to tune them. If the rules change, run it
 again and report the new number as it comes; never pick the better of two runs.
+
+Under each score's accuracy line come more figures, all worked out from the same table of truth against
+verdict:
+
+Baseline: the accuracy of always giving the commonest true class in that table, whatever the readings say.
+Most checks fall on a healthy roof, so accuracy is to be read against this. A tie goes to the class that
+comes first in CLASSES.
+
+F1, for each class: 2 x right / (2 x right + said wrongly + missed), which is the harmonic mean of its
+precision and recall. A class that happened but was never said, or was said but never happened, has nothing
+right and scores 0. A class that neither happened nor was said has no F1: it is printed as "none", never as
+nan, and is left out of the mean below.
+
+Macro-F1: the plain mean of the per-class F1s, each class counting the same however few its cases.
+
+False alerts per roof per month. An alert is a check that said CLEAN or INSPECT, the two verdicts the app
+sends to the phone. It is false when the truth was neither (OK or WAIT). Each roof is checked every 7 days,
+so the figure is false alerts / all checks x (30.44 / 7). Every such check is counted. The app alerts only
+when its advice changes, so a wrong verdict that stands for a month is one alert there and four here: for
+wrong verdicts that last, this is an upper bound on what a household would get. It is not one for a wrong
+verdict that comes and goes inside a week: the app looks every night and would alert each time it came
+back. How often that happens is not measured here.
+
+Wrong-action alerts: said CLEAN when the truth was INSPECT, or INSPECT when it was CLEAN. The roof did need
+something, so these are not false alerts, but the advice was the wrong one. They are counted on their own
+and are not among the false alerts.
+
+The precision and recall lines print nan for a class that was never said (no precision) or never happened
+(no recall). When one does, a line under the accuracy line says which is which.
 """
 import datetime
 import sys
@@ -37,6 +66,9 @@ VARIANTS = [
     (f"with weather error (about {WEATHER_NOISE:.0%} a day)", True, False),
     ("alone, with weather error", True, True),
 ]
+ALERTS = ("CLEAN", "INSPECT")  # the verdicts the app sends to the phone (notify.message)
+CHECK_EVERY = 7  # days between two checks of a roof: evaluate()'s default, which every score here uses
+DAYS_PER_MONTH = 30.44  # 365.25 / 12
 
 
 def truth(home, i, rain):
@@ -104,7 +136,68 @@ def report(confusion):
         lines.append(f"{c:<8} precision {precision:.2f}  recall {recall:.2f}  (n={actual})")
     total = sum(confusion.values())
     lines.append(f"accuracy {sum(confusion[c, c] for c in CLASSES) / total:.2f} over {total} checks")
-    return "\n".join(lines)
+    # Everything above is printed as it always was, so old output can be laid beside new. New lines go below.
+    return "\n".join(lines + beyond_accuracy(confusion))
+
+
+def _said(confusion, c):
+    return sum(confusion[t, c] for t in CLASSES)
+
+
+def _actual(confusion, c):
+    return sum(confusion[c, v] for v in CLASSES)
+
+
+def baseline(confusion):
+    """(class, accuracy) of always saying the commonest true class. A tie goes to the first in CLASSES."""
+    commonest = max(CLASSES, key=lambda c: _actual(confusion, c))
+    return commonest, _actual(confusion, commonest) / sum(confusion.values())
+
+
+def f1(confusion, c):
+    """One class's F1: 2 x right / (2 x right + said wrongly + missed). None when the class neither happened
+    nor was said: there is nothing to score, and a 0 would count against the rules for a class that was not there."""
+    either = _said(confusion, c) + _actual(confusion, c)  # the right ones are in both, so this is that divisor
+    return 2 * confusion[c, c] / either if either else None
+
+
+def macro_f1(confusion):
+    """The plain mean of the per-class F1s, over the classes that have one."""
+    scores = [score for score in (f1(confusion, c) for c in CLASSES) if score is not None]
+    return sum(scores) / len(scores)
+
+
+def alert_counts(confusion):
+    """(false alerts, wrong-action alerts). False: said CLEAN or INSPECT when the truth was OK or WAIT.
+    Wrong action: said one of the two when the truth was the other."""
+    false = sum(confusion[t, v] for t in CLASSES if t not in ALERTS for v in ALERTS)
+    wrong_action = sum(confusion[t, v] for t in ALERTS for v in ALERTS if t != v)
+    return false, wrong_action
+
+
+def per_roof_month(count, checks, every=CHECK_EVERY):
+    """A count of checks as a rate per roof per month, each roof being checked every `every` days."""
+    return count / checks * DAYS_PER_MONTH / every
+
+
+def beyond_accuracy(confusion):
+    """The lines report() adds under the accuracy line. The module docstring says what each one means."""
+    total, lines = sum(confusion.values()), []
+    if any(not _said(confusion, c) or not _actual(confusion, c) for c in CLASSES):
+        lines.append("nan above: a class never said has no precision, a class that never happened has no recall")
+    commonest, share = baseline(confusion)
+    lines.append(f"baseline {share:.2f}: always saying {commonest}, the commonest truth "
+                 f"({_actual(confusion, commonest)} of {total} checks)")
+    scores = {c: f1(confusion, c) for c in CLASSES}
+    for c, score in scores.items():
+        lines.append(f"{c:<8} F1 " + ("none (never happened, never said: left out of macro-F1)" if score is None else f"{score:.2f}"))
+    lines.append(f"macro-F1 {macro_f1(confusion):.2f}: the plain mean of the {sum(s is not None for s in scores.values())} F1s above")
+    false, wrong_action = alert_counts(confusion)
+    lines.append(f"false alerts {per_roof_month(false, total):.2f} per roof per month: {false} of {total} checks, "
+                 f"{CHECK_EVERY} days apart, said CLEAN or INSPECT when the truth was OK or WAIT")
+    lines.append("  (the app alerts only when its advice changes, so a wrong verdict that lasts counts here every time and there once)")
+    lines.append(f"wrong-action alerts {wrong_action}: said CLEAN when the truth was INSPECT, or INSPECT when it was CLEAN")
+    return lines
 
 
 def run(name, lat, lon, start, end, seed, hidden):

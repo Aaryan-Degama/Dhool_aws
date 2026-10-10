@@ -11,6 +11,12 @@ Nothing is labelled, so this cannot give an accuracy number. It answers three th
    Rain is a wash nobody had to report, so this tests the same check the "I washed them" button uses.
 3. What do the rules say month by month on a real roof, with no neighbours and no air-quality data?
 
+The last lines give alerts per roof per month: the share of system-months whose month-end verdict was CLEAN
+or INSPECT, the two verdicts the app sends to the phone, split by the two. They are alerts, not false alerts:
+no roof here is labelled, so nobody can say which of them were wrong (evaluate.py can, in simulation). It is
+one look a month, so the figure is the share of months that ended on an alert and not a count of what the
+app would have sent: the app looks every night and alerts only when its advice changes.
+
 Downloads are cached in ~/.cache/dhool (about 1 MB of readings and ten years of weather per place).
 """
 import io
@@ -24,6 +30,7 @@ import numpy as np
 import pandas as pd
 
 from . import config
+from .evaluate import ALERTS
 from .expected import expected_daily_kwh, fetch_weather
 from .verdict import _ratio, check_action, normal, verdict
 
@@ -116,6 +123,11 @@ def monthly_verdicts(daily, rain):
     return said
 
 
+def alerts(said):
+    """How many of the counted verdicts were an alert, by verdict. said counts "VERDICT:cause" names, as main() does."""
+    return {v: sum(n for name, n in said.items() if name.split(":")[0] == v) for v in ALERTS}
+
+
 def main():
     events, said = [], Counter()
     print(f"{'system':<26}{'days':>6}{'runs at':>9}{'scatter':>9}{'washes':>8}{'came back':>11}{'median gain':>13}")
@@ -140,6 +152,11 @@ def main():
     print(f"\nMonth-end verdicts over {total} system-months, one roof at a time (no neighbours, no PM2.5):")
     for name, count in said.most_common():
         print(f"  {name:<16}{count:>5}  {count / total:.0%}")
+    alerting = alerts(said)
+    print(f"\nAlerts per roof per month: {sum(alerting.values()) / total:.2f} ("
+          + ", ".join(f"{v} {n / total:.2f}" for v, n in alerting.items())
+          + f"): {sum(alerting.values())} of those {total} month-end verdicts were CLEAN or INSPECT.")
+    print("These are alerts, not false alerts: no roof here is labelled, so nobody can say which of them were wrong.")
 
 
 if __name__ == "__main__":
