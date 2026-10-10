@@ -83,9 +83,21 @@ directly on the sky except large headings: everything small is on a surface. Not
 reduced motion. The graphite tokens above are the fallback when no sky is set.
 
 ## Type
-One family, **Anek Devanagari** (SIL OFL; served from the app's own `public/fonts/`, not from Google Fonts): it covers Hindi and English and has a width axis.
-Headlines are heavy and wide (800, 112%), the home's name is widest (125%), small labels slightly narrow
-(92%), body regular. Numbers are tabular. Sentence case everywhere; no all-caps labels.
+One family, **Anek Devanagari** (SIL OFL; served from the app's own `public/fonts/`, not from Google Fonts): it covers Hindi and English.
+Normal width throughout. Size and a light or regular weight carry the hierarchy; 600 is the heaviest anything
+gets: the reading figure is 300 at up to 6rem, page headings 1.75rem/600, section titles 1.0625rem/600, body
+1rem/400, labels and captions 0.8125rem/500. Numbers are tabular. Sentence case everywhere; no all-caps labels.
+**Unbounded** (SIL OFL, Latin only) is used for the "Dhool" wordmark in the top bar and nowhere else.
+
+## Surfaces and buttons (10 Oct 2026)
+Three levels and no more. **Sky:** no surface; the reading, the scene and the weather row sit straight on it.
+**Sheet** (`.card`): tinted, blurred glass with a 28px radius and no outline or lit edge; hairlines only
+between rows inside it. **Well:** the darker inset of an input or a switch, 14px radius.
+Buttons in falling weight: one solar-yellow primary action on a screen, a quiet filled secondary, a link.
+Nothing is outlined. A **row** (`.row-link`, `details.more`) is a line with an arrow at its end that goes
+somewhere or opens something; a **switch** (`.switch`) shows one of a few views of a sheet.
+One loud thing per screen: on Roof it is the reading. Yellow is kept for the primary action, the current in
+the array and the history bars.
 
 ## Voice
 - Say what to do, not the system's label: "Call your vendor", "Wash the panels", "Wait for the rain",
@@ -101,7 +113,7 @@ bar, each with an icon and a word:
 
 | Tab | What it holds |
 |---|---|
-| Roof | Home name and "running at N% of normal"; the roof model; a strip of four readings (today's weather, next rain, units possible today, date of the last reading); the verdict card (what to do, a glowing meter, money lost, how sure, the reason, the action, and at its foot a quiet "Was this advice useful?" with a thumb up and a thumb down); two tiles leading to History (with the units made this month) and Why |
+| Roof | The top bar (the wordmark, the home's name); **the reading** in the sky: the percentage of this roof's normal, large and light, a thin meter in the verdict's colour, what to do, money lost, how sure; the roof model; four readings in a row on the sky (today's weather, next rain, units possible today, date of the last reading); one sheet with the reason, the action, and rows that open the vendor-reply box and the wash or visit report; rows to History and Why |
 | Roof, on "Call your vendor" | Paste the vendor's WhatsApp reply: Dhool sorts it into four kinds (coming, wants something first, won't help, no clear answer), shows them as four buttons with its pick selected, and says the next step. The homeowner can change the pick; if the reader is unavailable the same buttons work by hand |
 | History | What the roof made in each of the last six months (fewer for a newer home): a bar and the units for each month, the total above, and a plain note under a month with no readings, with days missing, or still running. A month opens, on a tap, to its weeks by date (1–7, 8–14, 15–21, 22–28, 29 to the end), each with its units, and a week to its days; a day with no reading says so, and nothing after the last reading is listed. Native `<details>`, so the keyboard and a screen reader get it too; a verdict stored without the days shows the months alone. Below it, the last 20 washes and vendor visits, newest first, each with whether it worked where Dhool measured it |
 | Why | The reason, should-have-made against made, money lost, the chart (90 days, or from three weeks before a fault) |
