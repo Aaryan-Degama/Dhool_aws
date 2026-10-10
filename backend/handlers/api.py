@@ -37,6 +37,9 @@ REPLY_LABELS = ("visit_scheduled", "asking_details", "refused", "unclear")
 MAX_REPLY_CHARS = 1000
 
 JOIN_TRIES, JOIN_LOCK_S = 5, 3600  # wrong invite codes one person may try, and how long the count is kept
+MAX_HOUSES, MAX_MEMBERS = 5, 10    # homes one person may be in, and people in one home
+TOO_MANY_HOUSES = f"You can be in up to {MAX_HOUSES} homes. Leave or delete one first."
+HOUSE_FULL = f"This home already has {MAX_MEMBERS} people. Ask its owner to remove someone first."
 SETTINGS = {"wash_cost_rs": (0, 5000), "tariff_rs": (1, 30)}
 # The server posts to a subscription's endpoint, so it must be a browser push service and nothing else.
 PUSH_ENDPOINT = re.compile(r"https://(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)+(?:push\.services\.mozilla\.com"
@@ -118,10 +121,21 @@ def _house_keys(house_id, prefix=None):
         more = {"ExclusiveStartKey": page["LastEvaluatedKey"]}
 
 
+def _count(pk, prefix):
+    """How many items pk has under prefix.
+    ponytail: counted, then written, so two requests at the same instant can end one over a quota. Keep a
+    counter on the item and add to it in the same transaction if the limits ever have to be exact."""
+    return table().query(KeyConditionExpression=Key("pk").eq(pk) & Key("sk").begins_with(prefix), Select="COUNT")["Count"]
+
+
 def me(sub, event):
     items = table().query(KeyConditionExpression=Key("pk").eq(f"USER#{sub}"))["Items"]
     return 200, {"houses": [{"house_id": i["sk"].split("#", 1)[1], "name": i["name"], "role": i["role"]}
                             for i in items]}
+
+
+def _new_house_id():
+    return uuid.uuid4().hex[:12]
 
 
 def create_house(sub, event):
@@ -130,20 +144,32 @@ def create_house(sub, event):
     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 60:
         raise HttpError(400, "name must be 1 to 60 characters")
     name = name.strip()
-    house_id = uuid.uuid4().hex[:12]
-    with table().batch_writer() as batch:
-        batch.put_item(Item={
-            "pk": f"HOUSE#{house_id}", "sk": "META", "name": name,
-            "kw": _number(data, "kw", Decimal("0.1"), 100),
-            "lat": round(_number(data, "lat", -90, 90), 2),  # about a kilometre: enough for weather, not an address
-            "lon": round(_number(data, "lon", -180, 180), 2),
-            "tilt": _number(data, "tilt", 0, 90, config.DEFAULT_TILT),
-            "azimuth": _number(data, "azimuth", 0, 360, config.DEFAULT_AZIMUTH),
-        })
-        batch.put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "owner",
-                             "joined_at": int(time.time())})
-        batch.put_item(Item={"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "owner", "name": name})
-        batch.put_item(Item={"pk": "HOUSES", "sk": house_id})  # the list the nightly run walks
+    meta = {
+        "sk": "META", "name": name,
+        "kw": _number(data, "kw", Decimal("0.1"), 100),
+        "lat": round(_number(data, "lat", -90, 90), 2),  # about a kilometre: enough for weather, not an address
+        "lon": round(_number(data, "lon", -180, 180), 2),
+        "tilt": _number(data, "tilt", 0, 90, config.DEFAULT_TILT),
+        "azimuth": _number(data, "azimuth", 0, 360, config.DEFAULT_AZIMUTH),
+    }
+    if _count(f"USER#{sub}", "HOUSE#") >= MAX_HOUSES:
+        raise HttpError(409, TOO_MANY_HOUSES)
+    for last_try in (False, False, True):  # a fresh id if this one is taken
+        house_id = _new_house_id()
+        items = [
+            {"pk": f"HOUSE#{house_id}", **meta},
+            {"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "owner", "joined_at": int(time.time())},
+            {"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "owner", "name": name},
+            {"pk": "HOUSES", "sk": house_id},  # the list the nightly run walks
+        ]
+        try:  # all four or none, and never over a home that is already there
+            table().meta.client.transact_write_items(TransactItems=[
+                {"Put": {"TableName": table().name, "Item": item, "ConditionExpression": "attribute_not_exists(pk)"}}
+                for item in items])
+            break
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "TransactionCanceledException" or last_try:
+                raise
     return 201, {"house_id": house_id}
 
 
@@ -199,6 +225,11 @@ def join(sub, event):
                             ExpressionAttributeValues={":one": 1, ":exp": now + JOIN_LOCK_S})
         raise HttpError(404, "Invite code not found or expired")
     house_id = invite["house_id"]
+    if "Item" not in table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}"}):  # someone new
+        if _count(f"USER#{sub}", "HOUSE#") >= MAX_HOUSES:
+            raise HttpError(409, TOO_MANY_HOUSES)
+        if _count(f"HOUSE#{house_id}", "MEMBER#") >= MAX_MEMBERS:
+            raise HttpError(409, HOUSE_FULL)
     try:
         # Never overwrite an existing membership: an owner using their own code stays owner.
         table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "member", "joined_at": now},

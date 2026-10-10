@@ -294,6 +294,8 @@ export const HI = {
   "Please sign in again": "कृपया फिर साइन इन कीजिए",
   "Something went wrong. Try again.": "कुछ गड़बड़ हो गई। फिर कोशिश कीजिए।",
   "Something went wrong": "कुछ गड़बड़ हो गई",
+  "You can be in up to 5 homes. Leave or delete one first.": "आप ज़्यादा से ज़्यादा 5 घरों में हो सकते हैं। पहले कोई एक छोड़िए या मिटाइए।",
+  "This home already has 10 people. Ask its owner to remove someone first.": "इस घर में पहले से 10 लोग हैं। घर के मालिक से कहिए कि पहले किसी को हटाएँ।",
   "Sign-in failed": "साइन इन नहीं हो पाया",
   "Incorrect username or password.": "ईमेल या पासवर्ड ग़लत है।",
   "Not allowed": "इसकी अनुमति नहीं है",
@@ -317,4 +319,6 @@ export const ARRIVES = [
   "That API key did not work. Copy it again from your inverter app.", "No connection. Check your internet and try again.",
   "Too many wrong codes. Try again in an hour.", "The owner cannot leave. Delete the home instead.",
   "This browser's notifications are not supported.",
+  "You can be in up to 5 homes. Leave or delete one first.",
+  "This home already has 10 people. Ask its owner to remove someone first.",
 ];

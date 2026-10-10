@@ -1,6 +1,7 @@
 """API handler against an in-memory DynamoDB, with events shaped like API Gateway's (HTTP API v2 + JWT authorizer)."""
 import datetime
 import json
+import pathlib
 import time
 
 import boto3
@@ -325,6 +326,40 @@ def test_the_sixth_wrong_code_locks_joining_for_an_hour(house, table):
     table.update_item(Key={"pk": f"JOINFAIL#{MOTHER}", "sk": "META"}, UpdateExpression="SET expiresAt = :t",
                       ExpressionAttributeValues={":t": int(time.time()) - 1})
     assert join(MOTHER, house)[0] == 200
+
+
+def test_a_person_can_be_in_five_homes_and_no_more(house):
+    for n in range(api.MAX_HOUSES - 1):
+        assert call(MOTHER, "POST /houses", {**HOUSE, "name": f"Home {n}"})[0] == 201
+    assert join(MOTHER, house)[0] == 200  # the fifth, by a family code
+    assert call(MOTHER, "POST /houses", HOUSE) == (409, {"error": api.TOO_MANY_HOUSES})
+    other = call(STRANGER, "POST /houses", HOUSE)[1]["house_id"]
+    code = call(STRANGER, "POST /houses/{houseId}/invites", house_id=other)[1]["code"]
+    assert call(MOTHER, "POST /join", {"code": code}) == (409, {"error": api.TOO_MANY_HOUSES})
+    assert len(call(MOTHER, "GET /me")[1]["houses"]) == api.MAX_HOUSES
+
+
+def test_a_home_holds_ten_people_and_no_more(house):
+    for n in range(api.MAX_MEMBERS - 1):
+        assert join(f"sub-cousin-{n}", house)[0] == 200
+    assert join(STRANGER, house) == (409, {"error": api.HOUSE_FULL})
+    assert call(STRANGER, "GET /houses/{houseId}", house_id=house)[0] == 403
+    assert join("sub-cousin-0", house)[0] == 200  # someone already in is not counted against it
+    assert len(call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["members"]) == api.MAX_MEMBERS
+
+
+def test_the_quota_lines_have_their_hindi():
+    hindi = (pathlib.Path(__file__).parents[2] / "web/src/hi.js").read_text()
+    assert f'"{api.TOO_MANY_HOUSES}"' in hindi and f'"{api.HOUSE_FULL}"' in hindi
+
+
+def test_a_new_home_never_overwrites_one_whose_id_it_drew(house, table, monkeypatch):
+    drawn = iter([house, "b" * 12])  # the first draw is the id of the home that is already there
+    monkeypatch.setattr(api, "_new_house_id", lambda: next(drawn))
+    assert call(MOTHER, "POST /houses", {**HOUSE, "name": "Verma house"}) == (201, {"house_id": "b" * 12})
+    assert call(FATHER, "GET /houses/{houseId}", house_id=house)[1]["name"] == "Sharma house"
+    assert call(MOTHER, "GET /houses/{houseId}", house_id=house)[0] == 403
+    assert [h["name"] for h in call(MOTHER, "GET /me")[1]["houses"]] == ["Verma house"]
 
 
 def test_the_location_is_kept_to_two_decimals(table, monkeypatch):
