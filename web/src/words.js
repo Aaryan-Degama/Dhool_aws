@@ -2,6 +2,7 @@
 import { t } from "./i18n.js";
 
 const HEADLINE = {
+  "INSPECT:outage": t("Your solar has stopped"),
   "INSPECT:fault": t("Call your vendor"),
   "INSPECT:trips": t("Call your vendor"),
   "INSPECT:not_dust": t("Call your vendor"),

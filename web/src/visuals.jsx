@@ -85,6 +85,7 @@ const LABEL = {
   haze: () => t("Rooftop solar array under hazy air"),
   ok: () => t("Rooftop solar array, fully lit"),
 };
+LABEL.outage = LABEL.fault;
 
 /** The roof as a model: a dead string goes dark, dust lies on the glass, haze veils it. Drag to turn it. */
 export function PanelModel({ verdict }) {
@@ -106,7 +107,7 @@ export function PanelModel({ verdict }) {
     };
     frame.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame.current);
-  }, []);
+  }, [still]);
 
   const down = (e) => {
     cancelAnimationFrame(frame.current);
@@ -123,7 +124,8 @@ export function PanelModel({ verdict }) {
   const xy = (p) => at(p).map((n) => n.toFixed(1)).join(",");
   const poly = (list) => list.map(xy).join(" ");
 
-  const deadCols = cause === "fault" ? Math.max(1, Math.min(COLS - 1, Math.round(((evidence.drop_pct ?? loss) / 100) * COLS))) : 0;
+  const deadCols = cause === "outage" ? COLS  // nothing is being made: the whole array is dark
+    : cause === "fault" ?Math.max(1, Math.min(COLS - 1, Math.round(((evidence.drop_pct ?? loss) / 100) * COLS))) : 0;
   const ghost = cause === "no_data" || cause === "unclear";
   const dust = cause === "dust" ? Math.min(0.85, 0.3 + loss / 28) : 0;
   const modules = Array.from({ length: COLS * ROWS }, (_, i) => {
@@ -296,6 +298,7 @@ export const Icon = ({ name, label }) => (
 );
 
 export const day = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(LOCALE, { day: "numeric", month: "short" });
+export const when = (ms) => new Date(ms).toLocaleString(LOCALE, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 export const weekday = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(LOCALE, { weekday: "short" });
 /** sun, cloud or rain for one forecast day, judged against the best day of that week. */
 export const skyOf = (d, week) => (d.rain_mm >= 1 ? "rain" : d.possible_kwh < 0.7 * Math.max(...week.map((w) => w.possible_kwh)) ? "cloud" : "sun");

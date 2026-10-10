@@ -1,32 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { api, confirmSignUp, signedIn, signIn, signOut, signUp } from "./api.js";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Alerts, Auth, DeleteAccount, Family, Homes, Setup, stopPush } from "./account.jsx";
+import { api, signedIn, signOut } from "./api.js";
 import { CheckCard, ReportAction, VendorReply } from "./check.jsx";
-import { API_URL, TARIFF_NOTE } from "./config.js";
+import { TARIFF_RS } from "./config.js";
 import { FIXTURES } from "./fixtures.js";
+import { ErrorLine, useAction } from "./form.jsx";
 import { lang, setLang, t } from "./i18n.js";
-import { Log, WashCost } from "./plan.jsx";
+import { Costs, Log } from "./plan.jsx";
+import { AddData } from "./readings.jsx";
 import { setSky, skyOver } from "./sky.js";
+import { daysSince, keep, kept, STALE_DAYS } from "./store.js";
 import { headline } from "./words.js";
-import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, WhyChart } from "./visuals.jsx";
+import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, when, WhyChart } from "./visuals.jsx";
 
 const SURE = { high: t("Dhool is sure about this."), medium: t("Dhool is fairly sure about this."), low: t("Dhool is not sure yet.") };
 const SURE_SHORT = { high: t("Dhool is sure"), medium: t("Fairly sure"), low: t("Not sure yet") };
 
-function useAction() {
-  const [state, setState] = useState({ busy: false, error: "" });
-  const run = async (fn) => {
-    setState({ busy: true, error: "" });
-    try {
-      await fn();
-      setState({ busy: false, error: "" });
-    } catch (e) {
-      setState({ busy: false, error: e.message });
-    }
-  };
-  return [state, run];
-}
-
-const ErrorLine = ({ error }) => (error ? <p className="error" role="alert">{t(error)}</p> : null);
 /** The reason that goes with a verdict. The server sends both languages; verdicts stored before it did have English only. */
 const reasonOf = (v) => (lang === "hi" && v.reason_hi) || v.reason;
 
@@ -37,134 +26,6 @@ function Language() {
       <button type="button" lang="en" aria-pressed={lang === "en"} onClick={() => setLang("en")}>English</button>
       <button type="button" lang="hi" aria-pressed={lang === "hi"} onClick={() => setLang("hi")}>हिंदी</button>
     </div>
-  );
-}
-
-function Field({ label, hint, ...input }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input {...input} />
-      {hint && <small>{hint}</small>}
-    </label>
-  );
-}
-
-function Auth({ onDone }) {
-  const [mode, setMode] = useState("in"); // in | up | code
-  const [form, setForm] = useState({ email: "", password: "", code: "" });
-  const [state, run] = useAction();
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-
-  const submit = (e) => {
-    e.preventDefault();
-    run(async () => {
-      if (mode === "up") {
-        await signUp(form.email, form.password);
-        return setMode("code");
-      }
-      if (mode === "code") await confirmSignUp(form.email, form.code);
-      await signIn(form.email, form.password);
-      onDone();
-    });
-  };
-
-  return (
-    <main className="page auth">
-      <p className="brand">Dhool</p>
-      <div className="hero"><PanelModel verdict={{ cause: "ok" }} /></div>
-      <h1>{t("Is your solar actually working?")}</h1>
-      <p className="lede">
-        {t("Your inverter app shows a number. Dhool tells you what your roof should have made, and what to do when it falls short.")}
-      </p>
-      <form onSubmit={submit} className="card">
-        {mode === "code" ? (
-          <Field label={t("Code from your email")} inputMode="numeric" autoComplete="one-time-code" required
-                 value={form.code} onChange={set("code")} hint={t("Sent to {email}", { email: form.email })} />
-        ) : (
-          <>
-            <Field label={t("Email")} type="email" autoComplete="email" required value={form.email} onChange={set("email")} />
-            <Field label={t("Password")} type="password" required minLength={8} value={form.password} onChange={set("password")}
-                   autoComplete={mode === "up" ? "new-password" : "current-password"}
-                   hint={mode === "up" ? t("At least 8 characters, with a capital letter, a number and a symbol") : undefined} />
-          </>
-        )}
-        <ErrorLine error={state.error} />
-        <button className="primary" disabled={state.busy}>
-          {state.busy ? t("One moment…") : mode === "in" ? t("Sign in") : mode === "up" ? t("Create account") : t("Confirm and sign in")}
-        </button>
-        {mode !== "code" && (
-          <button type="button" className="link" onClick={() => setMode(mode === "in" ? "up" : "in")}>
-            {mode === "in" ? t("New here? Create an account") : t("Already have an account? Sign in")}
-          </button>
-        )}
-      </form>
-      {/* Setup, where the language is chosen, comes after signing in: offer the other one here too. */}
-      {lang === "hi"
-        ? <button className="link" lang="en" onClick={() => setLang("en")}>English</button>
-        : <button className="link" lang="hi" onClick={() => setLang("hi")}>हिंदी</button>}
-    </main>
-  );
-}
-
-function Setup({ onDone }) {
-  const [form, setForm] = useState({ name: "", kw: "3", lat: "", lon: "", code: "" });
-  const [state, run] = useAction();
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-
-  const [locationHelp, setLocationHelp] = useState(false);
-  const locate = () =>
-    navigator.geolocation.getCurrentPosition(
-      (p) => setForm((f) => ({ ...f, lat: p.coords.latitude.toFixed(4), lon: p.coords.longitude.toFixed(4) })),
-      () => setLocationHelp(true),
-    );
-
-  const create = (e) => {
-    e.preventDefault();
-    run(async () => {
-      await api("/houses", { name: form.name, kw: Number(form.kw), lat: Number(form.lat), lon: Number(form.lon) });
-      onDone();
-    });
-  };
-  const join = (e) => {
-    e.preventDefault();
-    run(async () => {
-      await api("/join", { code: form.code });
-      onDone();
-    });
-  };
-
-  return (
-    <main className="page">
-      <p className="brand">Dhool</p>
-      <h1>{t("Add your home")}</h1>
-      <p className="lede">{t("Dhool needs to know where your roof is and how big the system is. That is all.")}</p>
-      <form onSubmit={create} className="card">
-        <Field label={t("Name for this home")} required maxLength={60} placeholder={t("Sharma house")} value={form.name} onChange={set("name")} />
-        <label className="field">
-          <span>{t("System size")}</span>
-          <select value={form.kw} onChange={set("kw")}>
-            {[1, 2, 3, 4, 5, 6, 8, 10].map((kw) => <option key={kw} value={kw}>{kw} kW</option>)}
-          </select>
-          <small>{t("It is on your installation papers and in your inverter app.")}</small>
-        </label>
-        <div className="row">
-          <Field label={t("Latitude")} inputMode="decimal" required value={form.lat} onChange={set("lat")} />
-          <Field label={t("Longitude")} inputMode="decimal" required value={form.lon} onChange={set("lon")} />
-        </div>
-        <button type="button" className="secondary" onClick={locate}>{t("Use my location")}</button>
-        {locationHelp && <p className="note">{t("Location is off for this site. Type the two numbers in, or allow location and try again.")}</p>}
-        <ErrorLine error={state.error} />
-        <button className="primary" disabled={state.busy}>{state.busy ? t("Saving…") : t("Add home")}</button>
-      </form>
-
-      <form onSubmit={join} className="card">
-        <h2>{t("Someone at home already uses Dhool?")}</h2>
-        <Field label={t("Family code")} required maxLength={6} autoCapitalize="characters" className="code-input"
-               value={form.code} onChange={set("code")} hint={t("Ask them for the six-letter code from their Dhool app.")} />
-        <button className="secondary" disabled={state.busy}>{t("Join their home")}</button>
-      </form>
-    </main>
   );
 }
 
@@ -186,6 +47,10 @@ const tone = (v) => `v-${v.verdict.toLowerCase()} c-${v.cause}`;
 /** One line of evidence for the "Why" tile, taken from what the analysis found. */
 function whyLine(v) {
   const e = v.evidence || {};
+  if (e.outage_days) {
+    return e.outage_days === 1 ? t("Nothing made on {date}", { date: day(e.since) })
+      : t("Nothing made for {n} days, since {date}", { n: e.outage_days, date: day(e.since) });
+  }
   if (e.step_date) return t("Fell {pct}% on {date}", { pct: Math.round(e.drop_pct), date: day(e.step_date) });
   if (e.dip_days) return t("{n} sharp dips this month", { n: e.dip_days.length });
   if (e.pm25) return t("Air at PM2.5 {pm}", { pm: e.pm25 });
@@ -193,8 +58,28 @@ function whyLine(v) {
   return v.cause === "no_data" ? t("Not enough days yet") : t("The last 90 days");
 }
 
-/** The first screen: the roof as a model, the weather around it, and what to do. */
-export function RoofTab({ house, verdict: v, go, onAction }) {
+/**
+ * Readings have stopped: the verdict under this card is as old as the last one. Worked out here from the
+ * date, not by the nightly run, so it is right at any hour.
+ */
+function StaleCard({ house, asOf, today, go }) {
+  const n = daysSince(asOf, today);
+  if (!(n >= STALE_DAYS)) return null;
+  return (
+    <section className="card check stack">
+      <h2>{t("No new reading for {n} days", { n })}</h2>
+      <p className="note">
+        {t("The last reading Dhool has is from {date}. What you see below is from that day.", { date: day(asOf) })}{" "}
+        {house.linked ? t("Your inverter may be offline. Check that it is switched on and that its Wi-Fi stick is connected.")
+          : t("Add a new reading to bring this up to date.")}
+      </p>
+      {!house.linked && <button className="secondary" onClick={() => go("setup")}>{t("Add a reading")}</button>}
+    </section>
+  );
+}
+
+/** The first screen: the roof as a model, the weather around it, and what to do. `today` is given only by the preview. */
+export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
   const scene = useRef(null);
   // The scene stays where it first appears while everything after it slides over, like a weather app's
   // backdrop. Sticky needs a "top": measure where the scene sits in the page when it is not stuck.
@@ -265,6 +150,7 @@ export function RoofTab({ house, verdict: v, go, onAction }) {
         </div>
       </dl>
 
+      <StaleCard house={house} asOf={v.as_of} today={date} go={go} />
       <section className="card verdict-card">
         <div className="vc-top">
           <Icon name="bolt" />
@@ -335,7 +221,7 @@ export function WhyTab({ verdict: v, house, log }) {
           <p className="loss">
             {t("About {amount} is being lost ({units} units a day, {tariff}).", {
               amount: <strong key="amount">{t("₹{rs} a week", { rs: v.loss_rs_per_week })}</strong>,
-              units: v.loss_kwh_per_day, tariff: t(TARIFF_NOTE) })}
+              units: v.loss_kwh_per_day, tariff: t("at ₹{rs} a unit", { rs: v.tariff_rs ?? TARIFF_RS }) })}
           </p>
         )}
       </div>
@@ -345,145 +231,6 @@ export function WhyTab({ verdict: v, house, log }) {
       </div>
       {(house || log) && <Log house={house} entries={log} />}
     </article>
-  );
-}
-
-/** While the model reads a screenshot: how long it has been, and the way to type the number instead. */
-function Reading({ since, onType }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, []);
-  const s = Math.max(0, Math.round((now - since) / 1000));
-  return (
-    <div className="reading">
-      <span className="spinner" aria-hidden="true" />
-      <p role="status">
-        {t("Reading your screenshot: about a minute. Stay on this page.")}
-        {s > 120 && <small>{t("Still reading. After a quiet spell the reader starts up first, which can take up to five minutes.")}</small>}
-      </p>
-      <span className="elapsed" aria-hidden="true">{Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</span>
-      <button className="link" onClick={onType}>{t("Type the number instead")}</button>
-    </div>
-  );
-}
-
-function AddData({ house, onSent }) {
-  const today = new Date().toLocaleDateString("en-CA");
-  const base = `/houses/${house.house_id}`;
-  const [key, setKey] = useState("");
-  const [reading, setReading] = useState({ date: today, kwh: "" });
-  const [shot, setShot] = useState(null); // null, { reading: true }, { rows } once read, or { failed: true }
-  const [state, run] = useAction();
-  const here = useRef(true);
-  useEffect(() => () => { here.current = false; }, []);
-  const send = (path, body) => (e) => { e?.preventDefault(); run(async () => { await api(base + path, body()); onSent(); }); };
-
-  const upload = (file) => run(async () => {
-    setShot({ reading: true, since: Date.now() });
-    try {
-      const slot = await api(`${base}/screenshots`, { content_type: file.type });
-      const form = new FormData();
-      Object.entries(slot.fields).forEach(([name, value]) => form.append(name, value));
-      form.append("file", file);
-      const sent = await fetch(slot.url, { method: "POST", body: form });
-      if (!sent.ok) throw new Error(t("The upload did not go through. Check the image is under 5 MB, then try again."));
-      const { shot_id } = await api(`${base}/screenshots/read`, { key: slot.key });
-      waitFor(shot_id); // not awaited: the other ways in stay usable while the model reads
-    } catch (e) {
-      setShot(null);
-      throw e;
-    }
-  });
-  // A model reads the picture in the background, which takes about a minute: ask until it has finished.
-  const waitFor = async (shotId) => {
-    for (let asked = 0; asked < 150 && here.current; asked++) {
-      await new Promise((done) => setTimeout(done, 4000));
-      const result = await api(`${base}/screenshots/${shotId}`).catch(() => null); // a dropped connection: ask again
-      if (result?.status === "read") return setShot({ rows: result.readings.map((r) => ({ date: r.date, kwh: String(r.kwh) })) });
-      if (result?.status === "unreadable") break;
-    }
-    setShot({ failed: true });
-  };
-  const typeInstead = () => {
-    const box = document.getElementById("typed-kwh");
-    box.scrollIntoView({ block: "center", behavior: "smooth" });
-    box.focus({ preventScroll: true });
-  };
-  const setRow = (date, kwh) => setShot({ rows: shot.rows.map((r) => (r.date === date ? { ...r, kwh } : r)) });
-  const kept = () => shot.rows.filter((r) => r.kwh.trim() !== "").map((r) => ({ date: r.date, kwh: Number(r.kwh) }));
-  const demoApp = <a href={`${API_URL}/mock/app`} target="_blank" rel="noreferrer" key="app">{t("demo inverter app")}</a>;
-
-  return (
-    <section className="add-data">
-      <h1>{t("How should Dhool get your readings?")}</h1>
-
-      <div className="card stack">
-        <h2>{t("Upload a screenshot")}</h2>
-        <p className="note">
-          {t("A screenshot of your inverter app showing the units made each day: today's figure, or a list of days. Dhool reads the numbers printed on it; it does not guess from charts. Try it with a screen saved from the {app}.", { app: demoApp })}
-        </p>
-        {shot?.rows ? (
-          <>
-            <p>
-              {t("Dhool read {days} from your screenshot. Check them against it. Correct any number that is wrong, or clear a box to leave that day out.",
-                 { days: shot.rows.length === 1 ? t("1 day") : t("{n} days", { n: shot.rows.length }) })}
-            </p>
-            <ul className="read-list" aria-label={t("Readings found in the screenshot")}>
-              {[...shot.rows].reverse().map((r) => (
-                <li key={r.date}>
-                  <label htmlFor={`read-${r.date}`}>{day(r.date)}</label>
-                  <input id={`read-${r.date}`} inputMode="decimal" value={r.kwh} onChange={(e) => setRow(r.date, e.target.value)} />
-                  <span>{t("units")}</span>
-                </li>
-              ))}
-            </ul>
-            <button className="primary" disabled={state.busy || !kept().length}
-                    onClick={send("/readings", () => ({ readings: kept(), source: "screenshot" }))}>
-              {t("These are right. Save them")}
-            </button>
-            <button className="link" onClick={() => setShot(null)}>{t("Not right? Choose another image")}</button>
-          </>
-        ) : shot?.reading ? (
-          <Reading since={shot.since} onType={typeInstead} />
-        ) : (
-          <label className="secondary file">
-            {t("Choose a screenshot")}
-            <input type="file" accept="image/png,image/jpeg" disabled={state.busy}
-                   onChange={(e) => { const file = e.target.files[0]; e.target.value = ""; if (file) upload(file); }} />
-          </label>
-        )}
-        {shot?.failed && (
-          <>
-            <p className="error" role="alert">
-              {t("Dhool could not read daily units from that image. Try a screen where the number is printed, or type it in.")}
-            </p>
-            <button className="link" onClick={typeInstead}>{t("Type the number instead")}</button>
-          </>
-        )}
-      </div>
-
-      <form className="card" onSubmit={send("/inverter", () => ({ api_key: key.trim() }))}>
-        <h2>{t("Connect your inverter")}</h2>
-        <p className="note">
-          {t("Dhool then reads every day on its own. Copy your API key from the {app}. It holds simulated homes, not a real inverter brand.", { app: demoApp })}
-        </p>
-        <Field label={t("API key from your inverter app")} required autoComplete="off" autoCapitalize="none" spellCheck={false}
-               value={key} onChange={(e) => setKey(e.target.value)} />
-        <button className="primary" disabled={state.busy}>{t("Connect")}</button>
-      </form>
-
-      <form className="card" onSubmit={send("/readings", () => ({ date: reading.date, kwh: Number(reading.kwh) }))}>
-        <h2>{t("Or type today's number")}</h2>
-        <div className="row">
-          <Field label={t("Date")} type="date" max={today} required value={reading.date} onChange={(e) => setReading({ ...reading, date: e.target.value })} />
-          <Field label={t("Units made (kWh)")} id="typed-kwh" inputMode="decimal" required value={reading.kwh} onChange={(e) => setReading({ ...reading, kwh: e.target.value })} />
-        </div>
-        <button className="secondary" disabled={state.busy}>{t("Save reading")}</button>
-      </form>
-      <ErrorLine error={state.error} />
-    </section>
   );
 }
 
@@ -528,58 +275,91 @@ function Nav({ tab, go }) {
   );
 }
 
-function Home({ house, onSignOut }) {
+
+// Each tab has its own address (#/roof, #/week, #/why, #/setup, and #/add for adding a home), so the phone's
+// back button moves between them instead of leaving the app.
+const onHash = (changed) => { window.addEventListener("hashchange", changed); return () => window.removeEventListener("hashchange", changed); };
+const useHash = () => useSyncExternalStore(onHash, () => location.hash);
+const go = (id) => { location.hash = `/${id}`; };
+
+function Home({ house: listed, homes, onSignOut }) {
+  const id = listed.house_id;
   const [verdict, setVerdict] = useState(undefined); // undefined = loading, null-verdict = none yet
+  const [storedAt, setStoredAt] = useState(0);       // when the verdict on screen was kept, if it is not fresh from the network
+  const [details, setDetails] = useState(null);      // what GET /houses/{id} adds to the list's entry: location, costs, linked, members
   const [waiting, setWaiting] = useState(false);
-  const [tab, setTab] = useState("roof");
   const [error, setError] = useState("");
-  const timer = useRef();
+  const round = useRef(0);
+  const hash = useHash();
+  const tab = TABS.find(([name]) => hash === `#/${name}`)?.[0] || "roof";
+  const house = { ...listed, ...details };
 
-  const load = () => api(`/houses/${house.house_id}/verdict`).then(setVerdict).catch((e) => setError(e.message));
-  useEffect(() => { load(); return () => clearInterval(timer.current); }, [house.house_id]);
+  // The last verdict and details stay on the phone, to show when there is no network.
+  const show = (v) => { keep(`verdict.${id}`, { v, at: Date.now() }); setStoredAt(0); setError(""); setVerdict(v); };
+  const load = () => api(`/houses/${id}/verdict`).then(show).catch((e) => {
+    const last = e.offline && kept(`verdict.${id}`);
+    if (!last) return setError(e.message);
+    setVerdict(last.v);
+    setStoredAt(last.at);
+  });
+  const loadDetails = () =>
+    api(`/houses/${id}`).then((h) => { keep(`home.${id}`, h); setDetails(h); }).catch(() => setDetails(kept(`home.${id}`)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once per home: App gives each home its own Home (key)
+  useEffect(() => { load(); loadDetails(); return () => { round.current = -1; }; }, [id]);
   // The sky behind the app is the weather over this roof. If it cannot be fetched, the clock's sky stays.
+  const { lat, lon } = house;
   useEffect(() => {
-    let every, gone = false;
-    api(`/houses/${house.house_id}`).then((h) => {
-      if (gone) return;
-      const look = () => skyOver(h.lat, h.lon).then(setSky).catch(() => {});
-      look();
-      every = setInterval(look, 10 * 60 * 1000);  // the weather moves on while the app stays open
-    }).catch(() => {});
+    if (lat == null) return;
+    let gone = false;
+    const look = () => skyOver(lat, lon).then((sky) => gone || setSky(sky)).catch(() => {});
+    look();
+    const every = setInterval(look, 10 * 60 * 1000);  // the weather moves on while the app stays open
     return () => { gone = true; clearInterval(every); };
-  }, [house.house_id]);
-  const go = (id) => { setTab(id); window.scrollTo(0, 0); };
+  }, [lat, lon]);
+  useEffect(() => { window.scrollTo(0, 0); }, [tab, waiting]);
 
-  // New data was sent: the analysis runs in the background, so check until a fresh verdict lands.
-  const awaitVerdict = () => {
-    const before = verdict?.computed_at;
-    let tries = 0;
+  // New data was sent: the analysis runs in the background, so ask until a fresh verdict lands. One question
+  // at a time, and none once this home has left the screen or a newer wait has begun.
+  const awaitVerdict = async () => {
+    const before = verdict?.computed_at, mine = ++round.current;
     go("roof");
     setWaiting(true);
-    clearInterval(timer.current);
-    timer.current = setInterval(async () => {
-      const next = await api(`/houses/${house.house_id}/verdict`).catch(() => null);
-      if ((next?.verdict && next.computed_at !== before) || ++tries > 20) {
-        clearInterval(timer.current);
-        setWaiting(false);
-        if (next) setVerdict(next);
-      }
-    }, 4000);
+    loadDetails();  // what was sent may have changed them (an inverter linked, a new tariff)
+    let next = null;
+    for (let tries = 0; tries <= 20; tries++) {
+      await new Promise((done) => setTimeout(done, 4000));
+      if (mine !== round.current) return;
+      next = await api(`/houses/${id}/verdict`).catch(() => null);
+      if (next?.verdict && next.computed_at !== before) break;
+    }
+    if (mine !== round.current) return;
+    setWaiting(false);
+    if (next) show(next);
   };
 
   const has = verdict?.verdict;
   const setup = (
     <>
       <AddData house={house} onSent={awaitVerdict} />
-      <WashCost house={house} onSent={awaitVerdict} />
+      <Costs key={details ? "saved" : "default"} house={house} onSent={awaitVerdict} />
+      <Alerts house={house} />
+      <Homes house={house} homes={homes} />
       <Invite house={house} />
+      <Family house={house} onChange={loadDetails} onGone={homes.reload} />
       <section className="card stack"><h2 lang="en">Language{" · "}<span lang="hi">भाषा</span></h2><Language /></section>
       <button className="secondary" onClick={onSignOut}>{t("Sign out")}</button>
+      <DeleteAccount houses={homes.all} onGone={onSignOut} />
     </>
   );
   return (
     <main className={`page ${has && !waiting ? "has-nav" : ""}`}>
       <ErrorLine error={error} />
+      {storedAt > 0 && !waiting && (
+        <section className="card stack" role="status">
+          <p className="note">{t("No connection. This is the last result Dhool has, from {when}.", { when: when(storedAt) })}</p>
+          <button className="link" onClick={load}>{t("Try again")}</button>
+        </section>
+      )}
       {waiting ? (
         <section className="working" aria-live="polite">
           <p className="brand">Dhool</p>
@@ -588,7 +368,8 @@ function Home({ house, onSignOut }) {
           <p className="lede">{t("Checking the sun, clouds and rain over your roof for each day. This takes about 20 seconds.")}</p>
         </section>
       ) : verdict === undefined ? (
-        <p className="lede" aria-live="polite">{t("Loading your home…")}</p>
+        error ? <button className="secondary" onClick={() => { setError(""); load(); }}>{t("Try again")}</button>
+          : <p className="lede" aria-live="polite">{t("Loading your home…")}</p>
       ) : !has ? (
         <>
           <header className="top"><div><p className="brand">Dhool</p><p className="home-name">{house.name}</p></div></header>
@@ -604,10 +385,16 @@ function Home({ house, onSignOut }) {
 }
 
 function Preview() {
-  const house = { name: t("Sharma house") };
+  const house = { house_id: "preview", name: t("Sharma house"), role: "owner", wash_cost_rs: 50, tariff_rs: 7,
+    members: [{ sub: "a", role: "owner", joined_at: null, me: true }, { sub: "b", role: "member", joined_at: 1791158400 }] };
+  const guest = { ...house, role: "member" };
+  const none = () => {};
+  const stale = { asOf: "2026-09-25", today: "2026-09-29", go: none };
   return (
     <main className="page preview">
-      {FIXTURES.map((v, i) => <RoofTab key={i} house={house} verdict={v} go={() => {}} onAction={() => {}} />)}
+      {FIXTURES.map((v, i) => <RoofTab key={i} house={house} verdict={v} today={v.as_of} go={none} onAction={none} />)}
+      <StaleCard house={{ linked: true }} {...stale} />
+      <StaleCard house={house} {...stale} />
       <WeekTab verdict={FIXTURES[0]} />
       <WhyTab verdict={FIXTURES[0]} log={[
         { date: "2026-09-25", kind: "said", verdict: "OK", cause: "ok", loss_pct: 1 },
@@ -616,25 +403,53 @@ function Preview() {
         { date: "2026-09-05", kind: "said", verdict: "WAIT", cause: "dust", wait_for: "dust_storm", loss_pct: 9 },
         { date: "2026-08-20", kind: "said", verdict: "OK", cause: "ok", loss_pct: 2 },
       ]} />
-      <Nav tab="roof" go={() => {}} />
+      {/* The Setup cards that came with the home switcher and deletion. Their buttons call the live API: look, don't press. */}
+      <article className="tab">
+        <Costs house={house} onSent={none} />
+        <Homes house={house} homes={{ all: [house, { house_id: "other", name: "Verma house" }], pick: none, add: none }} />
+        <Family house={house} onChange={none} onGone={none} />
+        <Family house={guest} onChange={none} onGone={none} />
+        <DeleteAccount houses={[house]} onGone={none} />
+        <DeleteAccount houses={[guest]} onGone={none} />
+      </article>
+      <Nav tab="roof" go={none} />
     </main>
   );
 }
 
 export default function App() {
-  const [authed, setAuthed] = useState(signedIn());
+  const [authed, setAuthed] = useState(signedIn);
   const [houses, setHouses] = useState(null);
+  const [homeId, setHomeId] = useState(() => kept("home"));  // the home last chosen on this phone
   const [error, setError] = useState("");
+  const hash = useHash();
 
-  const loadHouses = () =>
-    api("/me").then((me) => setHouses(me.houses)).catch((e) => (e.signedOut ? setAuthed(false) : setError(e.message)));
+  const loadHouses = () => api("/me").then((me) => { keep("me", me.houses); setHouses(me.houses); return me.houses; }).catch((e) => {
+    if (e.signedOut) return setAuthed(false);
+    const last = e.offline && kept("me");  // no network: the homes as last seen, and Home shows its last verdict
+    if (last) setHouses(last); else setError(e.message);
+  });
   useEffect(() => { if (authed) loadHouses(); }, [authed]);
+  const leave = () => { stopPush(); signOut(); setHouses(null); setAuthed(false); };
+  const pick = (id) => { keep("home", id); setHomeId(id); go("roof"); };
+  const added = async () => {  // show the home that was not in the list before
+    const fresh = (await loadHouses())?.find((h) => !houses.some((old) => old.house_id === h.house_id));
+    if (fresh) pick(fresh.house_id); else go("roof");
+  };
 
-  if (import.meta.env.DEV && location.hash === "#preview") return <Preview />;
+  if (import.meta.env.DEV && hash === "#preview") return <Preview />;
   if (!authed) return <Auth onDone={() => setAuthed(true)} />;
   if (error) return <main className="page"><ErrorLine error={error} /><button className="secondary" onClick={() => { setError(""); loadHouses(); }}>{t("Try again")}</button></main>;
   if (!houses) return <main className="page"><p className="lede" aria-live="polite">{t("Loading…")}</p></main>;
-  if (!houses.length) return <Setup onDone={loadHouses} />;
-  // ponytail: shows the first home only. Add a switcher when someone belongs to two.
-  return <Home house={houses[0]} onSignOut={() => { signOut(); setHouses(null); setAuthed(false); }} />;
+  if (!houses.length) {
+    return (
+      <Setup onDone={loadHouses}>
+        <button className="secondary" onClick={leave}>{t("Sign out")}</button>
+        <DeleteAccount houses={houses} onGone={leave} />
+      </Setup>
+    );
+  }
+  if (hash === "#/add") return <Setup onDone={added} onBack={() => go("setup")} />;
+  const house = houses.find((h) => h.house_id === homeId) || houses[0];  // the remembered one may be gone
+  return <Home key={house.house_id} house={house} homes={{ all: houses, pick, add: () => go("add"), reload: loadHouses }} onSignOut={leave} />;
 }

@@ -4,14 +4,15 @@ import { HI } from "./hi.js";
 
 const KEY = "dhool.lang";
 const asked = new URLSearchParams(location.search).get("lang");
+const chosen = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
 export const lang = ["hi", "en"].includes(asked) ? asked
-  : localStorage.getItem(KEY) || (navigator.language?.startsWith("hi") ? "hi" : "en");
+  : chosen() || (navigator.language?.startsWith("hi") ? "hi" : "en");
 export const LOCALE = lang === "hi" ? "hi-IN" : "en-IN";  // dates; the digits stay 0-9 in both
 document.documentElement.lang = lang;
 
 /** Saves the choice and loads the app again, so text fixed when a file loads (headlines, labels) follows it. */
 export function setLang(next) {
-  localStorage.setItem(KEY, next);
+  try { localStorage.setItem(KEY, next); } catch { /* storage is off: the choice cannot be kept */ }
   if (!asked) return location.reload();
   const url = new URL(location.href);  // the address forced a language: drop that, or it would win again
   url.searchParams.delete("lang");

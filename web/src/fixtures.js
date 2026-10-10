@@ -16,6 +16,10 @@ const week = (running) =>
 const base = { as_of: "2026-09-25", expected_kwh: 13.6, confidence: "high", evidence: {}, forecast: week(0.99) };
 
 export const FIXTURES = [
+  { ...base, verdict: "INSPECT", cause: "outage", actual_kwh: 9.6, loss_pct: 100, loss_kwh_per_day: 13.6, loss_rs_per_week: 666, tariff_rs: 7,
+    reason: "Your roof made almost nothing on the last 2 days, though the sun was good. Check that the inverter is switched on and shows no error. If it does not start again, call your vendor.",
+    reason_hi: "पिछले 2 दिन अच्छी धूप के बावजूद आपकी छत ने लगभग कोई बिजली नहीं बनाई। देखिए कि इन्वर्टर चालू है और उस पर कोई एरर नहीं दिख रहा। फिर भी चालू न हो, तो वेंडर को बुलाइए।",
+    evidence: { outage_days: 2, since: "2026-09-24" }, forecast: week(0), series: series((i) => (i >= 88 ? 0 : 1), [20]) },
   { ...base, verdict: "INSPECT", cause: "fault", actual_kwh: 9.1, loss_pct: 33.1, loss_kwh_per_day: 4.5, loss_rs_per_week: 220,
     reason: "Output fell about 33% around 16 Aug and has stayed down for 40 days. Dust builds slowly and haze lifts, so this looks like a hardware fault, such as a failed string or new shading.",
     reason_hi: "16 अगस्त के आसपास बिजली उत्पादन लगभग 33% गिरा और 40 दिन से कम ही है। धूल धीरे-धीरे जमती है और धुंध छँट जाती है, इसलिए यह हार्डवेयर की ख़राबी लगती है, जैसे कोई स्ट्रिंग बंद होना या पैनलों पर नई छाया पड़ना।",

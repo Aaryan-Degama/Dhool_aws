@@ -4,6 +4,7 @@
 // i18n.test.js fails when a line used in the app is missing here, or a {name} does not match.
 export const HI = {
   // Headlines (words.js)
+  "Your solar has stopped": "आपका सोलर बंद हो गया है",
   "Call your vendor": "वेंडर को बुलाइए",
   "Wash the panels": "पैनल धो दीजिए",
   "Wait for the rain": "बारिश का इंतज़ार कीजिए",
@@ -56,6 +57,7 @@ export const HI = {
   "Family code": "परिवार का कोड",
   "Ask them for the six-letter code from their Dhool app.": "उनसे उनके Dhool ऐप का छह अक्षरों वाला कोड माँगिए।",
   "Join their home": "उनके घर से जुड़िए",
+  "Back": "वापस",
 
   // The message to the vendor
   "Namaste,": "नमस्ते,",
@@ -66,6 +68,15 @@ export const HI = {
   "Thank you.": "धन्यवाद।",
 
   // Roof tab
+  "No new reading for {n} days": "{n} दिन से नई रीडिंग नहीं आई",
+  "The last reading Dhool has is from {date}. What you see below is from that day.": "Dhool के पास आख़िरी रीडिंग {date} की है। नीचे जो दिख रहा है वह उसी दिन का है।",
+  "Your inverter may be offline. Check that it is switched on and that its Wi-Fi stick is connected.":
+    "हो सकता है आपका इन्वर्टर ऑफ़लाइन हो। देखिए कि वह चालू है और उसकी Wi-Fi स्टिक जुड़ी हुई है।",
+  "Add a new reading to bring this up to date.": "इसे ताज़ा करने के लिए नई रीडिंग जोड़िए।",
+  "Add a reading": "रीडिंग जोड़िए",
+  "No connection. This is the last result Dhool has, from {when}.": "इंटरनेट नहीं है। यह Dhool के पास का आख़िरी नतीजा है, {when} का।",
+  "Nothing made on {date}": "{date} को बिजली नहीं बनी",
+  "Nothing made for {n} days, since {date}": "{date} से {n} दिन बिजली नहीं बनी",
   "Fell {pct}% on {date}": "{date} को {pct}% गिरा",
   "{n} sharp dips this month": "इस महीने {n} बार अचानक गिरावट",
   "Air at PM2.5 {pm}": "हवा में PM2.5 {pm}",
@@ -100,7 +111,7 @@ export const HI = {
   " “Should have made” is what this roof normally makes in that weather.": " “बनानी चाहिए थी” वह है जो यह छत ऐसे मौसम में आम तौर पर बनाती है।",
   "About {amount} is being lost ({units} units a day, {tariff}).": "हर हफ़्ते {amount} का नुक़सान हो रहा है (रोज़ {units} यूनिट, {tariff})।",
   "₹{rs} a week": "लगभग ₹{rs}",
-  "at ₹7 a unit": "₹7 प्रति यूनिट की दर से",
+  "at ₹{rs} a unit": "₹{rs} प्रति यूनिट की दर से",
   "{sure} Reading from {date}.": "{sure} रीडिंग {date} की है।",
   "Daily output from {from} to {to}. On the last day the roof should have made {expected} units and made {made}.":
     "{from} से {to} तक रोज़ का बिजली उत्पादन। आख़िरी दिन छत को {expected} यूनिट बनानी चाहिए थीं; बनीं: {made}।",
@@ -155,8 +166,38 @@ export const HI = {
   "Units made (kWh)": "बनी यूनिट (kWh)",
   "Save reading": "रीडिंग सेव कीजिए",
 
-  // Setup: wash cost, family, language, sign out
-  "What does one wash cost you?": "एक धुलाई पर आपका कितना ख़र्च आता है?",
+  // Setup: costs, alerts, homes, family, language, sign out, deleting
+  "Wash cost and electricity rate": "धुलाई का ख़र्च और बिजली की दर",
+  "Electricity rate (₹ per unit)": "बिजली की दर (₹ प्रति यूनिट)",
+  "It is on your electricity bill. Dhool uses it to work out the money lost.": "यह आपके बिजली के बिल पर लिखी होती है। Dhool इसी से नुक़सान का हिसाब लगाता है।",
+  "Alerts on this phone": "इस फ़ोन पर सूचनाएँ",
+  "Dhool will tell you when it is time to call the vendor, when it is time to wash, and when readings have stopped.":
+    "Dhool आपको बताएगा जब वेंडर को बुलाने का समय हो, जब धोने का समय हो, और जब रीडिंग आनी बंद हो जाएँ।",
+  "Alerts": "सूचनाएँ",
+  "On": "चालू",
+  "Off": "बंद",
+  "Notifications are blocked for this site. Allow them in your browser's settings, then try again.":
+    "इस साइट के लिए सूचनाएँ बंद हैं। ब्राउज़र की सेटिंग में अनुमति देकर फिर कोशिश कीजिए।",
+  "Your homes": "आपके घर",
+  "Show this home": "यह घर दिखाइए",
+  "Add another home": "एक और घर जोड़िए",
+  "Who is in this home": "इस घर में कौन-कौन है",
+  "You": "आप",
+  "Family member": "परिवार का सदस्य",
+  "Family member, joined {date}": "परिवार का सदस्य, {date} को जुड़े",
+  "Remove": "हटाइए",
+  "Remove this family member? They will no longer see this home.": "इस सदस्य को हटाएँ? फिर वे यह घर नहीं देख पाएँगे।",
+  "Delete this home": "यह घर मिटाइए",
+  "Delete {name}? Its readings and screenshots are deleted for everyone in the family. This cannot be undone.":
+    "{name} मिटाएँ? इसकी रीडिंग और स्क्रीनशॉट परिवार के सभी लोगों के लिए मिट जाएँगे। इसे वापस नहीं लाया जा सकता।",
+  "You joined this home with a family code.": "आप इस घर से परिवार के कोड से जुड़े हैं।",
+  "Leave this home": "यह घर छोड़िए",
+  "Leave {name}? You will no longer see its readings and advice.": "{name} छोड़ें? फिर आप इसकी रीडिंग और सलाह नहीं देख पाएँगे।",
+  "Delete my account": "मेरा खाता मिटाइए",
+  "You are the owner of {names}. Delete the home first, then your account.": "{names} के मालिक आप हैं। पहले घर मिटाइए, फिर अपना खाता।",
+  "This removes your sign-in for good. You leave every home you have joined; the homes and their readings stay for the others.":
+    "इससे आपका साइन इन हमेशा के लिए हट जाएगा। आप जिन घरों से जुड़े हैं वे सब छूट जाएँगे; घर और उनकी रीडिंग बाक़ी लोगों के लिए बनी रहेंगी।",
+  "Delete your Dhool account? This cannot be undone.": "अपना Dhool खाता मिटाएँ? इसे वापस नहीं लाया जा सकता।",
   "Cost of one wash (₹)": "एक धुलाई का ख़र्च (₹)",
   "What you pay a cleaner, or about ₹50 for water and your time if you wash them yourself. Dhool tells you to wash only when the dust is costing more than this before the next rain or dust storm.":
     "जो आप सफ़ाई वाले को देते हैं, या ख़ुद धोते हैं तो पानी और समय के लगभग ₹50। Dhool धोने को तभी कहता है जब अगली बारिश या आँधी से पहले धूल का नुक़सान इससे ज़्यादा हो।",
@@ -251,12 +292,18 @@ export const HI = {
   "Dhool could not read the reply just now. Pick what it says below.": "Dhool अभी जवाब नहीं पढ़ पाया। नीचे से चुनिए कि उसमें क्या लिखा है।",
   "The screenshot must be a PNG or JPEG image": "स्क्रीनशॉट PNG या JPEG तस्वीर होनी चाहिए",
   "That API key did not work. Copy it again from your inverter app.": "यह API key नहीं चली। अपने इन्वर्टर ऐप से दोबारा कॉपी कीजिए।",
+  "No connection. Check your internet and try again.": "इंटरनेट नहीं है। कनेक्शन देखकर फिर कोशिश कीजिए।",
+  "Too many wrong codes. Try again in an hour.": "बहुत बार ग़लत कोड डाला गया। एक घंटे बाद फिर कोशिश कीजिए।",
+  "The owner cannot leave. Delete the home instead.": "घर का मालिक घर नहीं छोड़ सकता। इसकी जगह घर मिटाइए।",
+  "This browser's notifications are not supported.": "इस ब्राउज़र की सूचनाएँ काम नहीं करतीं।",
 };
 
 // Lines above that the app never writes out itself (they arrive in a variable), so the test does not expect to find them in the source.
 export const ARRIVES = [
-  "at ₹7 a unit", "Please sign in again", "Something went wrong. Try again.", "Sign-in failed", "Incorrect username or password.",
+  "Please sign in again", "Something went wrong. Try again.", "Sign-in failed", "Incorrect username or password.",
   "Not allowed", "Invite code not found or expired", "date cannot be in the future",
   "Dhool could not read the reply just now. Pick what it says below.", "The screenshot must be a PNG or JPEG image",
-  "That API key did not work. Copy it again from your inverter app.",
+  "That API key did not work. Copy it again from your inverter app.", "No connection. Check your internet and try again.",
+  "Too many wrong codes. Try again in an hour.", "The owner cannot leave. Delete the home instead.",
+  "This browser's notifications are not supported.",
 ];
