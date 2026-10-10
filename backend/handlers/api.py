@@ -20,7 +20,7 @@ from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from dhool import authz, config, connectors
+from dhool import authz, config, connectors, keys
 from handlers import common
 from handlers.common import bucket, client, log, query_all, table
 
@@ -89,17 +89,17 @@ def _decide(sub, house_id, action, role):
 
 def authorize(sub, house_id, action):
     """Every access to house data goes through here. One JSON log line per decision."""
-    item = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}"}).get("Item")
+    item = table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub)}).get("Item")
     return _decide(sub, house_id, action, item["role"] if item else None)
 
 
 def _house_meta(house_id):
-    return table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"})["Item"]
+    return table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.META})["Item"]
 
 
 def _house_keys(house_id, prefix=None):
     """The sort key (and who wrote it) of every item of a house, or of those starting with prefix, page by page."""
-    condition = Key("pk").eq(f"HOUSE#{house_id}")
+    condition = Key("pk").eq(keys.house_pk(house_id))
     if prefix:
         condition &= Key("sk").begins_with(prefix)
     return query_all(table(), KeyConditionExpression=condition,
@@ -114,8 +114,8 @@ def _count(pk, prefix):
 
 
 def me(sub, event):
-    items = table().query(KeyConditionExpression=Key("pk").eq(f"USER#{sub}"))["Items"]
-    return 200, {"houses": [{"house_id": i["sk"].split("#", 1)[1], "name": i["name"], "role": i["role"]}
+    items = table().query(KeyConditionExpression=Key("pk").eq(keys.user_pk(sub)))["Items"]
+    return 200, {"houses": [{"house_id": keys.tail(i["sk"]), "name": i["name"], "role": i["role"]}
                             for i in items]}
 
 
@@ -130,22 +130,22 @@ def create_house(sub, event):
         raise HttpError(400, "name must be 1 to 60 characters")
     name = name.strip()
     meta = {
-        "sk": "META", "name": name,
+        "sk": keys.META, "name": name,
         "kw": _number(data, "kw", Decimal("0.1"), 100),
         "lat": round(_number(data, "lat", -90, 90), 2),  # about a kilometre: enough for weather, not an address
         "lon": round(_number(data, "lon", -180, 180), 2),
         "tilt": _number(data, "tilt", 0, 90, config.DEFAULT_TILT),
         "azimuth": _number(data, "azimuth", 0, 360, config.DEFAULT_AZIMUTH),
     }
-    if _count(f"USER#{sub}", "HOUSE#") >= MAX_HOUSES:
+    if _count(keys.user_pk(sub), keys.HOUSE) >= MAX_HOUSES:
         raise HttpError(409, TOO_MANY_HOUSES)
     for last_try in (False, False, True):  # a fresh id if this one is taken
         house_id = _new_house_id()
         items = [
-            {"pk": f"HOUSE#{house_id}", **meta},
-            {"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "owner", "joined_at": int(time.time())},
-            {"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "owner", "name": name},
-            {"pk": "HOUSES", "sk": house_id},  # the list the nightly run walks
+            {"pk": keys.house_pk(house_id), **meta},
+            {"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub), "role": "owner", "joined_at": int(time.time())},
+            {"pk": keys.user_pk(sub), "sk": keys.house_pk(house_id), "role": "owner", "name": name},
+            {"pk": keys.HOUSES, "sk": house_id},  # the list the nightly run walks
         ]
         try:  # all four or none, and never over a home that is already there
             table().meta.client.transact_write_items(TransactItems=[
@@ -163,8 +163,8 @@ def get_house(sub, event):
     # The member list is wanted anyway and holds the caller's own role: one read answers both. Nothing of
     # it leaves this function unless the decision below allows.
     members = list(query_all(
-        table(), KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("MEMBER#")))
-    _decide(sub, house_id, "read", next((m["role"] for m in members if m["sk"] == f"MEMBER#{sub}"), None))
+        table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.MEMBER)))
+    _decide(sub, house_id, "read", next((m["role"] for m in members if m["sk"] == keys.member_sk(sub)), None))
     meta = _house_meta(house_id)
     return 200, {
         "house_id": house_id,
@@ -172,8 +172,8 @@ def get_house(sub, event):
         "wash_cost_rs": meta.get("wash_cost_rs", config.WASH_COST_RS),
         "tariff_rs": meta.get("tariff_rs", config.TARIFF_RS),
         "linked": bool(meta.get("plant_id") and meta.get("inverter_key")),
-        "members": [{"sub": m["sk"].split("#", 1)[1], "role": m["role"], "joined_at": m.get("joined_at"),
-                     "me": m["sk"] == f"MEMBER#{sub}"} for m in members],
+        "members": [{"sub": keys.tail(m["sk"]), "role": m["role"], "joined_at": m.get("joined_at"),
+                     "me": m["sk"] == keys.member_sk(sub)} for m in members],
     }
 
 
@@ -183,9 +183,9 @@ def create_invite(sub, event):
     # ponytail: no collision retry; 31^6 codes. Add a conditional put if houses reach the tens of thousands.
     code = "".join(secrets.choice(INVITE_ALPHABET) for _ in range(6))
     expires_at = int(time.time()) + INVITE_TTL_S
-    table().put_item(Item={"pk": f"INVITE#{code}", "sk": "META", "house_id": house_id, "expiresAt": expires_at})
+    table().put_item(Item={"pk": keys.invite_pk(code), "sk": keys.META, "house_id": house_id, "expiresAt": expires_at})
     # The house keeps a note of its codes, so they can be cancelled when someone is removed.
-    table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"INVITE#{code}", "expiresAt": expires_at})
+    table().put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.invite_pk(code), "expiresAt": expires_at})
     return 201, {"code": code, "expires_at": expires_at}
 
 
@@ -196,36 +196,36 @@ def join(sub, event):
     # Six letters can be guessed, so each person gets a few wrong tries an hour. DynamoDB TTL deletes late,
     # so both expiries are checked here too.
     now = int(time.time())
-    fail_key = {"pk": f"JOINFAIL#{sub}", "sk": "META"}
+    fail_key = {"pk": keys.joinfail_pk(sub), "sk": keys.META}
     fails = table().get_item(Key=fail_key).get("Item")
     if fails and fails["expiresAt"] <= now:  # last hour's count, not yet removed
         table().delete_item(Key=fail_key)
     elif fails and fails["n"] >= JOIN_TRIES:
         log(authz="join_locked", sub=sub)
         raise HttpError(429, "Too many wrong codes. Try again in an hour.")
-    invite = table().get_item(Key={"pk": f"INVITE#{code.strip().upper()}", "sk": "META"}).get("Item")
+    invite = table().get_item(Key={"pk": keys.invite_pk(code.strip().upper()), "sk": keys.META}).get("Item")
     house = None
     if invite and invite["expiresAt"] >= now:  # the house may have been deleted since the code was made
-        house = table().get_item(Key={"pk": f"HOUSE#{invite['house_id']}", "sk": "META"}).get("Item")
+        house = table().get_item(Key={"pk": keys.house_pk(invite['house_id']), "sk": keys.META}).get("Item")
     if not house:
         table().update_item(Key=fail_key, UpdateExpression="ADD n :one SET expiresAt = if_not_exists(expiresAt, :exp)",
                             ExpressionAttributeValues={":one": 1, ":exp": now + JOIN_LOCK_S})
         raise HttpError(404, "Invite code not found or expired")
     house_id = invite["house_id"]
-    if "Item" not in table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}"}):  # someone new
-        if _count(f"USER#{sub}", "HOUSE#") >= MAX_HOUSES:
+    if "Item" not in table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub)}):  # someone new
+        if _count(keys.user_pk(sub), keys.HOUSE) >= MAX_HOUSES:
             raise HttpError(409, TOO_MANY_HOUSES)
-        if _count(f"HOUSE#{house_id}", "MEMBER#") >= MAX_MEMBERS:
+        if _count(keys.house_pk(house_id), keys.MEMBER) >= MAX_MEMBERS:
             raise HttpError(409, HOUSE_FULL)
     try:
         # Never overwrite an existing membership: an owner using their own code stays owner.
-        table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{sub}", "role": "member", "joined_at": now},
+        table().put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub), "role": "member", "joined_at": now},
                          ConditionExpression="attribute_not_exists(pk)")
     except ClientError as e:
         if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
             raise
     else:
-        table().put_item(Item={"pk": f"USER#{sub}", "sk": f"HOUSE#{house_id}", "role": "member", "name": house["name"]})
+        table().put_item(Item={"pk": keys.user_pk(sub), "sk": keys.house_pk(house_id), "role": "member", "name": house["name"]})
     log(authz="join", sub=sub, house=house_id)
     return 200, {"house_id": house_id}
 
@@ -236,16 +236,16 @@ def delete_house(sub, event):
     authorize(sub, house_id, "delete_house")
     bucket(os.environ["UPLOADS"]).objects.filter(Prefix=f"houses/{house_id}/").delete()
     # Members go last: if this stops half-way the owner is still the owner and can press delete again.
-    keys = sorted((i["sk"] for i in _house_keys(house_id)), key=lambda sk: sk.startswith("MEMBER#"))
+    theirs = sorted((i["sk"] for i in _house_keys(house_id)), key=lambda sk: sk.startswith(keys.MEMBER))
     with table().batch_writer() as batch:
-        for sk in keys:
-            if sk.startswith("MEMBER#"):
-                batch.delete_item(Key={"pk": f"USER#{sk.split('#', 1)[1]}", "sk": f"HOUSE#{house_id}"})
-            if sk.startswith("INVITE#"):
-                batch.delete_item(Key={"pk": sk, "sk": "META"})
-            batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": sk})
-        batch.delete_item(Key={"pk": "HOUSES", "sk": house_id})
-    log(deleted="house", house=house_id, items=len(keys))
+        for sk in theirs:
+            if sk.startswith(keys.MEMBER):
+                batch.delete_item(Key={"pk": keys.user_pk(keys.tail(sk)), "sk": keys.house_pk(house_id)})
+            if sk.startswith(keys.INVITE):
+                batch.delete_item(Key={"pk": sk, "sk": keys.META})
+            batch.delete_item(Key={"pk": keys.house_pk(house_id), "sk": sk})
+        batch.delete_item(Key={"pk": keys.HOUSES, "sk": house_id})
+    log(deleted="house", house=house_id, items=len(theirs))
     return 200, {"deleted": house_id}
 
 
@@ -256,17 +256,17 @@ def remove_member(sub, event):
     if member == sub and role == "owner":
         raise HttpError(400, "The owner cannot leave. Delete the home instead.")
     # Nobody to remove: say so, and leave the home's codes and alerts as they are.
-    if "Item" not in table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{member}"}):
+    if "Item" not in table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.member_sk(member)}):
         raise HttpError(404, "That person is not in this home")
     with table().batch_writer() as batch:
-        batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"MEMBER#{member}"})
-        batch.delete_item(Key={"pk": f"USER#{member}", "sk": f"HOUSE#{house_id}"})
-        for item in _house_keys(house_id, "PUSH#"):  # their phones stop getting this home's alerts
+        batch.delete_item(Key={"pk": keys.house_pk(house_id), "sk": keys.member_sk(member)})
+        batch.delete_item(Key={"pk": keys.user_pk(member), "sk": keys.house_pk(house_id)})
+        for item in _house_keys(house_id, keys.PUSH):  # their phones stop getting this home's alerts
             if item.get("by") == member:
-                batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": item["sk"]})
-        for item in _house_keys(house_id, "INVITE#"):  # or they could walk back in with a code they still hold
-            batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": item["sk"]})
-            batch.delete_item(Key={"pk": item["sk"], "sk": "META"})
+                batch.delete_item(Key={"pk": keys.house_pk(house_id), "sk": item["sk"]})
+        for item in _house_keys(house_id, keys.INVITE):  # or they could walk back in with a code they still hold
+            batch.delete_item(Key={"pk": keys.house_pk(house_id), "sk": item["sk"]})
+            batch.delete_item(Key={"pk": item["sk"], "sk": keys.META})
     log(removed="member", house=house_id, member=member)
     return 200, {"removed": member}
 
@@ -274,7 +274,7 @@ def remove_member(sub, event):
 def _push_key(house_id, endpoint):
     if not isinstance(endpoint, str) or len(endpoint) > MAX_ENDPOINT_CHARS or not PUSH_ENDPOINT.fullmatch(endpoint):
         raise HttpError(400, "This browser's notifications are not supported.")
-    return {"pk": f"HOUSE#{house_id}", "sk": f"PUSH#{hashlib.sha256(endpoint.encode()).hexdigest()}"}
+    return {"pk": keys.house_pk(house_id), "sk": keys.push_sk(hashlib.sha256(endpoint.encode()).hexdigest())}
 
 
 def subscribe_push(sub, event):
@@ -284,12 +284,12 @@ def subscribe_push(sub, event):
     data = _body(event)
     subscription = data.get("subscription") if isinstance(data.get("subscription"), dict) else {}
     key = _push_key(house_id, subscription.get("endpoint"))
-    keys = subscription.get("keys") if isinstance(subscription.get("keys"), dict) else {}
+    push_keys = subscription.get("keys") if isinstance(subscription.get("keys"), dict) else {}
     lang = data.get("lang", "en")
     if lang not in ("en", "hi") or not all(
-            isinstance(keys.get(k), str) and 1 <= len(keys[k]) <= MAX_PUSH_KEY_CHARS for k in ("p256dh", "auth")):
+            isinstance(push_keys.get(k), str) and 1 <= len(push_keys[k]) <= MAX_PUSH_KEY_CHARS for k in ("p256dh", "auth")):
         raise HttpError(400, "This browser's notifications are not supported.")
-    table().put_item(Item={**key, "endpoint": subscription["endpoint"], "p256dh": keys["p256dh"], "auth": keys["auth"],
+    table().put_item(Item={**key, "endpoint": subscription["endpoint"], "p256dh": push_keys["p256dh"], "auth": push_keys["auth"],
                            "lang": lang, "by": sub, "at": int(time.time())})
     return 201, {"subscribed": True}
 
@@ -301,17 +301,22 @@ def unsubscribe_push(sub, event):
     return 200, {"subscribed": False}
 
 
-def _reading(item, limit):
-    """One {"date", "kwh"} checked against the calendar and the size of the roof."""
-    if not isinstance(item, dict):
-        raise HttpError(400, "Each reading needs a date and kwh")
+def _date(data):
+    """The "date" of a request, a day that has already come where the homes are."""
     try:
-        date = datetime.date.fromisoformat(item.get("date", ""))
+        date = datetime.date.fromisoformat(data.get("date", ""))
     except (TypeError, ValueError):
         raise HttpError(400, "date must be YYYY-MM-DD")
     if date > datetime.datetime.now(ZoneInfo(config.TZ)).date():
         raise HttpError(400, "date cannot be in the future")
-    return date, _number(item, "kwh", 0, limit)
+    return date
+
+
+def _reading(item, limit):
+    """One {"date", "kwh"} checked against the calendar and the size of the roof."""
+    if not isinstance(item, dict):
+        raise HttpError(400, "Each reading needs a date and kwh")
+    return _date(item), _number(item, "kwh", 0, limit)
 
 
 def add_reading(sub, event):
@@ -329,7 +334,7 @@ def add_reading(sub, event):
     rows = [_reading(item, limit) for item in items]
     with table().batch_writer(overwrite_by_pkeys=["pk", "sk"]) as batch:
         for date, kwh in rows:
-            batch.put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"READING#{date}", "kwh": kwh,
+            batch.put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.reading_sk(date), "kwh": kwh,
                                  "source": source, "by": sub, "at": int(time.time())})
     _start_analysis(house_id)
     return 201, {"saved": len(rows)}
@@ -341,13 +346,8 @@ def record_action(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
     data = _body(event)
-    try:
-        date = datetime.date.fromisoformat(data.get("date", ""))
-    except (TypeError, ValueError):
-        raise HttpError(400, "date must be YYYY-MM-DD")
-    if date > datetime.datetime.now(ZoneInfo(config.TZ)).date():
-        raise HttpError(400, "date cannot be in the future")
-    key = {"pk": f"HOUSE#{house_id}", "sk": f"ACTION#{date}"}
+    date = _date(data)
+    key = {"pk": keys.house_pk(house_id), "sk": keys.action_sk(date)}
     if data.get("remove") is True:
         table().delete_item(Key=key)
     elif data.get("type") in ("wash", "visit"):
@@ -417,7 +417,7 @@ def read_screenshot(sub, event):
     if not match or match.group(1) != house_id:
         raise HttpError(400, "Upload the screenshot first")
     shot_id, now = match.group(2), int(time.time())
-    table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"SHOT#{shot_id}", "status": "reading", "key": key,
+    table().put_item(Item={"pk": keys.house_pk(house_id), "sk": keys.shot_sk(shot_id), "status": "reading", "key": key,
                            "by": sub, "at": now, "expiresAt": now + SHOT_TTL_S})
     _start_reading(house_id, shot_id, key)
     return 202, {"shot_id": shot_id, "status": "reading"}
@@ -427,7 +427,7 @@ def screenshot_result(sub, event):
     """What the reader found in a screenshot, for the homeowner to confirm or correct. Nothing is saved here."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
-    item = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": f"SHOT#{event['pathParameters']['shotId']}"}).get("Item")
+    item = table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.shot_sk(event['pathParameters']['shotId'])}).get("Item")
     if not item:
         raise HttpError(404, "No such screenshot")
     if item["status"] == "reading":  # still working, unless it has been far too long
@@ -469,7 +469,7 @@ def connect_inverter(sub, event):
     # ponytail: the brand's key sits in the house item, readable only by this API's role and never sent to
     # clients. Move it to Secrets Manager before connecting a real brand.
     table().update_item(
-        Key={"pk": f"HOUSE#{house_id}", "sk": "META"},
+        Key={"pk": keys.house_pk(house_id), "sk": keys.META},
         UpdateExpression="SET plant_id = :p, inverter_url = :url, inverter_key = :key, kw = :kw, lat = :lat, lon = :lon, tilt = :tilt, azimuth = :az",
         ExpressionAttributeValues={":p": plant_id, ":url": inverter_url, ":key": api_key, ":kw": Decimal(str(plant["kw"])),
                                    ":lat": round(Decimal(str(plant["lat"])), 2), ":lon": round(Decimal(str(plant["lon"])), 2),
@@ -487,7 +487,7 @@ def save_settings(sub, event):
     saved = {key: _number(data, key, low, high) for key, (low, high) in SETTINGS.items() if key in data}
     if not saved:
         raise HttpError(400, "Send wash_cost_rs or tariff_rs")
-    table().update_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"},
+    table().update_item(Key={"pk": keys.house_pk(house_id), "sk": keys.META},
                         UpdateExpression="SET " + ", ".join(f"{key} = :{key}" for key in saved),
                         ExpressionAttributeValues={f":{key}": value for key, value in saved.items()})
     _start_analysis(house_id)
@@ -500,19 +500,19 @@ def history(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     def items(prefix, **more):
-        return table().query(KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with(prefix), **more)["Items"]
+        return table().query(KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more)["Items"]
     log, last = [], None
-    for item in reversed(items("VERDICT#", ScanIndexForward=False, Limit=HISTORY_DAYS)):  # oldest of them first
+    for item in reversed(items(keys.VERDICT, ScanIndexForward=False, Limit=HISTORY_DAYS)):  # oldest of them first
         v = json.loads(item["json"])
         said = (v["verdict"], v["cause"], (v.get("evidence") or {}).get("wait_for"))
         if said != last:
-            log.append({"date": item["sk"].split("#", 1)[1], "kind": "said", "verdict": said[0], "cause": said[1],
+            log.append({"date": keys.tail(item["sk"]), "kind": "said", "verdict": said[0], "cause": said[1],
                         "wait_for": said[2], "loss_pct": v.get("loss_pct")})
         last = said
         check = v.get("check")
     latest = check if log else None  # the newest verdict carries the outcome of the newest wash or visit
-    for item in items("ACTION#"):
-        date = item["sk"].split("#", 1)[1]
+    for item in items(keys.ACTION):
+        date = keys.tail(item["sk"])
         log.append({"date": date, "kind": "did", "type": item["type"],
                     "status": latest["status"] if latest and latest["date"] == date else None})
     return 200, {"log": sorted(log, key=lambda e: (e["date"], e["kind"] == "did"), reverse=True)}
@@ -522,7 +522,7 @@ def get_verdict(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     items = table().query(
-        KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("VERDICT#"),
+        KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.VERDICT),
         ScanIndexForward=False, Limit=1)["Items"]
     if not items:
         return 200, {"verdict": None}
@@ -533,8 +533,8 @@ def list_readings(sub, event):
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     items = query_all(
-        table(), KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("READING#"))
-    return 200, {"readings": [{"date": i["sk"].split("#", 1)[1], "kwh": i["kwh"], "source": i["source"],
+        table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.READING))
+    return 200, {"readings": [{"date": keys.tail(i["sk"]), "kwh": i["kwh"], "source": i["source"],
                                "by": i["by"]} for i in items]}
 
 

@@ -12,6 +12,7 @@ import time
 
 from botocore.exceptions import ClientError
 
+from dhool import keys
 from handlers.common import client, log
 
 FRESH_S = 3 * 3600     # an answer this young is used without asking again
@@ -23,7 +24,7 @@ def cached(fetch):
     """fetch(url) -> the JSON it answers with. Returns the same, with the cache around it. The cache failing
     (a throttled table) never fails the fetch."""
     def get(url):
-        key = {"pk": {"S": f"WXCACHE#{hashlib.sha256(url.encode()).hexdigest()}"}, "sk": {"S": "META"}}
+        key = {"pk": {"S": keys.wxcache_pk(hashlib.sha256(url.encode()).hexdigest())}, "sk": {"S": keys.META}}
         now, item = int(time.time()), None
         try:
             item = client("dynamodb").get_item(TableName=os.environ["TABLE"], Key=key).get("Item")

@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
-from dhool import config, connectors, expected, notify
+from dhool import config, connectors, expected, keys, notify
 from dhool.analyse import analyse
 from dhool.expected import fetch_dust_storms, fetch_pm25, fetch_weather_with_forecast
 from handlers import common, weather_cache
@@ -62,14 +62,14 @@ def _notify(house_id, told, result):
     or "wait", so the same trouble coming back months later is news again."""
     days = (datetime.datetime.now(ZoneInfo(config.TZ)).date() - datetime.date.fromisoformat(result["as_of"])).days
     advice = {"verdict": result["verdict"], "cause": result.get("cause")}
-    alerting, meta = advice["verdict"] in ("INSPECT", "CLEAN"), {"pk": f"HOUSE#{house_id}", "sk": "META"}
+    alerting, meta = advice["verdict"] in ("INSPECT", "CLEAN"), {"pk": keys.house_pk(house_id), "sk": keys.META}
     if told and not alerting:
         table().update_item(Key=meta, UpdateExpression="REMOVE last_notified", ConditionExpression="attribute_exists(pk)")
     if not notify.message(told, result, days, "en") or not _vapid_key():
         return
     sent = 0
     for item in table().query(
-            KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("PUSH#"))["Items"]:
+            KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.PUSH))["Items"]:
         try:
             _webpush(item, notify.message(told, result, days, item.get("lang")), _vapid_key())
             sent += 1
@@ -85,7 +85,7 @@ def _notify(house_id, told, result):
 
 
 def run_house(house_id, nightly=False):
-    meta = table().get_item(Key={"pk": f"HOUSE#{house_id}", "sk": "META"}).get("Item")
+    meta = table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.META}).get("Item")
     if not meta:  # deleted between being asked for and running
         return None
     fleet = None
@@ -99,8 +99,8 @@ def run_house(house_id, nightly=False):
             fleet.pop(meta["plant_id"], None)
         else:  # screenshots and typed-in readings
             items = query_all(
-                table(), KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with("READING#"))
-            readings = {i["sk"].split("#", 1)[1]: float(i["kwh"]) for i in items}
+                table(), KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(keys.READING))
+            readings = {keys.tail(i["sk"]): float(i["kwh"]) for i in items}
         if not readings:
             return None
 
@@ -124,18 +124,18 @@ def run_house(house_id, nightly=False):
 
     def items(prefix, **more):
         return table().query(
-            KeyConditionExpression=Key("pk").eq(f"HOUSE#{house_id}") & Key("sk").begins_with(prefix), **more)["Items"]
+            KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more)["Items"]
     # What the homeowner told Dhool they did (washed the panels, had the vendor in), for the before-and-after check.
-    actions = [{"date": i["sk"].split("#", 1)[1], "type": i["type"]} for i in items("ACTION#")]
+    actions = [{"date": keys.tail(i["sk"]), "type": i["type"]} for i in items(keys.ACTION)]
     result = analyse(meta, readings, weather, pm25, fleet, actions, storms)
     try:
         # Only while the home still stands: a run takes many seconds, and a verdict written after its owner
         # deleted the home would be a piece of it left behind for 400 days.
         table().meta.client.transact_write_items(TransactItems=[
-            {"ConditionCheck": {"TableName": table().name, "Key": {"pk": f"HOUSE#{house_id}", "sk": "META"},
+            {"ConditionCheck": {"TableName": table().name, "Key": {"pk": keys.house_pk(house_id), "sk": keys.META},
                                 "ConditionExpression": "attribute_exists(pk)"}},
             {"Put": {"TableName": table().name, "Item": {
-                "pk": f"HOUSE#{house_id}", "sk": f"VERDICT#{result['as_of']}",
+                "pk": keys.house_pk(house_id), "sk": keys.verdict_sk(result['as_of']),
                 "json": json.dumps(result, allow_nan=False), "at": int(time.time()),
                 "expiresAt": int(time.time()) + VERDICT_TTL_S}}}])
     except ClientError as e:
@@ -169,7 +169,7 @@ def handler(event, context):
                         Payload=json.dumps({"cursor": more["ExclusiveStartKey"]}))
             log(analysis="nightly_continues", houses=started)
             return {"houses": started, "continues": True}
-        page = table().query(KeyConditionExpression=Key("pk").eq("HOUSES"), Limit=NIGHTLY_PAGE, **more)
+        page = table().query(KeyConditionExpression=Key("pk").eq(keys.HOUSES), Limit=NIGHTLY_PAGE, **more)
         for house in page["Items"]:
             runs.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
                         Payload=json.dumps({"house_id": house["sk"], "nightly": True}))
