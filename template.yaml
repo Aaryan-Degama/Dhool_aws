@@ -83,9 +83,12 @@ Resources:
         ThrottlingBurstLimit: 20
         ThrottlingRateLimit: 10
       RouteSettings:
-        'POST /join':  # invite codes are six letters: slow down guessing (the handler also counts misses per person)
-          ThrottlingBurstLimit: 5
-          ThrottlingRateLimit: 1
+        # This limit is shared by everyone joining anywhere, so at 1 a second one person with a script could
+        # keep every family out. What stops guessing a six-letter code is the handler's count of each
+        # person's wrong tries (five an hour); this only keeps a flood off the function.
+        'POST /join':
+          ThrottlingBurstLimit: 10
+          ThrottlingRateLimit: 5
         # The nightly run reads the demo inverter once per house.
         'GET /mock/v1/plants/{plantId}/daily': {ThrottlingBurstLimit: 100, ThrottlingRateLimit: 50}
         'GET /mock/fleet/daily': {ThrottlingBurstLimit: 100, ThrottlingRateLimit: 50}
