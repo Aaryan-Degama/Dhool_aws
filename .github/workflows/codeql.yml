@@ -13,6 +13,9 @@ permissions:
 
 jobs:
   analyze:
+    # Skipped (grey, not red) while the repository is private: GitHub refuses the upload there without code scanning.
+    # To see it run: make the repository public, or enable code scanning in Settings and remove this line.
+    if: github.event.repository.private == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
