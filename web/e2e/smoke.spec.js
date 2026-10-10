@@ -60,4 +60,14 @@ test.describe("what the page may talk to", () => {
     for (const url of allowed) expect(await reached(url), url).toBe(true);
     for (const url of ["https://example.com/", "https://fonts.googleapis.com/css2"]) expect(await reached(url), url).toBe(false);
   });
+
+  test("a screen that breaks says so and offers to open the app again, in place of a blank page", async ({ page }) => {
+    // Signed in, and the API answers with a list the app cannot draw.
+    await page.addInitScript(() => localStorage.setItem("dhool.tokens", JSON.stringify({ access: "a.e30.c", refresh: "r" })));
+    await page.route(/^https:\/\//, (route) => route.fulfill({ status: 200, contentType: "application/json", body: '{"houses":[null]}',
+      headers: { "access-control-allow-origin": "*" } }));
+    await page.goto(`${BUILT}/?lang=hi`);
+    await expect(page.getByRole("heading", { name: HI["Something went wrong"] })).toBeVisible();
+    await expect(page.getByRole("button", { name: HI["Open again"] })).toBeVisible();
+  });
 });

@@ -4,7 +4,7 @@ import { api } from "./api.js";
 import { API_URL } from "./config.js";
 import { ErrorLine, Field, useAction } from "./form.jsx";
 import { t } from "./i18n.js";
-import { localDay } from "./store.js";
+import { localDay, toNumber } from "./store.js";
 import { day } from "./visuals.jsx";
 
 /** While the model reads a screenshot: how long it has been, and the way to type the number instead. */
@@ -71,7 +71,7 @@ export function AddData({ house, onSent }) {
     box.focus({ preventScroll: true });
   };
   const setRow = (date, kwh) => setShot({ rows: shot.rows.map((r) => (r.date === date ? { ...r, kwh } : r)) });
-  const kept = () => shot.rows.filter((r) => r.kwh.trim() !== "").map((r) => ({ date: r.date, kwh: Number(r.kwh) }));
+  const kept = () => shot.rows.filter((r) => r.kwh.trim() !== "").map((r) => ({ date: r.date, kwh: toNumber(r.kwh) }));
   const demoApp = <a href={`${API_URL}/mock/app`} target="_blank" rel="noreferrer" key="app">{t("demo inverter app")}</a>;
 
   return (
@@ -136,7 +136,7 @@ export function AddData({ house, onSent }) {
         </form>
       )}
 
-      <form className="card" onSubmit={send("/readings", () => ({ date: reading.date, kwh: Number(reading.kwh) }))}>
+      <form className="card" onSubmit={send("/readings", () => ({ date: reading.date, kwh: toNumber(reading.kwh) }))}>
         <h2>{t("Or type today's number")}</h2>
         <div className="row">
           <Field label={t("Date")} type="date" max={today} required value={reading.date} onChange={(e) => setReading({ ...reading, date: e.target.value })} />

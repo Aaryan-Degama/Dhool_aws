@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { daysSince, kept, localDay } from "./store.js";
+import { daysSince, kept, localDay, toNumber } from "./store.js";
 
 test("days since the last reading", () => {
   assert.equal(daysSince("2026-10-07", "2026-10-07"), 0);
@@ -18,4 +18,12 @@ test("today is the phone's date, not UTC's", () => {
 
 test("a read gives null where there is no storage", () => {
   assert.equal(kept("me"), null);
+});
+
+test("a figure typed with a decimal comma is the same number", () => {
+  assert.equal(toNumber("5,5"), 5.5);
+  assert.equal(toNumber(" 12.4 "), 12.4);
+  assert.equal(toNumber("7"), 7);
+  assert.ok(Number.isNaN(toNumber("1,234.5")));  // not guessed at: the API then says it must be a number
+  assert.ok(Number.isNaN(toNumber("five")));
 });

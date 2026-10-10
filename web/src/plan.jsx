@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { TARIFF_RS } from "./config.js";
 import { t } from "./i18n.js";
+import { toNumber } from "./store.js";
 import { day } from "./visuals.jsx";
 import { headline } from "./words.js";
 import "./check.css";
@@ -17,7 +18,7 @@ export function Costs({ house, onSent }) {
     e.preventDefault();
     setState({ busy: true, error: "" });
     try {
-      await api(`/houses/${house.house_id}/settings`, { wash_cost_rs: Number(cost), tariff_rs: Number(tariff) });
+      await api(`/houses/${house.house_id}/settings`, { wash_cost_rs: toNumber(cost), tariff_rs: toNumber(tariff) });
       onSent();
     } catch (err) {
       setState({ busy: false, error: err.message });

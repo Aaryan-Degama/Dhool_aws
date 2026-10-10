@@ -5,7 +5,7 @@ import { api, confirmSignUp, deleteAccount, mySub, signIn, signUp } from "./api.
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { ErrorLine, Field, useAction } from "./form.jsx";
 import { lang, setLang, t } from "./i18n.js";
-import { keep, kept, localDay } from "./store.js";
+import { keep, kept, localDay, toNumber } from "./store.js";
 import { day, PanelModel } from "./visuals.jsx";
 
 export function Auth({ onDone }) {
@@ -94,7 +94,7 @@ export function Setup({ onDone, onBack, children }) {
   const create = (e) => {
     e.preventDefault();
     run(async () => {
-      await api("/houses", { name: form.name, kw: Number(form.kw), lat: Number(form.lat), lon: Number(form.lon) });
+      await api("/houses", { name: form.name, kw: toNumber(form.kw), lat: toNumber(form.lat), lon: toNumber(form.lon) });
       onDone();
     });
   };

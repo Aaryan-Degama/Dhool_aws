@@ -294,6 +294,8 @@ export const HI = {
   "Please sign in again": "कृपया फिर साइन इन कीजिए",
   "Something went wrong. Try again.": "कुछ गड़बड़ हो गई। फिर कोशिश कीजिए।",
   "Something went wrong": "कुछ गड़बड़ हो गई",
+  "Dhool could not show this screen. Your readings are safe. Open the app again.": "Dhool यह स्क्रीन नहीं दिखा पाया। आपकी रीडिंग सुरक्षित हैं। ऐप दोबारा खोलिए।",
+  "Open again": "दोबारा खोलिए",
   "That person is not in this home": "वह व्यक्ति इस घर में नहीं है",
   "You can be in up to 5 homes. Leave or delete one first.": "आप ज़्यादा से ज़्यादा 5 घरों में हो सकते हैं। पहले कोई एक छोड़िए या मिटाइए।",
   "This home already has 10 people. Ask its owner to remove someone first.": "इस घर में पहले से 10 लोग हैं। घर के मालिक से कहिए कि पहले किसी को हटाएँ।",

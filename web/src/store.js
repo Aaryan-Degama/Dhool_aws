@@ -29,3 +29,6 @@ export const localDay = (at = new Date()) => at.toLocaleDateString("en-CA");  //
 /** Whole days from one YYYY-MM-DD date to another. */
 export const daysSince = (date, today = localDay()) => Math.round((Date.parse(today) - Date.parse(date)) / 86400000);
 export const STALE_DAYS = 3;  // from here on, the roof screen says the readings have stopped
+
+/** A typed figure as a number. Many keyboards put a comma where the decimal point goes: "5,5" is 5.5. */
+export const toNumber = (typed) => Number(String(typed).trim().replace(",", "."));
