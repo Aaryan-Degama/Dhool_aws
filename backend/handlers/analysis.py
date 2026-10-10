@@ -93,8 +93,8 @@ def run_house(house_id, nightly=False):
         first, last = min(readings), max(readings)
         weather = pool.submit(fetch_weather_with_forecast, lat, lon, datetime.date.fromisoformat(first))
         pm25 = pool.submit(fetch_pm25, lat, lon, first, last)
-        storms = pool.submit(fetch_dust_storms, lat, lon)
         weather = weather.result()
+        storms = pool.submit(fetch_dust_storms, lat, lon, weather)  # the gusts and visibility came with the weather
         try:
             pm25 = pm25.result()
         except Exception as e:  # air quality only sharpens the haze call; the verdict works without it

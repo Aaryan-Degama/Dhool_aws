@@ -1,6 +1,9 @@
 """What a roof should have produced: Open-Meteo weather in, pvlib physics, daily kWh out."""
 import datetime
 import json
+import random
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -23,14 +26,34 @@ _COLUMNS = {
     "wind_speed_10m": "wind_speed",
     "precipitation": "rain",
 }
+# What a dust storm is judged on, asked for in the same forecast call as the weather.
+_STORM_COLUMNS = {"wind_gusts_10m": "gust_kmh", "visibility": "visibility_m"}
+
+TRIES = 3         # in all, when Open-Meteo is busy (429), failing (5xx) or silent
+TIMEOUT_S = 25    # each try; three of them and the waits between fit inside one analysis run
+BACKOFF_S = 1.0   # the wait before a new try is a random time up to this, then up to twice this
+
+
+def http_get(url):
+    """One GET, JSON back. The analysis Lambda puts its cache around this (handlers/weather_cache.py)."""
+    for tries_left in reversed(range(TRIES)):
+        try:
+            with urllib.request.urlopen(url, timeout=TIMEOUT_S) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as e:  # a bad request stays bad: only "busy" and "broken" are worth a new try
+            if not tries_left or (e.code != 429 and e.code < 500):
+                raise
+        except (urllib.error.URLError, TimeoutError):  # no connection, or no answer in time
+            if not tries_left:
+                raise
+        time.sleep(random.uniform(0, BACKOFF_S * 2 ** (TRIES - 1 - tries_left)))
 
 
 def _fetch_hourly(url, lat, lon, variables, **params):
     query = urllib.parse.urlencode({
         "latitude": lat, "longitude": lon, "hourly": ",".join(variables), "timezone": config.TZ, **params,
     })
-    with urllib.request.urlopen(f"{url}?{query}", timeout=60) as response:
-        hourly = json.load(response)["hourly"]
+    hourly = http_get(f"{url}?{query}")["hourly"]
     index = pd.DatetimeIndex(hourly.pop("time")).tz_localize(config.TZ)
     return pd.DataFrame(hourly, index=index).astype(float)
 
@@ -42,9 +65,14 @@ def fetch_weather(lat, lon, start, end):
 
 
 def fetch_weather_with_forecast(lat, lon, start):
-    """Same columns, from `start` (a date) through the next 7 days of forecast."""
-    recent = _fetch_hourly(FORECAST_URL, lat, lon, _COLUMNS, past_days=FORECAST_PAST_DAYS, forecast_days=7,
-                           wind_speed_unit="ms").rename(columns=_COLUMNS)
+    """Same columns, from `start` (a date) through the next 7 days of forecast. The days the forecast API
+    serves also carry gust_kmh and visibility_m, which fetch_dust_storms reads: one call, not two."""
+    names = {**_COLUMNS, **_STORM_COLUMNS}
+    recent = _fetch_hourly(FORECAST_URL, lat, lon, names, past_days=FORECAST_PAST_DAYS, forecast_days=7,
+                           wind_speed_unit="ms").rename(columns=names)
+    # The call asks for wind in m/s (the physics wants it), so gusts come in m/s too. Open-Meteo's km/h figure
+    # is this one times 3.6 to one decimal: hour for hour the same on the recorded answers (test_expected.py).
+    recent["gust_kmh"] = (recent["gust_kmh"] * 3.6).round(1)
     first_recent = recent.index[0].date()
     if start >= first_recent:
         return recent[recent.index.date >= start]
@@ -58,13 +86,13 @@ def fetch_pm25(lat, lon, start, end):
     return df["pm2_5"].resample("D").mean()
 
 
-def fetch_dust_storms(lat, lon):
-    """For today and the next six days: True where a dust storm is forecast (see config.STORM_*)."""
+def fetch_dust_storms(lat, lon, weather):
+    """For today and the next six days: True where a dust storm is forecast (see config.STORM_*).
+    weather: what fetch_weather_with_forecast returned for the same place, for its gusts and visibility."""
     air = _fetch_hourly(AIR_QUALITY_URL, lat, lon, ["dust"], forecast_days=7)
-    wind = _fetch_hourly(FORECAST_URL, lat, lon, ["wind_gusts_10m", "visibility"], forecast_days=7)
-    hours = air.join(wind, how="inner")
-    storm = ((hours["dust"] >= config.STORM_DUST) & (hours["wind_gusts_10m"] >= config.STORM_GUST_KMH)
-             & (hours["visibility"] <= config.STORM_VISIBILITY_M))
+    hours = air.join(weather[list(_STORM_COLUMNS.values())], how="inner")
+    storm = ((hours["dust"] >= config.STORM_DUST) & (hours["gust_kmh"] >= config.STORM_GUST_KMH)
+             & (hours["visibility_m"] <= config.STORM_VISIBILITY_M))
     return storm.resample("D").max().astype(bool)
 
 
