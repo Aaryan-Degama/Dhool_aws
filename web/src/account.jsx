@@ -6,7 +6,7 @@ import { VAPID_PUBLIC_KEY } from "./config.js";
 import { ErrorLine, Field, kwOf, useAction } from "./form.jsx";
 import { lang, setLang, t } from "./i18n.js";
 import { keep, kept, localDay, toNumber } from "./store.js";
-import { day, PanelModel } from "./visuals.jsx";
+import { day, PanelModel, Wordmark } from "./visuals.jsx";
 
 export function Auth({ onDone }) {
   const [mode, setMode] = useState("in"); // in | up | code
@@ -29,7 +29,7 @@ export function Auth({ onDone }) {
 
   return (
     <main className="page auth">
-      <p className="brand">Dhool</p>
+      <Wordmark />
       <div className="hero"><PanelModel verdict={{ cause: "ok" }} /></div>
       <h1>{t("Is your solar actually working?")}</h1>
       <p className="lede">
@@ -108,7 +108,7 @@ export function Setup({ onDone, onBack, children }) {
 
   return (
     <main className="page">
-      <p className="brand">Dhool</p>
+      <Wordmark />
       {onBack && <button className="link" onClick={onBack}>{t("Back")}</button>}
       <h1>{t("Add your home")}</h1>
       <p className="lede">{t("Dhool needs to know where your roof is and how big the system is. That is all.")}</p>

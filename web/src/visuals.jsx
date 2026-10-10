@@ -69,8 +69,22 @@ const SKYLINE = (() => {
     return out;
   };
   const back = row(10, 26, 4, 15), far = row(12, 30, 9, 27), near = row(18, 42, 14, 44);
-  const windows = near.flatMap((b) => Array.from({ length: Math.floor((b.w * b.h) / 70) }, () => [b.x + 3 + next() * (b.w - 7), 3 + next() * (b.h - 6)]));
-  return { back, far, near, windows };
+  for (const b of far) if (next() < 0.16) b.h *= 1.7;  // a few towers stand over the rest
+  // Windows in rows and columns, floor by floor, as on a real block: every pane is drawn (dark by day), and
+  // some are lit after dark. Two paths, not a rect a pane.
+  let panes = "", lit = "";
+  const floors = (b, cell, gapX, gapY, share) => {
+    const cols = Math.floor((b.w - 3) / gapX), rows = Math.floor((b.h - 3) / gapY);
+    const left = b.x + (b.w - (cols - 1) * gapX - cell) / 2;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const pane = `M${(left + c * gapX).toFixed(1)} ${(SKYLINE_ROOM - b.h + 2.5 + r * gapY).toFixed(1)}h${cell}v${(cell * 1.3).toFixed(1)}h-${cell}z`;
+      panes += pane;
+      if (next() < share) lit += pane;
+    }
+  };
+  far.forEach((b) => floors(b, 1, 2.6, 3.2, 0.14));
+  near.forEach((b) => floors(b, 1.5, 3.6, 4.4, 0.22));
+  return { back, far, near, panes, lit };
 })();
 
 const DUST = (() => {  // the same speckles every time: a tiny seeded generator, not Math.random
@@ -87,6 +101,16 @@ const LABEL = {
   ok: () => t("Rooftop solar array, fully lit"),
 };
 LABEL.outage = LABEL.fault;
+
+/** The app's name, drawn by hand with a round marker: the two o's are filled, as dots of dust. */
+export const Wordmark = () => (
+  <p className="brand" aria-label="Dhool">
+    <svg viewBox="0 0 92 40" aria-hidden="true">
+      <path d="M6 7V33Q25 30 24 19Q22 8 6 7M35 5V33M35 25Q41 16 47 33M86 5V33" />
+      <circle cx="59" cy="27" r="6.5" /><circle cx="73" cy="27" r="6.5" />
+    </svg>
+  </p>
+);
 
 /** The roof as a model: a dead string goes dark, dust lies on the glass, haze veils it. Drag to turn it. */
 export function PanelModel({ verdict }) {
@@ -219,7 +243,8 @@ export function PanelModel({ verdict }) {
             })}
           </g>
         ))}
-        <g className="pm-windows">{SKYLINE.windows.map(([x, up], i) => <rect key={i} x={x.toFixed(1)} y={(FIT.horizon - up).toFixed(1)} width="1.7" height="2.2" />)}</g>
+        <path className="pm-panes" d={SKYLINE.panes} />
+        <path className="pm-windows" d={SKYLINE.lit} />
         {/* The air thickens toward the horizon, so the feet of the buildings fade into it. */}
         <rect x="-110" y={FIT.horizon - 46} width={VIEW_W + 220} height="170" fill={`url(#${id}haze)`} />
       </g>

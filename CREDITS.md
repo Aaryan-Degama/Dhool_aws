@@ -39,7 +39,6 @@ Apache-2.0 (`LICENSE`).
 | What | Licence |
 |---|---|
 | [Anek Devanagari](https://fonts.google.com/specimen/Anek+Devanagari) (Ek Type; copyright 2021 The Anek Project Authors). The Devanagari and Latin subsets as Google Fonts serves them (v17), unchanged, kept in `web/public/fonts/` with the licence text beside them (`OFL.txt`) and served by the app itself | SIL Open Font License 1.1 |
-| [Unbounded](https://fonts.google.com/specimen/Unbounded) (copyright 2022 The Unbounded Project Authors). The Latin subset as Google Fonts serves it (v12), unchanged, in `web/public/fonts/` with its licence text (`OFL-Unbounded.txt`), served by the app itself. Used for the bar at the top of a home | SIL Open Font License 1.1 |
 
 ## AI tools
 

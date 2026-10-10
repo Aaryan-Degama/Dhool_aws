@@ -11,7 +11,7 @@ import { AddData } from "./readings.jsx";
 import { setSky, skyOver } from "./sky.js";
 import { daysSince, keep, kept, POLL_MS, STALE_DAYS } from "./store.js";
 import { headline } from "./words.js";
-import { day, Icon, monthName, Months, PanelModel, skyOf, weekday, when, WhyChart } from "./visuals.jsx";
+import { day, Icon, monthName, Months, PanelModel, skyOf, weekday, when, WhyChart, Wordmark } from "./visuals.jsx";
 
 const SURE = { high: t("Dhool is sure about this."), medium: t("Dhool is fairly sure about this."), low: t("Dhool is not sure yet.") };
 const SURE_SHORT = { high: t("Dhool is sure"), medium: t("Fairly sure"), low: t("Not sure yet") };
@@ -126,7 +126,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
     window.addEventListener("resize", pin);
     return () => window.removeEventListener("resize", pin);
   }, []);
-  // Once the page moves, the scene behind it dissolves into a wash of colour (see .veil).
+  // Once the page moves, the scene behind it goes out of focus (see .roof .hero).
   useEffect(() => {
     let frame = 0;
     const root = document.documentElement.style;
@@ -149,7 +149,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
   return (
     <article className={`roof ${tone(v)}`}>
       <header className="top">
-        <p className="brand">Dhool</p>
+        <Wordmark />
         <p className="home-name">{house.name}</p>
       </header>
 
@@ -226,7 +226,6 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
           <small>{whyLine(v)}</small>
         </button>
       </div>
-      <div className="veil" aria-hidden="true" />
     </article>
   );
 }
@@ -418,7 +417,7 @@ function Home({ house: listed, homes, onSignOut }) {
       )}
       {waiting ? (
         <section className="working" aria-live="polite">
-          <p className="brand">Dhool</p>
+          <Wordmark />
           <div className="hero"><PanelModel verdict={{ cause: "no_data" }} /></div>
           <h1>{t("Working it out")}</h1>
           <p className="lede">{t("Checking the sun, clouds and rain over your roof for each day. This takes about 20 seconds.")}</p>
@@ -428,7 +427,7 @@ function Home({ house: listed, homes, onSignOut }) {
           : <p className="lede" aria-live="polite">{t("Loading your home…")}</p>
       ) : !has ? (
         <>
-          <header className="top"><p className="brand">Dhool</p><p className="home-name">{house.name}</p></header>
+          <header className="top"><Wordmark /><p className="home-name">{house.name}</p></header>
           {setup}
         </>
       ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} onAction={awaitVerdict} />

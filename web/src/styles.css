@@ -20,17 +20,6 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Unbounded (SIL OFL 1.1, public/fonts), for the bar at the top of a home alone: the app's name, how the roof
-   is running, which home. Latin only; a home named in Hindi falls back to Anek Devanagari. */
-@font-face {
-  font-family: "Unbounded";
-  font-style: normal;
-  font-weight: 500 800;
-  font-display: swap;
-  src: url("/fonts/unbounded-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
 /* Dhool design tokens. Graphite surfaces lit from above; colour comes only from the roof:
    electric current, dust, wash water, a fault. See DESIGN.md. */
 :root {
@@ -142,22 +131,15 @@ p { margin: 0; }
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);
 }
 
-/* The scene stays put while the rest slides over it (see RoofTab). As the page moves, the veil dissolves the
-   whole scene into a soft wash of the sky's own colours, as phone weather apps do: the panels and the city are
-   gone, and only the very top of the sky keeps its stars or clouds. */
-.roof .hero {
-  position: sticky; z-index: 0;
-  /* Blurred and thinned in step with the scroll (--scrolled runs 0 to 1 over the first 160px). On the scene
-     itself, not only through the veil's backdrop blur, which some browsers do not draw. */
-  filter: blur(calc(var(--scrolled, 0) * 30px)); opacity: calc(1 - var(--scrolled, 0) * 0.6);
-}
-.roof > :not(.hero, .veil, .top) { position: relative; z-index: 2; }  /* not the bar: it is sticky, above them */
-.veil {
-  position: fixed; inset: 0; z-index: 1; pointer-events: none;
-  opacity: var(--scrolled, 0);
-  backdrop-filter: blur(72px) saturate(1.2);
-  -webkit-mask-image: linear-gradient(transparent 2vh, #000 16vh); mask-image: linear-gradient(transparent 2vh, #000 16vh);
-}
+/* The scene stays put while the rest slides over it (see RoofTab). As the page moves it goes out of focus,
+   and no more: the array stays where it is and keeps its colours (--scrolled runs 0 to 1 over the first 160px). */
+.roof .hero { position: sticky; z-index: 0; filter: blur(calc(var(--scrolled, 0) * 5px)); }
+.roof > :not(.hero, .top) { position: relative; z-index: 2; }  /* not the bar: it is sticky, above them */
+/* A block, not a grid: in a grid a sticky child is held inside its own row, so the scene scrolled away. */
+.roof { display: block; }
+/* Over the scene the sheets are thinner glass than elsewhere, so the array is still seen through them. */
+[data-sky] .roof .card { background: rgba(var(--glass), 0.36); backdrop-filter: blur(7px); }
+.roof > * + * { margin-top: var(--space); }
 
 [data-sky="day"] {
   --sky-top: #1b62c4; --haze: #a9d0f5; --reflect: #4477b3;
@@ -325,15 +307,16 @@ button:disabled { opacity: 0.5; cursor: progress; }
    screen's edges: the negative margins undo the page's own padding. */
 .top {
   position: sticky; top: 0; z-index: 4;
-  display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
   margin: calc(-1 * (var(--space) + env(safe-area-inset-top))) calc(-1 * var(--space)) 0;
   padding: calc(0.875rem + env(safe-area-inset-top)) var(--space) 0.875rem;
   background: rgba(var(--glass, 18, 21, 28), calc(var(--scrolled, 0) * 0.55));
   backdrop-filter: blur(calc(var(--scrolled, 0) * 24px));  /* no saturate(): it drew a band across the sky at rest */
 }
-.brand { font-size: var(--step--1); font-weight: 500; color: var(--muted); }
-/* The wordmark is the one place the display face (Unbounded) is used. */
-.top .brand { font-family: "Unbounded", "Anek Devanagari", system-ui, sans-serif; font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+/* The wordmark (Wordmark in visuals.jsx): hand-drawn strokes with round ends, in the text colour. */
+.brand { color: var(--ink); line-height: 0; }
+.brand svg { height: 1.75rem; width: auto; fill: none; stroke: currentColor; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.brand circle { fill: currentColor; stroke: none; }
 .home-name { font-size: var(--step-0); font-weight: 500; line-height: 1.25; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--soft); }
 
 /* The reading: how the roof is running, large and light in the sky, and under it what to do. The one loud
@@ -366,6 +349,7 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .pm-city .back { fill: color-mix(in srgb, var(--city-far, #20242b) 55%, var(--haze, #14171c)); }
 .pm-city .far { fill: var(--city-far, #20242b); }
 .pm-city .near { fill: var(--city-near, #171a20); }
+.pm-panes { fill: #0a1020; opacity: 0.16; }  /* every window, dark by day */
 .pm-windows { fill: #ffd98a; opacity: calc(var(--windows, 0) * 0.55); }  /* lit windows, kept faint: the array is the subject */
 .pm-shadow { fill: #000; opacity: 0.42; }
 .pm-frame path { fill: none; stroke: #6f7986; stroke-width: 2; stroke-linecap: round; }

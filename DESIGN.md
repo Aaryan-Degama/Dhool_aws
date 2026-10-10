@@ -40,11 +40,11 @@ Surfaces use a 22px radius; things you press or type into use 14px.
 
 ## Scrolling: a pinned scene under frosted glass
 Modelled on the phone weather apps the owner showed. On the Roof tab the scene (terrace, city, panels) is
-pinned where it first appears, and everything after it slides over it. Once the page moves, the scene
-dissolves, as in those apps: the panels and the city blur away and thin out until only a soft wash of the
-sky's colours is left behind the cards, with the sun or moon still showing. It happens over the first 160 px
-of scrolling and comes back when the page returns to the top. The scene itself is blurred (so it works in
-every browser), and a veil over the whole screen blurs what is behind the cards where the browser can.
+pinned where it first appears, and everything after it slides over it. Once the page moves, the scene goes a
+little out of focus (5px, over the first 160 px of scrolling) and nothing else: it keeps its colours and the
+array stays in view, seen through the Roof sheets, which are thinner glass than sheets elsewhere. (A full
+dissolve into a wash of the sky's colour was tried on 10 Oct and dropped: the owner wanted the panels kept.)
+`.roof` is a block, not a grid: a sticky child of a grid is held inside its own row and scrolls away.
 
 Surfaces are frosted glass that mostly shows the sky through: a light white lift over a thin tint of the
 sky's own dark colour (`--glass`), 24 px blur. On glass this light, the verdict colours are too weak as
@@ -87,7 +87,7 @@ One family, **Anek Devanagari** (SIL OFL; served from the app's own `public/font
 Normal width throughout. Size and a light or regular weight carry the hierarchy; 600 is the heaviest anything
 gets: the reading figure is 300 at up to 6rem, page headings 1.75rem/600, section titles 1.0625rem/600, body
 1rem/400, labels and captions 0.8125rem/500. Numbers are tabular. Sentence case everywhere; no all-caps labels.
-**Unbounded** (SIL OFL, Latin only) is used for the "Dhool" wordmark in the top bar and nowhere else.
+The "Dhool" wordmark is drawn, not set: marker strokes with round ends and two filled o's (`Wordmark` in `visuals.jsx`).
 
 ## Surfaces and buttons (10 Oct 2026)
 Three levels and no more. **Sky:** no surface; the reading, the scene and the weather row sit straight on it.
