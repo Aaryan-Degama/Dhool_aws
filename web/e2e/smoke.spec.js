@@ -144,6 +144,12 @@ test.describe("what the page may talk to", () => {
     });
     await page.goto(`${BUILT}/?lang=en`);
     const question = page.getByRole("group", { name: "Was this advice useful?" });
+    // The glass is blurred glass in the built app too: a build once kept only Safari's -webkit- form of the
+    // rule, and the bars and cards were clear glass in every other browser.
+    await page.locator("nav.nav").waitFor();
+    for (const glass of ["nav.nav > div", ".card"]) {
+      expect(await page.locator(glass).first().evaluate((el) => getComputedStyle(el).backdropFilter), glass).toContain("blur");
+    }
     await question.getByRole("button", { name: "No" }).click();
     await expect(page.getByRole("alert")).toHaveText("Something went wrong");
     await question.getByRole("button", { name: "Yes" }).click();  // still there to press
