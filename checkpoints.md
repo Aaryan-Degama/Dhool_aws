@@ -11,7 +11,7 @@ pick one label: `visit_scheduled`, `asking_details`, `refused`, `unclear`.
 **Base model:** [`convaiinnovations/laya`](https://huggingface.co/convaiinnovations/laya), `multilingual`
 subfolder (mmBERT-base, 322M parameters, Apache-2.0), revision `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851`.
 
-**Status:** v3.2 is deployed (8 Oct2026; v3 for a few hours before it) as `MessageFunction`, a Lambda container built from `messages/`, behind `POST /houses/{id}/vendor-reply`. The weights are in that container image, on the owner's laptop, and in the `laya-models` GitHub release (below).
+**Status:** v3.2 is deployed (3 Oct 2026; v3 for a few hours before it) as `MessageFunction`, a Lambda container built from `messages/`, behind `POST /houses/{id}/vendor-reply`. The weights are in that container image, on the owner's laptop, and in the `laya-models` GitHub release (below).
 
 ### Scores
 
@@ -99,7 +99,7 @@ Slices for v1 and v2 on `test` and `test2`:
 
 ### v3 at other precisions (v3.1, v3.2)
 
-Same trained weights as v3, stored and run differently. Measured 8 Oct2026 on two cores
+Same trained weights as v3, stored and run differently. Measured 3 Oct 2026 on two cores
 (`taskset -c 0,1`, to match a Lambda), one reply at a time.
 
 | Model | Weights | Size on disk | `test` (56) | `test2` (40) | `test3` (60) | All (156) | Per reply | Peak memory |
@@ -148,7 +148,7 @@ Score one: `taskset -c 0,1 .venv-laya/bin/python scripts/laya-tune.py eval <fold
 |---|---|
 | Folder | `messages/models/vendor-replies-v3/` (647 MB, not in git) |
 | `model.safetensors` SHA-256 | `96430f98e0a14f5151ec239786dc5fa3a8117bda8fc5c106d9f3a0fbbba9ccb0` |
-| Made | 8 Oct2026, `scripts/laya-tune.py train` |
+| Made | 3 Oct 2026, `scripts/laya-tune.py train` |
 | Data | `messages/vendor-replies.jsonl`, 1,111 rows with `split: train`: 999 trained on, 112 (every tenth) held back to fit the temperature |
 | Training rows by label | `visit_scheduled` 274, `asking_details` 275, `refused` 275, `unclear` 287 |
 | Training rows by language | Hinglish 614, English 250, Hindi 247 |
@@ -162,7 +162,7 @@ Score one: `taskset -c 0,1 .venv-laya/bin/python scripts/laya-tune.py eval <fold
 |---|---|
 | Folder | `messages/models/vendor-replies-v2/` (647 MB, not in git) |
 | `model.safetensors` SHA-256 | `6077bd2627ec29cb3722ff65ad8595605981d13ea0fb3e3c7833252839ae539d` |
-| Made | 8 Oct2026, commit `55c7d5a` |
+| Made | 3 Oct 2026, commit `55c7d5a` |
 | Data | the first 304 `train` rows of `messages/vendor-replies.jsonl` (everything above the first `test2` row): 243 trained on, 61 (every fifth) held back to fit the temperature |
 | Training rows by label | `visit_scheduled` 74, `asking_details` 74, `refused` 74, `unclear` 82 |
 | Settings | 6 epochs, batch 8, 186 updates; AdamW, 2.5e-5 on the encoder and 1e-4 on the decision head, cosine decay; token table frozen; seed 0 |
@@ -175,7 +175,7 @@ Score one: `taskset -c 0,1 .venv-laya/bin/python scripts/laya-tune.py eval <fold
 |---|---|
 | Folder | `messages/models/vendor-replies-v1/` (647 MB, not in git) |
 | `model.safetensors` SHA-256 | `96b7d43022e39be2787bf57caa96af83173ecd53322786aff8d59acf21c9ea25` |
-| Made | 8 Oct2026, commit `7a2d517` |
+| Made | 3 Oct 2026, commit `7a2d517` |
 | Data | the first 145 `train` rows of the same file (everything above the first `test` row): 116 trained on, 29 held back for the temperature |
 | Settings | as v2, 90 updates |
 | Cost | 8 min 33 s on the laptop CPU, peak 5.2 GB |

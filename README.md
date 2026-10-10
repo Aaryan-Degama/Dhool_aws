@@ -84,7 +84,7 @@ EventBridge: nightly analysis, one run per home, then Web Push to the family's p
 | The same, with weather error and 29 neighbours | 48%. The "repeated shutdowns" rule mistakes the noise for trips. The simulated error is drawn separately for every roof, which is harsher than real weather, where neighbours share most of it. |
 | The same, alone, no weather error | 83%. Faults caught: 66%. |
 | The same, best case: 29 neighbours and weather data that matches the simulator's exactly | **84%**. Faults caught: 86%. |
-| Development neighbourhoods (3 seeds, Delhi), same four cases | 56–57%, 45–49%, 87–89%, 94–95% (9 Oct; the year of weather they run on moves with the date) |
+| Development neighbourhoods (3 seeds, Delhi), same four cases | 56–57%, 45–49%, 87–89%, 94–95% (7 Oct; the year of weather they run on moves with the date) |
 | Real rooftops (nine NREL PVDAQ homes, about ten years each, no labels) | No accuracy figure. On a single real roof with no neighbours, "wash" and "unclear" are still raised too often. |
 | Screenshot reader, demo inverter screens | 93 of 93 printed values, none invented |
 | Screenshot reader, store screenshots of three real inverter apps | **8 of 11 values, none invented, 1 read wrong** (OCR first, the vision model when OCR finds nothing). OCR answers in a second or two; a screen that falls to the model takes about 35 s. The homeowner confirms or corrects every number before it is saved. |
