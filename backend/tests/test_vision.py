@@ -9,6 +9,8 @@ import pytest
 from moto import mock_aws
 from PIL import Image
 
+import ocr_reader
+import reader
 import screenshot_reader
 import vision_handler
 
@@ -137,3 +139,14 @@ def test_the_keep_warm_ping_only_loads_the_model(aws, monkeypatch):
 def test_the_questions_rule_out_other_apps_and_estimates():
     assert "C: something else" in screenshot_reader.ASK_KIND and "forecast" in screenshot_reader.ASK_KIND
     assert "possible or expected value" in screenshot_reader.ASK_TODAY and "NONE" in screenshot_reader.ASK_TODAY
+
+
+def test_ocr_answers_first_and_the_model_only_reads_what_ocr_could_not(monkeypatch):
+    by_ocr, by_model = {"reader": "ocr", "readings": [{"date": "TODAY", "kwh": 7.3}]}, {"reader": "model", "readings": []}
+    monkeypatch.setattr(screenshot_reader, "read", lambda image: by_model)
+    monkeypatch.setattr(ocr_reader, "read", lambda image: by_ocr)
+    assert reader.read(b"png") is by_ocr
+    monkeypatch.setattr(ocr_reader, "read", lambda image: {"reader": "ocr", "readings": []})
+    assert reader.read(b"png") is by_model
+    monkeypatch.setattr(ocr_reader, "read", lambda image: 1 / 0)  # no Tesseract on the machine, say
+    assert reader.read(b"png") is by_model

@@ -47,6 +47,7 @@ STEP_WANDERS = 4       # a sudden drop must be this many times the roof's own we
 STAY_WANDERS = 3       # ...and climbing back to within this many times of it means it recovered
 OUTAGE = 0.10          # a sunny day under this share of the roof's normal: the system was off, not dirty
 AREA_OUT = 0.5         # ...unless the area's median fell under this share of its own recent level that day
+LOW_NORMAL = 0.6       # a roof whose best weeks are under this share of the physics may have been faulty all along
 
 
 def _ratio(daily):
@@ -155,6 +156,7 @@ def _result(f, verdict, cause, confidence, reason, loss=0.0, level=None, over=No
         "loss_pct": round(100 * loss, 1),
         "loss_kwh_per_day": lost,
         "loss_rs_per_week": round(lost * 7 * f.tariff),
+        "low_normal": f.low_normal,  # its best weeks are far under what a system this size makes
         "tariff_rs": f.tariff,  # the ₹ per kWh every rupee figure here was worked out at
         "evidence": evidence,
         "check": f.check,  # the latest wash or visit the homeowner reported, and whether it worked
@@ -329,13 +331,21 @@ def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), 
     ratio = _ratio(daily)
     valid = ratio.dropna()
     # The figures every rule reads, prepared once here.
-    f = SimpleNamespace(daily=daily, ratio=ratio, valid=valid, pm25=pm25, neighbours=neighbours, baseline=1.0,
+    f = SimpleNamespace(daily=daily, ratio=ratio, valid=valid, pm25=pm25, neighbours=neighbours, baseline=1.0, low_normal=False,
                         check=None, rain_forecast=rain_forecast, dust_storms=dust_storms, wash_cost=wash_cost,
                         tariff=config.TARIFF_RS if tariff is None else tariff)
     if len(valid) < MIN_DAYS:
         return _result(f, "WAIT", "no_data", "low", say("no_data", n=len(valid)))
 
-    f.baseline = baseline = normal(ratio)
+    baseline = normal(ratio)
+    if np.isnan(baseline):  # readings days apart: no week has enough of them to say what this roof's normal is
+        return _result(f, "WAIT", "no_data", "low", say("sparse", n=len(valid)))
+    # The normal is learned from the roof itself, so a roof already faulty or dirty when Dhool first saw it
+    # looks normal. That cannot be told from a wrong size on the form, so it is flagged, not judged.
+    f.low_normal = bool(baseline < LOW_NORMAL)
+    if baseline < OUTAGE:  # it has never made a tenth of what its size should: judge it against the physics
+        baseline = 1.0
+    f.baseline = baseline
     f.step = step = _steps(ratio)  # medians: robust for deciding whether a change happened
     f.sharp = sharp = _steps(ratio, "mean")  # means peak exactly on the day of the change: used to date it
     f.area_step = area_step = _steps(neighbours).median(axis=1).reindex(ratio.index) if neighbours is not None else None

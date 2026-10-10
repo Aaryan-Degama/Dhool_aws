@@ -167,6 +167,8 @@ def create_invite(sub, event):
     code = "".join(secrets.choice(INVITE_ALPHABET) for _ in range(6))
     expires_at = int(time.time()) + INVITE_TTL_S
     table().put_item(Item={"pk": f"INVITE#{code}", "sk": "META", "house_id": house_id, "expiresAt": expires_at})
+    # The house keeps a note of its codes, so they can be cancelled when someone is removed.
+    table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"INVITE#{code}", "expiresAt": expires_at})
     return 201, {"code": code, "expires_at": expires_at}
 
 
@@ -217,6 +219,8 @@ def delete_house(sub, event):
         for sk in keys:
             if sk.startswith("MEMBER#"):
                 batch.delete_item(Key={"pk": f"USER#{sk.split('#', 1)[1]}", "sk": f"HOUSE#{house_id}"})
+            if sk.startswith("INVITE#"):
+                batch.delete_item(Key={"pk": sk, "sk": "META"})
             batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": sk})
         batch.delete_item(Key={"pk": "HOUSES", "sk": house_id})
     _log(deleted="house", house=house_id, items=len(keys))
@@ -235,6 +239,9 @@ def remove_member(sub, event):
         for item in _house_keys(house_id, "PUSH#"):  # their phones stop getting this home's alerts
             if item.get("by") == member:
                 batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": item["sk"]})
+        for item in _house_keys(house_id, "INVITE#"):  # or they could walk back in with a code they still hold
+            batch.delete_item(Key={"pk": f"HOUSE#{house_id}", "sk": item["sk"]})
+            batch.delete_item(Key={"pk": item["sk"], "sk": "META"})
     _log(removed="member", house=house_id, member=member)
     return 200, {"removed": member}
 
@@ -347,6 +354,7 @@ def read_vendor_reply(sub, event):
         _log(reply_reader="unavailable", house=house_id, error=type(e).__name__)
         raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
     if label not in REPLY_LABELS:  # the model's output is not trusted to be one of ours
+        _log(reply_reader="bad_label", house=house_id)
         raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
     return 200, {"label": label}
 
@@ -539,5 +547,5 @@ def handler(event, context):
     return {
         "statusCode": status,
         "headers": {"content-type": "application/json"},
-        "body": json.dumps(payload, default=lambda d: float(d) if d % 1 else int(d)),
+        "body": json.dumps(payload, allow_nan=False, default=lambda d: float(d) if d % 1 else int(d)),
     }

@@ -23,7 +23,7 @@ The verdict is physics and plain rules. No language model decides anything or pr
 
 The whole backend is one template deployed with the **AWS SAM CLI** (an AWS open-source tool), all serverless, in ap-south-1:
 
-- **Lambda:** five functions. Three are container images: the pvlib analysis, a screenshot reader (Qwen3-VL-2B on CPU through llama.cpp) and a vendor-reply reader (Laya, a small multilingual model we fine-tuned, on ONNX Runtime).
+- **Lambda:** five functions. Three are container images: the pvlib analysis, a screenshot reader (Tesseract OCR, then Qwen3-VL-2B on CPU through llama.cpp) and a vendor-reply reader (Laya, a small multilingual model we fine-tuned, on ONNX Runtime).
 - **API Gateway (HTTP API)** with a JWT authorizer, **Cognito** for sign-in.
 - **DynamoDB:** one table for homes, family members, readings, verdicts and actions.
 - **S3** for screenshots behind signed URLs, **ECR** for the images, **EventBridge** for the nightly analysis (one run per home), **SQS** and **SNS** for failed runs and alarms, **CloudWatch** and **X-Ray** for logs, alarms and tracing.
@@ -35,7 +35,7 @@ The whole backend is one template deployed with the **AWS SAM CLI** (an AWS open
 ## How well it works
 
 - Verdict rules, all in simulation, on a hidden test set in three other cities that we never tuned on. Hardest case first: a home on its own with weather data about 15% wrong a day, **56%**, and almost no faults caught (6 of 433). On its own with exact weather, 83%. Best case, with 29 neighbours and exact weather, **84%** (94–95% on development data). The simulator builds each home from the same physics the rules use, so the best case flatters them; we report the hard case first for that reason.
-- Screenshot reader: 93 of 93 values on our demo inverter's screens, but only 6 of 11 on store screenshots of real inverter apps. That is why every number is shown for the homeowner to confirm or correct, and typing is always available. We tried plain OCR in its place: 5 of 11 on the same screenshots with none invented, in a second instead of a minute. One short, so the model stayed.
+- Screenshot reader: 93 of 93 values on our demo inverter's screens, and 8 of 11 on store screenshots of real inverter apps, none invented and one read wrong. It tries plain OCR first (Tesseract, about a second) and falls back to the vision model. Alone, the model read 6 of 11 and OCR 5; we combined them after seeing that. Every number is shown for the homeowner to confirm or correct, and typing is always available.
 - Vendor-reply reader: 52 of 60 on an unseen test set.
 
 ## What is simulated, and other limits

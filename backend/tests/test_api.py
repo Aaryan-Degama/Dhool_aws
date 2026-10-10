@@ -368,7 +368,7 @@ def test_only_the_owner_deletes_the_house_and_nothing_of_it_is_left(house, table
 
     assert call(MOTHER, "DELETE /houses/{houseId}", house_id=house)[0] == 403
     assert call(STRANGER, "DELETE /houses/{houseId}", house_id=house)[0] == 403
-    assert len(everything_of(table, house)) == 35
+    assert len(everything_of(table, house)) == 37  # with the two family codes it gave out
     assert call(FATHER, "DELETE /houses/{houseId}", house_id=house) == (200, {"deleted": house})
 
     assert everything_of(table, house) == []
@@ -389,7 +389,9 @@ def test_the_owner_removes_a_member_who_then_has_no_access_or_alerts(house, tabl
     assert call(STRANGER, route, house_id=house, member=MOTHER)[0] == 403  # a member cannot remove someone else
     assert call(MOTHER, route, house_id=house, member=FATHER)[0] == 403
     assert call("sub-outsider", route, house_id=house, member="sub-outsider")[0] == 403
+    code = call(FATHER, "POST /houses/{houseId}/invites", house_id=house)[1]["code"]  # one she may still hold
     assert call(FATHER, route, house_id=house, member=MOTHER) == (200, {"removed": MOTHER})
+    assert call(MOTHER, "POST /join", {"code": code})[0] == 404  # the home's codes went with her
     assert call(MOTHER, "GET /houses/{houseId}", house_id=house)[0] == 403
     assert call(MOTHER, "GET /houses/{houseId}/verdict", house_id=house)[0] == 403
     assert call(MOTHER, "GET /me")[1]["houses"] == []

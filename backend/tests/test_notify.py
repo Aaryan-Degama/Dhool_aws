@@ -60,9 +60,18 @@ def test_the_nightly_run_starts_one_background_run_per_house_across_pages(monkey
     monkeypatch.setattr(analysis, "table", Table)
     monkeypatch.setattr(analysis.boto3, "client", lambda name: Lambda())
     monkeypatch.setattr(analysis, "NIGHTLY_PACE_S", 0)
-    assert analysis.handler({}, None) == {"houses": 3}
+    clock = type("Context", (), {"aws_request_id": "r", "get_remaining_time_in_millis": lambda self: 100_000})()
+    assert analysis.handler({}, clock) == {"houses": 3}
     assert asked == [None, {"pk": "HOUSES", "sk": "h2"}]
     assert started == [("dhool-AnalysisFunction-abc", "Event", {"house_id": h, "nightly": True}) for h in ("h1", "h2", "h3")]
+    # Short of time before the second page: the rest is handed to a fresh run, which starts from that page.
+    asked.clear(), started.clear()
+    clock = type("Context", (), {"aws_request_id": "r", "get_remaining_time_in_millis": lambda self: 5_000})()
+    assert analysis.handler({}, clock) == {"houses": 2, "continues": True}
+    assert started[-1] == ("dhool-AnalysisFunction-abc", "Event", {"cursor": {"pk": "HOUSES", "sk": "h2"}})
+    pages.pop(0), asked.clear(), started.clear()
+    assert analysis.handler({"cursor": {"pk": "HOUSES", "sk": "h2"}}, clock) == {"houses": 1}
+    assert asked == [{"pk": "HOUSES", "sk": "h2"}]
 
 
 @pytest.fixture

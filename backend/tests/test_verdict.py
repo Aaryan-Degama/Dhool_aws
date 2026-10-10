@@ -1,4 +1,6 @@
 """Verdict rules on hand-built series: each case is one pattern the rules must name correctly."""
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -319,3 +321,23 @@ def test_every_reason_reads_in_hindi_with_the_same_figures_as_the_english():
         assert re.search(r"[ऀ-ॿ]", said["hi"]) and not re.search(r"[ऀ-ॿ]", said["en"]), key
     assert say("until_rain", on=day) == {"en": "before the rain on Monday", "hi": "सोमवार की बारिश से पहले"}
     assert say("fault", drop=0.33, day=day, days=40)["hi"].startswith("17 अगस्त के आसपास")
+
+
+def test_a_roof_that_has_only_ever_read_zero_is_an_outage_not_a_crash():
+    v = verdict(home(pd.Series(0.0, index=DAYS)), NO_RAIN, DRY_WEEK)
+    assert (v["verdict"], v["cause"], v["evidence"]["since"]) == ("INSPECT", "outage", str(DAYS[0].date()))
+    json.dumps(v, allow_nan=False)
+
+
+@pytest.mark.parametrize("every", [3, 4, 5])
+def test_readings_days_apart_are_not_enough_and_never_a_nan(every):
+    actual = pd.Series(np.nan, index=DAYS)
+    actual.iloc[::every] = 0.9 * 12
+    v = verdict(pd.DataFrame({"expected": 12.0, "actual": actual}, index=DAYS), NO_RAIN, DRY_WEEK)
+    assert (v["verdict"], v["cause"]) == ("WAIT", "no_data")
+    json.dumps(v, allow_nan=False)
+
+
+def test_a_roof_far_under_its_size_from_the_first_day_is_flagged():
+    assert verdict(home(pd.Series(0.5, index=DAYS)), NO_RAIN, DRY_WEEK)["low_normal"] is True
+    assert verdict(home(pd.Series(0.9, index=DAYS)), NO_RAIN, DRY_WEEK)["low_normal"] is False

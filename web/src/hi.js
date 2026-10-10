@@ -194,6 +194,15 @@ export const HI = {
   "Leave this home": "यह घर छोड़िए",
   "Leave {name}? You will no longer see its readings and advice.": "{name} छोड़ें? फिर आप इसकी रीडिंग और सलाह नहीं देख पाएँगे।",
   "Delete my account": "मेरा खाता मिटाइए",
+  "What Dhool keeps about you": "Dhool आपके बारे में क्या रखता है",
+  "Your email, to sign you in. Your home's name, its system size and its location to about 1 km, to look up the weather over it. The readings you add or your inverter sends, the washes and vendor visits you report, and the advice Dhool gave. Screenshots are deleted after 30 days. A vendor's reply you paste is read and not kept.":
+    "आपका ईमेल, साइन इन के लिए। आपके घर का नाम, सिस्टम का साइज़ और लगभग 1 किमी तक की जगह, वहाँ का मौसम देखने के लिए। जो रीडिंग आप जोड़ते हैं या आपका इन्वर्टर भेजता है, जो धुलाई और वेंडर का आना आप बताते हैं, और Dhool की दी हुई सलाह। स्क्रीनशॉट 30 दिन बाद मिटा दिए जाते हैं। वेंडर का जो जवाब आप पेस्ट करते हैं वह पढ़ा जाता है, रखा नहीं जाता।",
+  "Nothing is sold or shared. The location, with no name on it, goes to the weather service (Open-Meteo); everything else stays on Dhool's servers on AWS in Mumbai. Everyone you give your family code to sees the home.":
+    "कुछ भी बेचा या साझा नहीं किया जाता। जगह, बिना किसी नाम के, मौसम सेवा (Open-Meteo) को जाती है; बाक़ी सब मुंबई में AWS पर Dhool के सर्वर पर रहता है। जिसे भी आप परिवार का कोड देते हैं, वह यह घर देख सकता है।",
+  "The owner can delete a home with everything in it, and anyone can delete their account, in Setup.":
+    "घर का मालिक सेटअप में घर को उसकी हर चीज़ के साथ मिटा सकता है, और कोई भी अपना खाता मिटा सकता है।",
+  "Even in its best weeks this roof makes far less than a system of its size should. If the size in Setup is right, it may have been shaded, dirty or faulty since before Dhool started watching: have it checked once.":
+    "अपने सबसे अच्छे हफ़्तों में भी यह छत इस साइज़ के सिस्टम से बहुत कम बिजली बनाती है। अगर सेटअप में साइज़ सही है, तो हो सकता है Dhool के देखना शुरू करने से पहले से इस पर छाया, धूल या कोई ख़राबी हो: एक बार जाँच करवा लीजिए।",
   "You are the owner of {names}. Delete the home first, then your account.": "{names} के मालिक आप हैं। पहले घर मिटाइए, फिर अपना खाता।",
   "This removes your sign-in for good. You leave every home you have joined; the homes and their readings stay for the others.":
     "इससे आपका साइन इन हमेशा के लिए हट जाएगा। आप जिन घरों से जुड़े हैं वे सब छूट जाएँगे; घर और उनकी रीडिंग बाक़ी लोगों के लिए बनी रहेंगी।",

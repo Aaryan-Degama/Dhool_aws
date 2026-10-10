@@ -44,7 +44,7 @@ Everything is defined in one SAM template (`template.yaml`) and deployed with th
 
 | Service | What it does here |
 |---|---|
-| **Lambda** (5 functions) | The API (zip); the analysis with pvlib (container image); the screenshot reader, Qwen3-VL-2B on CPU through llama.cpp (container image); the vendor-reply reader, Laya on ONNX Runtime (container image); the demo inverter cloud (zip). |
+| **Lambda** (5 functions) | The API (zip); the analysis with pvlib (container image); the screenshot reader, Tesseract OCR first and Qwen3-VL-2B on CPU through llama.cpp when OCR finds nothing (container image); the vendor-reply reader, Laya on ONNX Runtime (container image); the demo inverter cloud (zip). |
 | **API Gateway** (HTTP API) | Every route, with a JWT authorizer and request throttling. The caller's identity comes only from the token. |
 | **Cognito** | Sign-up and sign-in by email. |
 | **DynamoDB** | One on-demand table: houses, members, readings, daily verdicts, reported washes and visits, invite codes with a TTL. `Query` only, never `Scan`. |
@@ -86,9 +86,9 @@ EventBridge: nightly analysis, one run per home, then Web Push to the family's p
 | The same, best case: 29 neighbours and weather data that matches the simulator's exactly | **84%**. Faults caught: 86%. |
 | Development neighbourhoods (3 seeds, Delhi), same four cases | 56–57%, 45–49%, 87–89%, 94–95% (7 Oct; the year of weather they run on moves with the date) |
 | Real rooftops (nine NREL PVDAQ homes, about ten years each, no labels) | No accuracy figure. On a single real roof with no neighbours, "wash" and "unclear" are still raised too often. |
-| Screenshot reader, demo inverter screens | 93 of 93 printed values, none invented (saved screens; a screenshot of the whole demo page is refused) |
-| Screenshot reader, store screenshots of three real inverter apps | 6 of 11 values, 1 invented. The homeowner confirms or corrects every number before it is saved. |
-| Plain OCR tried in its place (Tesseract and layout rules, `vision/ocr_reader.py`, not deployed) | 93 of 93 on demo screens; 5 of 11 on the real-app screenshots, none invented, about a second an image. One value short of the model on the real set, so the model stayed. |
+| Screenshot reader, demo inverter screens | 93 of 93 printed values, none invented |
+| Screenshot reader, store screenshots of three real inverter apps | **8 of 11 values, none invented, 1 read wrong** (OCR first, the vision model when OCR finds nothing). OCR answers in a second or two; a screen that falls to the model takes about 35 s. The homeowner confirms or corrects every number before it is saved. |
+| Each reader on its own, same screenshots | Model alone: 6 of 11, 1 invented. OCR alone: 5 of 11, none invented. We chose to combine them after seeing these, so 8 of 11 is not a first-look number. |
 | Vendor-reply reader (Laya v3.2) | 52 of 60 on the one test set written before training. No real vendor reply has been tried. |
 
 The hidden test set is three other cities with every simulator setting redrawn and wider; the rules were never tuned on it. All of these are scores **in simulation**, where the homes' output is built from the same physics the rules use; the weather-error cases are our attempt to take that advantage away. The misses in the best case are mostly on the cautious side ("unclear, wait" for a dusty roof). `CONTEXT.md` has the full record, including what went wrong on the way.
@@ -97,7 +97,9 @@ The hidden test set is three other cities with every simulator setting redrawn a
 
 - **Alone and with imperfect weather, the rules rarely catch a fault** (the first row above). Pooling readings from nearby Dhool homes, with consent, would give every household the neighbour comparison.
 - **No real inverter brand is connected.** One real connector (SolarMAN or ShineMonitor, which most Indian home inverters report to) is the next thing to build.
-- **The screenshot reader is slow** (about a minute) and weak on real apps. OCR is fast and invented nothing in our trial; it needs real homeowner screenshots to settle.
+- **The screenshot reader has only seen store screenshots of real apps**, never a homeowner's own, and a screen OCR cannot read still takes about 35 s.
+- **Readings must be regular.** With fewer than four readings in any week Dhool says so and gives no verdict. A roof whose best weeks are far below its size is flagged, not judged: Dhool cannot tell a roof that was faulty from the start from a wrong size on the form.
+- **Sign-up emails use Cognito's built-in sender**, limited to about 50 a day; a launch needs SES.
 - **Sign-in sends the password over TLS** (not SRP), there is no two-step sign-in, and the demo inverter's key sits on the house record; a real brand's key belongs in Secrets Manager.
 - **Weather comes from Open-Meteo's free service**, which is for non-commercial use and limited to 10,000 calls a day. A launch needs their paid plan or a weather cache.
 - **One stack, deployed from a laptop.** A staging environment is configured (`sam deploy --config-env staging`) but not deployed, and CI validates and builds without deploying.
@@ -141,6 +143,7 @@ web/                 the app: React and Vite, no UI library; hi.js holds the Hin
 | [Open-Meteo](https://open-meteo.com/) | Weather, forecast and air quality | Data CC BY 4.0 |
 | [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen) (GGUF) | Reading screenshots | Apache-2.0 |
 | [llama.cpp](https://github.com/ggml-org/llama.cpp) | Running the screenshot reader on CPU | MIT |
+| [Tesseract](https://github.com/tesseract-ocr/tesseract) 5.5.1 with the English `tessdata_fast` model, [Leptonica](https://github.com/DanBloomberg/leptonica) 1.85.0 | Reading screenshots: OCR, tried first | Apache-2.0, BSD-2-Clause |
 | [Laya](https://huggingface.co/convaiinnovations/laya) (`convaiinnovations/laya`, fine-tuned by us) | Sorting vendor replies | Apache-2.0 |
 | [ONNX Runtime](https://github.com/microsoft/onnxruntime), [PyTorch](https://pytorch.org/) | Running Laya | MIT, BSD-3-Clause |
 | [NREL PVDAQ](https://data.openei.org/submissions/4568) | Real rooftop data for checking the rules | CC BY 4.0 |

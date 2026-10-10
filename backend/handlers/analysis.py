@@ -22,6 +22,8 @@ from dhool.expected import fetch_dust_storms, fetch_pm25, fetch_weather_with_for
 # Starting a house every 1.5 s keeps the night under that, and fits about 70 houses in the 120 s timeout.
 # Once AWS raises the limit set this to 0; past a few hundred houses put an SQS queue in between.
 NIGHTLY_PACE_S = 1.5
+NIGHTLY_PAGE = 25       # houses started between looks at the clock
+VERDICT_TTL_S = 400 * 24 * 3600  # a day's verdict is kept a little over a year; the readings behind it are kept
 PUSH_TTL_S = 24 * 3600  # a phone that is off gets the alert within a day or not at all
 
 _table = None
@@ -124,7 +126,8 @@ def run_house(house_id, nightly=False):
     result = analyse(meta, readings, weather, pm25, fleet, actions, storms)
     previous = items("VERDICT#", ScanIndexForward=False, Limit=1) if nightly else []
     table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"VERDICT#{result['as_of']}",
-                           "json": json.dumps(result), "at": int(time.time())})
+                           "json": json.dumps(result, allow_nan=False), "at": int(time.time()),
+                           "expiresAt": int(time.time()) + VERDICT_TTL_S})
     _log(analysis="done", house=house_id, as_of=result["as_of"],
          verdict=result["verdict"], cause=result["cause"], confidence=result["confidence"])
     if nightly:
@@ -142,9 +145,16 @@ def handler(event, context):
         return {"verdict": run_house(event["house_id"], nightly=event.get("nightly") is True)}
     # Nightly: one run of this same function per house, in the background, so a slow or broken house holds up
     # nobody and its failure lands in the failure queue.
-    client, started, more = boto3.client("lambda"), 0, {}
+    # Pacing makes a long list outlast one invocation: when time runs short, the rest is handed to a fresh one.
+    client, started = boto3.client("lambda"), 0
+    more = {"ExclusiveStartKey": event["cursor"]} if event.get("cursor") else {}
     while True:
-        page = table().query(KeyConditionExpression=Key("pk").eq("HOUSES"), **more)
+        if started and more and context.get_remaining_time_in_millis() < NIGHTLY_PAGE * NIGHTLY_PACE_S * 1000 + 15_000:
+            client.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
+                          Payload=json.dumps({"cursor": more["ExclusiveStartKey"]}))
+            _log(analysis="nightly_continues", houses=started)
+            return {"houses": started, "continues": True}
+        page = table().query(KeyConditionExpression=Key("pk").eq("HOUSES"), Limit=NIGHTLY_PAGE, **more)
         for house in page["Items"]:
             client.invoke(FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"], InvocationType="Event",
                           Payload=json.dumps({"house_id": house["sk"], "nightly": True}))

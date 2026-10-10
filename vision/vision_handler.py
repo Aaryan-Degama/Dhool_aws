@@ -11,17 +11,17 @@ import time
 
 import boto3
 
-import screenshot_reader
+import reader
 
 
 def handler(event, context):
     if event.get("warm"):  # the 5-minute ping: have the model loaded and its weights in memory, nothing else
-        screenshot_reader.prime()
+        reader.prime()
         return {"status": "warm"}
     started = time.time()
     try:
         image = boto3.client("s3").get_object(Bucket=os.environ["UPLOADS"], Key=event["key"])["Body"].read()
-        result = screenshot_reader.read(image)
+        result = reader.read(image)
         status = "read"
     except Exception as e:  # whatever went wrong, the homeowner must not be left waiting on a spinner
         result, status = {"readings": [], "error": f"{type(e).__name__}: {e}"[:300]}, "failed"
@@ -32,5 +32,5 @@ def handler(event, context):
         ExpressionAttributeNames={"#status": "status", "#result": "result"},
         ExpressionAttributeValues={":status": status, ":result": json.dumps(result), ":seconds": seconds})
     print(json.dumps({"vision": status, "house": event["house_id"], "shot": event["shot_id"], "seconds": seconds,
-                      "readings": len(result["readings"]), "error": result.get("error")}))
+                      "reader": result.get("reader"), "readings": len(result["readings"]), "error": result.get("error")}))
     return {"status": status, "seconds": seconds}

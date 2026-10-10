@@ -61,11 +61,24 @@ export function Auth({ onDone }) {
       {lang === "hi"
         ? <button className="link" lang="en" onClick={() => setLang("en")}>English</button>
         : <button className="link" lang="hi" onClick={() => setLang("hi")}>हिंदी</button>}
+      <Privacy />
     </main>
   );
 }
 
 /** Add a home or join one. `onBack` is given when the person already has a home; `children` go under the forms. */
+/** What is stored and how to remove it, in plain words: shown before an account is made and beside deleting one. */
+export function Privacy() {
+  return (
+    <details className="note">
+      <summary>{t("What Dhool keeps about you")}</summary>
+      <p>{t("Your email, to sign you in. Your home's name, its system size and its location to about 1 km, to look up the weather over it. The readings you add or your inverter sends, the washes and vendor visits you report, and the advice Dhool gave. Screenshots are deleted after 30 days. A vendor's reply you paste is read and not kept.")}</p>
+      <p>{t("Nothing is sold or shared. The location, with no name on it, goes to the weather service (Open-Meteo); everything else stays on Dhool's servers on AWS in Mumbai. Everyone you give your family code to sees the home.")}</p>
+      <p>{t("The owner can delete a home with everything in it, and anyone can delete their account, in Setup.")}</p>
+    </details>
+  );
+}
+
 export function Setup({ onDone, onBack, children }) {
   const [form, setForm] = useState({ name: "", kw: "3", lat: "", lon: "", code: "" });
   const [state, run] = useAction();
@@ -265,6 +278,7 @@ export function DeleteAccount({ houses, onGone }) {
           <button className="link error" disabled={state.busy} onClick={erase}>{state.busy ? t("One moment…") : t("Delete my account")}</button>
         </>
       )}
+      <Privacy />
       <ErrorLine error={state.error} />
     </section>
   );

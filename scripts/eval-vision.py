@@ -11,6 +11,7 @@ The reader is given the picture only, and this script compares what it read with
     scripts/eval-vision.py image.png [image.jpg ...]
     scripts/eval-vision.py --ocr image.png [image.jpg ...]
 
+--both scores what is deployed: OCR first, the vision model when OCR finds nothing (vision/reader.py).
 --ocr scores the OCR trial (vision/ocr_reader.py, needs the `tesseract` command) in place of the vision model,
 against the same keys and by the same count. Without it, nothing here differs from before the trial.
 
@@ -31,6 +32,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "vision"))
 os.environ.setdefault("MODEL_DIR", str(ROOT / "vision" / "models"))
 OCR = "--ocr" in sys.argv[1:]
+BOTH = "--both" in sys.argv[1:]  # as deployed: OCR first, the model when OCR finds nothing (vision/reader.py)
 if OCR:
     import ocr_reader as reader  # noqa: E402
 else:
@@ -74,16 +76,18 @@ if not OCR:
     reader.start()
     threading.Thread(target=watch, args=(reader._server.pid,), daemon=True).start()
     print(f"model ready in {time.time() - started:.0f}s on {len(os.sched_getaffinity(0))} cores, image tokens <= {reader.IMAGE_TOKENS}")
+if BOTH:
+    import reader as both  # noqa: E402
 right = total = invented = 0
 took = []
 for name in sys.argv[1:]:
-    if name == "--ocr":
+    if name in ("--ocr", "--both"):
         continue
     path = pathlib.Path(name)
     image = path.read_bytes()
     truth = {r["date"]: r["kwh"] for r in answer_key(path, image)}
     started = time.time()
-    result = reader.read(image)
+    result = (both.read if BOTH else reader.read)(image)
     seconds = time.time() - started
     took.append(seconds)
     got = {r["date"]: r["kwh"] for r in result["readings"]}

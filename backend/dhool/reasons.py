@@ -13,6 +13,12 @@ REASONS = {
         "en": "Only {n} days of data so far. Dhool needs about two weeks to learn this roof's normal.",
         "hi": "अभी सिर्फ़ {n} दिन का डेटा है। इस छत का सामान्य स्तर समझने के लिए Dhool को लगभग दो हफ़्ते चाहिए।",
     },
+    "sparse": {
+        "en": "Dhool has {n} readings, but they are too many days apart. It needs at least four in a week to "
+              "learn this roof's normal: add a reading every day or two for a week.",
+        "hi": "Dhool के पास {n} रीडिंग हैं, लेकिन उनके बीच बहुत दिनों का अंतर है। इस छत का सामान्य स्तर समझने के "
+              "लिए हफ़्ते में कम से कम चार रीडिंग चाहिए: एक हफ़्ते तक हर एक-दो दिन में रीडिंग जोड़िए।",
+    },
     "outage": {
         "en": "Your roof {when}, though the sun was good. Check that the inverter is switched on and shows "
               "no error. If it is off or shows an error, call the vendor.",

@@ -217,6 +217,9 @@ export function WhyTab({ verdict: v, house, log }) {
           {t("A day, on average, in the week to {date}.", { date: day(v.as_of) })}
           {v.cause !== "no_data" && t(" “Should have made” is what this roof normally makes in that weather.")}
         </p>
+        {v.low_normal && (
+          <p className="note">{t("Even in its best weeks this roof makes far less than a system of its size should. If the size in Setup is right, it may have been shaded, dirty or faulty since before Dhool started watching: have it checked once.")}</p>
+        )}
         {acting(v) && v.loss_rs_per_week > 0 && (
           <p className="loss">
             {t("About {amount} is being lost ({units} units a day, {tariff}).", {
