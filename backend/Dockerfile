@@ -1,6 +1,6 @@
 # Base image on 10 Oct 2026, to pin when builds must repeat exactly:
 #   public.ecr.aws/lambda/python:3.12@sha256:145350008f3f67d82c0bc6ecd34d9eb0c95aecf11f9b69db6bab7de3d5d3cc61
-FROM public.ecr.aws/lambda/python:3.12
+FROM public.ecr.aws/lambda/python:3.14
 COPY constraints-analysis.txt ${LAMBDA_TASK_ROOT}/
 # constraints-analysis.txt is requirements-analysis.txt worked out in full: the exact version of everything the
 # four requirements pull in, each with the SHA-256 hashes PyPI publishes for it. Two reasons:
