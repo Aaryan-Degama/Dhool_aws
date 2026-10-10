@@ -269,7 +269,7 @@ button, a.primary, a.secondary {
   border: 0; cursor: pointer; text-align: center; text-decoration: none; display: grid; place-items: center;
 }
 .primary { background: var(--current); color: var(--on-current); box-shadow: 0 10px 26px -14px var(--current); }
-.secondary { background: transparent; color: var(--ink); border: 1.5px solid var(--edge); }
+.secondary, a.secondary { background: transparent; color: var(--ink); border: 1.5px solid var(--edge); }
 .link { background: none; color: var(--wash); min-height: 2.75rem; padding: 0.25rem 0; text-decoration: underline; justify-self: start; font-weight: 600; }
 button:disabled { opacity: 0.55; cursor: progress; }
 :focus-visible { outline: 3px solid var(--wash); outline-offset: 2px; }

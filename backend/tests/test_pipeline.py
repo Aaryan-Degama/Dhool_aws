@@ -102,7 +102,7 @@ def test_the_nightly_run_survives_a_house_linked_before_api_keys(monkeypatch):
         table.put_item(Item={"pk": "HOUSE#h1", "sk": "META", "plant_id": "home-04", "inverter_url": "https://api.invalid/mock",
                              "kw": 3, "lat": "28.59", "lon": "77.23", "tilt": 20, "azimuth": 180})
         monkeypatch.setattr(analysis, "_table", None)
-        assert analysis.handler({}, None) == {"done": 1, "failed": 0}
+        assert analysis.handler({"house_id": "h1"}, None) == {"verdict": None}
 
 
 def test_a_reported_wash_reaches_the_verdict_with_its_before_and_after():
