@@ -28,9 +28,14 @@ Globals:
     Tracing: Active
 
 Resources:
+  # The three resources below hold what cannot be made again (the accounts, every home's data, the uploads).
+  # Retain: deleting or replacing the stack leaves them standing, to be removed by hand and on purpose.
   UserPool:
     Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
+      DeletionProtection: ACTIVE
       UsernameAttributes: [email]
       AutoVerifiedAttributes: [email]
       Policies:
@@ -48,7 +53,12 @@ Resources:
   # PUSH#<hash>), USER#<sub> -> HOUSE#<id>, HOUSES -> <id>, INVITE#<code> and JOINFAIL#<sub> (expire through TTL).
   Table:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
+      DeletionProtectionEnabled: true
+      PointInTimeRecoverySpecification:  # any second of the last 35 days can be restored to a new table
+        PointInTimeRecoveryEnabled: true
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - {AttributeName: pk, AttributeType: S}
@@ -194,6 +204,8 @@ Resources:
   # deleted after 30 days.
   Uploads:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       PublicAccessBlockConfiguration:
         {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
