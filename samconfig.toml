@@ -7,6 +7,9 @@ resolve_s3 = true
 resolve_image_repos = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = false
+# Only the hosted web app may call the API from a browser or post a screenshot to the bucket (CORS).
+# Running the web app on localhost against this stack needs WebOrigin=* for that deploy.
+parameter_overrides = "WebOrigin=https://main.d18fp2anb76xgh.amplifyapp.com"
 
 # A second copy of the stack for trying a change first: `sam deploy --config-env staging`. Nothing is deployed
 # to it yet. It would need its own push key: parameter_overrides = "VapidParam=/dhool-aws-staging/vapid-private-key".

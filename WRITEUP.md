@@ -1,6 +1,6 @@
 # Dhool: is your rooftop solar actually working?
 
-_Environmental Hacks, Waste and Energy track. Repo: https://github.com/Aaryan-Degama/Dhool_aws · Live app: to be added · Video: to be added_
+_Environmental Hacks, Waste and Energy track. Repo: https://github.com/Aaryan-Degama/Dhool_aws · Live app: https://main.d18fp2anb76xgh.amplifyapp.com · Video: to be added_
 
 ## The problem
 

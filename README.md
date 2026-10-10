@@ -6,8 +6,8 @@ Built for [Environmental Hacks](https://www.wemakedevs.org/aws/env) (WeMakeDevs 
 
 ## Try it
 
-- **Live app:** _to be added: the web app is not on a public address yet (Amplify Hosting is the last step)._
-- **Until then:** `cd web && npm install && npm run dev`, then open `http://localhost:5173`. It talks to the deployed backend. Create an account, add a home, and in **Setup** connect the demo inverter: open the "demo inverter app" link, pick a home, and copy its API key.
+- **Live app:** https://main.d18fp2anb76xgh.amplifyapp.com (Amplify Hosting; open it on a phone or a narrow browser window). Create an account, add a home, and in **Setup** connect the demo inverter.
+- **On your own machine:** `cd web && npm install && npm run dev`, then open `http://localhost:5173`. It talks to the deployed backend. Create an account, add a home, and in **Setup** connect the demo inverter: open the "demo inverter app" link, pick a home, and copy its API key.
 - **Homes worth picking in the demo inverter:** `home-00` (a dead string: "Call your vendor"), `home-05` (healthy: "Your solar is working"), `home-30` (beside a dust source: "Wash the panels", when it has not rained lately).
 - **Every screen without signing in:** `http://localhost:5173/#preview` (add `?lang=hi` for Hindi).
 - **Trying the screenshot upload:** in the demo inverter app press "Save this screen as an image" and upload that file. A plain screenshot of the whole demo page, with its demo banner on top, is refused by the reader.
