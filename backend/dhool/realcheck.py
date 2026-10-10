@@ -25,6 +25,8 @@ import re
 import time
 import urllib.request
 from collections import Counter
+from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -85,7 +87,7 @@ def _weather(lat, lon):
     return fetch
 
 
-def load(system_id):
+def load(system_id: int) -> tuple[pd.DataFrame, pd.Series]:
     """Daily [expected, actual] and daily rain for one real system."""
     place, lat, lon, kw, tilt, azimuth, tz = SYSTEMS[system_id]
     config.TZ = tz  # a fixed-offset zone: no daylight-saving gaps, and solar days are the same
@@ -97,7 +99,7 @@ def load(system_id):
     return daily, weather["rain"].resample("D").sum()[START:END]
 
 
-def natural_washes(daily, rain):
+def natural_washes(daily: pd.DataFrame, rain: pd.Series) -> list[dict[str, Any]]:
     """For each first real rain after a long dry spell: what the loss predicted, and what came back."""
     ratio, events, last_wet = _ratio(daily), [], None
     for day in rain[rain >= config.CLEAN_RAIN_MM].index:
@@ -111,7 +113,7 @@ def natural_washes(daily, rain):
     return events
 
 
-def monthly_verdicts(daily, rain):
+def monthly_verdicts(daily: pd.DataFrame, rain: pd.Series) -> list[str]:
     """The verdict at each month end, from the year of readings before it: what a homeowner would have seen."""
     said = []
     for end in pd.date_range(daily.index[0] + pd.Timedelta(days=365), daily.index[-1] - pd.Timedelta(days=7), freq="ME"):
@@ -123,12 +125,14 @@ def monthly_verdicts(daily, rain):
     return said
 
 
-def alerts(said):
+def alerts(said: Mapping[str, int]) -> dict[str, int]:
     """How many of the counted verdicts were an alert, by verdict. said counts "VERDICT:cause" names, as main() does."""
     return {v: sum(n for name, n in said.items() if name.split(":")[0] == v) for v in ALERTS}
 
 
-def main():
+def main() -> None:
+    events: list[dict[str, Any]]
+    said: Counter[str]
     events, said = [], Counter()
     print(f"{'system':<26}{'days':>6}{'runs at':>9}{'scatter':>9}{'washes':>8}{'came back':>11}{'median gain':>13}")
     for system_id, (place, *_) in SYSTEMS.items():
@@ -143,11 +147,13 @@ def main():
               f"{np.mean([g > 0 for g in gains]):>11.0%}{np.median(gains):>12.1f}%")
     frame = pd.DataFrame(events)
     dusty = frame[frame["predicted_pct"] >= 5]
-    print(f"\n{len(frame)} first rains after {DRY_DAYS}+ dry days: output rose after {np.mean(frame['observed_pct'] > 0):.0%} of them, "
+    print(f"\n{len(frame)} first rains after {DRY_DAYS}+ dry days: output rose after "
+          f"{np.mean(frame['observed_pct'] > 0):.0%} of them, "
           f"median {frame['observed_pct'].median():+.1f}%.")
     print(f"Where the roof was 5% or more below its normal before the rain ({len(dusty)} events): predicted "
           f"{dusty['predicted_pct'].median():+.1f}%, came back {dusty['observed_pct'].median():+.1f}% (medians); "
-          f"check said {dict(Counter(dusty['status']))}; correlation {dusty['predicted_pct'].corr(dusty['observed_pct']):.2f}.")
+          f"check said {dict(Counter(dusty['status']))}; "
+          f"correlation {dusty['predicted_pct'].corr(dusty['observed_pct']):.2f}.")
     total = sum(said.values())
     print(f"\nMonth-end verdicts over {total} system-months, one roof at a time (no neighbours, no PM2.5):")
     for name, count in said.most_common():

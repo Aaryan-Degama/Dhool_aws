@@ -10,7 +10,9 @@ The training loop is adapted from Laya's own CPU script (notebooks/laya_finetune
 Apache-2.0, https://github.com/NandhaKishorM/laya); see CREDITS.md. Changes: our data, frozen token
 embeddings, calibration through laya.calibrate.
 """
-import argparse
+# The imports stay in the order they were tuned and measured with (torch before laya): this script runs only in
+# .venv-laya, outside the tests and CI, so a reorder could not be checked.
+import argparse  # noqa: I001
 import collections
 import json
 import random
@@ -56,12 +58,12 @@ LABELS = list(QUESTIONS["reply"]["criteria"])
 
 
 def rows(split):
-    lines = [l for l in DATA.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+    lines = [line for line in DATA.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")]
     return [r for r in map(json.loads, lines) if r["split"] == split]
 
 
 def onehot(label):
-    return [float(l == label) for l in LABELS]
+    return [float(name == label) for name in LABELS]
 
 
 def evaluate(agent, split="test"):
@@ -82,7 +84,7 @@ def evaluate(agent, split="test"):
           f"   mean confidence {np.mean(conf):.3f}")
     print(f"  per reply: median {np.median(ms):.0f} ms, slowest {max(ms):.0f} ms")
     for w in wrong:
-        print("  wrong: want %s, got %s (%.2f): %s" % w)
+        print("  wrong: want {}, got {} ({:.2f}): {}".format(*w))
     return float(np.mean(hits["all"]))
 
 
@@ -210,4 +212,4 @@ if __name__ == "__main__":
     for split in ("test", "test2", "test3") + (("real",) if rows("real") else ()):
         print(split, "replies,", args.model or "shipped multilingual checkpoint")
         evaluate(agent, split)
-    print("peak memory %d MB" % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024))
+    print(f"peak memory {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024} MB")

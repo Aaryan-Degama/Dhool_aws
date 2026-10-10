@@ -2,6 +2,7 @@
 
 The text is fixed and written by hand in both languages; the body is the verdict's own reason.
 """
+from typing import Any
 
 STOPPED_AFTER_DAYS = 3  # said on this day only, so a silent inverter is one alert and not one every night
 
@@ -17,7 +18,8 @@ TEXT = {
 }
 
 
-def message(told, new, days_since_reading, lang):
+def message(told: dict[str, Any] | None, new: dict[str, Any], days_since_reading: int,
+            lang: str | None) -> dict[str, str] | None:
     """told is what the family's phones were last told, {"verdict", "cause"} (or None: nothing yet, or the
     trouble has passed since). new is this run's verdict. Returns {"title", "body", "url"} to send, or None
     when there is nothing new to say."""

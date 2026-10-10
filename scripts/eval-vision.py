@@ -75,7 +75,8 @@ started = time.time()
 if not OCR:
     reader.start()
     threading.Thread(target=watch, args=(reader._server.pid,), daemon=True).start()
-    print(f"model ready in {time.time() - started:.0f}s on {len(os.sched_getaffinity(0))} cores, image tokens <= {reader.IMAGE_TOKENS}")
+    print(f"model ready in {time.time() - started:.0f}s on {len(os.sched_getaffinity(0))} cores, "
+          f"image tokens <= {reader.IMAGE_TOKENS}")
 if BOTH:
     import reader as both  # noqa: E402
 right = total = invented = 0
@@ -101,7 +102,8 @@ for name in sys.argv[1:]:
         print("   ", json.dumps(result["replies"])[:600])
 print(f"overall: {right}/{total} printed values read exactly, {invented} values invented")
 if OCR:
-    print(f"{reader.READER}: {sum(took) / max(1, len(took)):.2f}s an image on average, {max(took, default=0):.2f}s the slowest, on {len(os.sched_getaffinity(0))} cores")
+    print(f"{reader.READER}: {sum(took) / max(1, len(took)):.2f}s an image on average, "
+          f"{max(took, default=0):.2f}s the slowest, on {len(os.sched_getaffinity(0))} cores")
     sys.exit()
 print(f"model server peak memory: working {peaks['working']} MB, with the mapped weights {peaks['total']} MB")
 try:  # the container's own peak, page cache included, when run in one (cgroup v2)

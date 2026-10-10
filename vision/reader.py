@@ -7,6 +7,7 @@ reads screens OCR cannot (tilted, an icon between label and figure). Same call a
 import ocr_reader
 import screenshot_reader
 
+
 def prime():
     screenshot_reader.prime()  # the model stays loaded for the screens OCR hands on
 

@@ -1,3 +1,53 @@
 [tool.pytest.ini_options]
 pythonpath = ["backend", "vision"]
 testpaths = ["backend/tests"]
+
+# Lint and format: `ruff check .` and `ruff format .`. The versions are pinned in backend/requirements-dev.txt.
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+# Where first-party imports live (dhool, handlers, the readers, and the test modules that borrow each other's
+# fixtures), so the import sorter groups them as ours.
+src = ["backend", "backend/tests", "vision"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import order, bugbear (likely bugs) and pyupgrade (idioms older than 3.12).
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+# ruff also formats the Python inside Markdown code blocks. The docs quote code as it was written: leave them.
+exclude = ["*.md"]
+
+# Types: `mypy`, from the repo root. Not strict: the public functions are annotated, the private helpers mostly not.
+[tool.mypy]
+python_version = "3.12"
+files = ["backend/dhool", "backend/handlers"]
+mypy_path = "backend"  # so `dhool` and `handlers` resolve as they do in the Lambdas and in pytest
+explicit_package_bases = true
+check_untyped_defs = true  # the bodies of the unannotated helpers are checked too
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# Third-party packages that ship no type information. Each is named: there is no global ignore.
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pvlib", "pvlib.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["botocore", "botocore.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pywebpush", "pywebpush.*"]
+ignore_missing_imports = true

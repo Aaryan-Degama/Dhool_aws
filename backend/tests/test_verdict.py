@@ -308,6 +308,7 @@ def test_a_higher_tariff_raises_what_the_dust_costs_not_what_a_wash_costs():
 def test_every_reason_reads_in_hindi_with_the_same_figures_as_the_english():
     import re
     import string
+
     from dhool.reasons import REASONS, say
     day = pd.Timestamp("2026-08-17")  # a Monday
     for key, text in REASONS.items():

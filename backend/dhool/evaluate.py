@@ -46,6 +46,7 @@ The precision and recall lines print nan for a class that was never said (no pre
 import datetime
 import sys
 from collections import Counter
+from typing import Any
 
 import pandas as pd
 
@@ -69,9 +70,10 @@ VARIANTS = [
 ALERTS = ("CLEAN", "INSPECT")  # the verdicts the app sends to the phone (notify.message)
 CHECK_EVERY = 7  # days between two checks of a roof: evaluate()'s default, which every score here uses
 DAYS_PER_MONTH = 30.44  # 365.25 / 12
+Confusion = Counter[tuple[str, str]]  # (truth, verdict) -> how many checks; a name for the type, nothing more
 
 
-def truth(home, i, rain):
+def truth(home: dict[str, Any], i: int, rain: pd.Series) -> str:
     """What a perfect detector would say for this home on day i."""
     daily, problem = home["daily"], home["meta"]["problem"]
     faulty = daily["cause"].iloc[:i + 1] == "fault"
@@ -92,25 +94,29 @@ def truth(home, i, rain):
     return "OK"
 
 
-def evaluate(homes, rain, pm25, start=60, every=7, alone=False):
+def evaluate(homes: dict[str, dict[str, Any]], rain: pd.Series, pm25: pd.Series, start: int = 60, every: int = 7,
+             alone: bool = False) -> Confusion:
     """Returns Counter of (truth, verdict) pairs over every home, checked every `every` days.
     alone=True gives the rules no neighbours to compare with."""
     ratios = pd.DataFrame({hid: h["daily"]["actual"] / h["daily"]["expected"] for hid, h in homes.items()})
-    confusion = Counter()
+    confusion: Confusion = Counter()
     for hid, home in homes.items():
         others = None if alone else ratios.drop(columns=hid)
         for i in range(start, len(rain) - 7, every):
-            got = verdict(home["daily"].iloc[:i + 1], rain.iloc[:i + 1], list(rain.iloc[i + 1:i + 8]),
-                          pm25.iloc[:i + 1], others if alone else others.iloc[:i + 1])
+            got = verdict(
+                home["daily"].iloc[:i + 1], rain.iloc[:i + 1], list(rain.iloc[i + 1:i + 8]), pm25.iloc[:i + 1],
+                # others is None only when alone, and then .iloc is not reached
+                others if alone else others.iloc[:i + 1],  # type: ignore[union-attr]
+            )
             confusion[truth(home, i, rain), got["verdict"]] += 1
     return confusion
 
 
-def wash_checks(homes):
+def wash_checks(homes: dict[str, dict[str, Any]]) -> Counter[tuple[str, str]]:
     """The "I washed them" check against washes the simulator planted, reported a week later.
     Real washes of a dusty roof should come out verified; a wash that never happened on a roof with a
     dead string (the homeowner washed, it was not dust) should come out not recovered."""
-    outcome = Counter()
+    outcome: Counter[tuple[str, str]] = Counter()
     for home in homes.values():
         daily, days = home["daily"], home["daily"].index
         washed = [i for i in range(14, len(days) - 8) if str(days[i].date()) in home["meta"]["wash_days"]
@@ -124,7 +130,7 @@ def wash_checks(homes):
     return outcome
 
 
-def report(confusion):
+def report(confusion: Confusion) -> str:
     lines = ["truth \\ verdict  " + "".join(f"{c:>9}" for c in CLASSES)]
     for t in CLASSES:
         lines.append(f"{t:<16} " + "".join(f"{confusion[t, v]:>9}" for v in CLASSES))
@@ -148,26 +154,26 @@ def _actual(confusion, c):
     return sum(confusion[c, v] for v in CLASSES)
 
 
-def baseline(confusion):
+def baseline(confusion: Confusion) -> tuple[str, float]:
     """(class, accuracy) of always saying the commonest true class. A tie goes to the first in CLASSES."""
     commonest = max(CLASSES, key=lambda c: _actual(confusion, c))
     return commonest, _actual(confusion, commonest) / sum(confusion.values())
 
 
-def f1(confusion, c):
+def f1(confusion: Confusion, c: str) -> float | None:
     """One class's F1: 2 x right / (2 x right + said wrongly + missed). None when the class neither happened
     nor was said: there is nothing to score, and a 0 would count against the rules for a class that was not there."""
     either = _said(confusion, c) + _actual(confusion, c)  # the right ones are in both, so this is that divisor
     return 2 * confusion[c, c] / either if either else None
 
 
-def macro_f1(confusion):
+def macro_f1(confusion: Confusion) -> float:
     """The plain mean of the per-class F1s, over the classes that have one."""
     scores = [score for score in (f1(confusion, c) for c in CLASSES) if score is not None]
     return sum(scores) / len(scores)
 
 
-def alert_counts(confusion):
+def alert_counts(confusion: Confusion) -> tuple[int, int]:
     """(false alerts, wrong-action alerts). False: said CLEAN or INSPECT when the truth was OK or WAIT.
     Wrong action: said one of the two when the truth was the other."""
     false = sum(confusion[t, v] for t in CLASSES if t not in ALERTS for v in ALERTS)
@@ -175,12 +181,12 @@ def alert_counts(confusion):
     return false, wrong_action
 
 
-def per_roof_month(count, checks, every=CHECK_EVERY):
+def per_roof_month(count: int, checks: int, every: float = CHECK_EVERY) -> float:
     """A count of checks as a rate per roof per month, each roof being checked every `every` days."""
     return count / checks * DAYS_PER_MONTH / every
 
 
-def beyond_accuracy(confusion):
+def beyond_accuracy(confusion: Confusion) -> list[str]:
     """The lines report() adds under the accuracy line. The module docstring says what each one means."""
     total, lines = sum(confusion.values()), []
     if any(not _said(confusion, c) or not _actual(confusion, c) for c in CLASSES):
@@ -191,16 +197,19 @@ def beyond_accuracy(confusion):
     scores = {c: f1(confusion, c) for c in CLASSES}
     for c, score in scores.items():
         lines.append(f"{c:<8} F1 " + ("none (never happened, never said: left out of macro-F1)" if score is None else f"{score:.2f}"))
-    lines.append(f"macro-F1 {macro_f1(confusion):.2f}: the plain mean of the {sum(s is not None for s in scores.values())} F1s above")
+    lines.append(f"macro-F1 {macro_f1(confusion):.2f}: the plain mean of the "
+                 f"{sum(s is not None for s in scores.values())} F1s above")
     false, wrong_action = alert_counts(confusion)
     lines.append(f"false alerts {per_roof_month(false, total):.2f} per roof per month: {false} of {total} checks, "
                  f"{CHECK_EVERY} days apart, said CLEAN or INSPECT when the truth was OK or WAIT")
-    lines.append("  (the app alerts only when its advice changes, so a wrong verdict that lasts counts here every time and there once)")
+    lines.append("  (the app alerts only when its advice changes, so a wrong verdict that lasts counts here every time "
+                 "and there once)")
     lines.append(f"wrong-action alerts {wrong_action}: said CLEAN when the truth was INSPECT, or INSPECT when it was CLEAN")
     return lines
 
 
-def run(name, lat, lon, start, end, seed, hidden):
+def run(name: str, lat: float, lon: float, start: str, end: str, seed: int,
+        hidden: bool) -> tuple[list[Confusion], Counter[tuple[str, str]]]:
     """Prints the four scores for one neighbourhood. Returns their confusions, in VARIANTS order, and the
     wash checks (on the homes without weather error, as before)."""
     weather = fetch_weather(lat, lon, start, end)
@@ -211,7 +220,7 @@ def run(name, lat, lon, start, end, seed, hidden):
                              weather_noise=WEATHER_NOISE if noisy else 0.0) for noisy in (False, True)}
     # The first block is headed as it always was, so old numbers can be laid beside new ones.
     print(f"\n{name}: {len(homes[False])} homes, {start} to {end}, seed {seed}")
-    confusions = []
+    confusions: list[Confusion] = []
     for title, noisy, alone in VARIANTS:
         if confusions:
             print(f"\n{name}, {title}")
@@ -220,14 +229,16 @@ def run(name, lat, lon, start, end, seed, hidden):
     return confusions, wash_checks(homes[False])
 
 
-def main(seed="0"):
+def main(seed: str = "0") -> None:
+    totals: list[Confusion]
+    washes: Counter[tuple[str, str]]
     if seed == "hidden":
         totals, washes = [Counter() for _ in VARIANTS], Counter()
         for i, (city, (lat, lon)) in enumerate(HIDDEN_CITIES.items()):
             confusions, checks = run(city, lat, lon, *HIDDEN_YEAR, HIDDEN_SEED + i, hidden=True)
-            totals = [total + confusion for total, confusion in zip(totals, confusions)]
+            totals = [total + confusion for total, confusion in zip(totals, confusions, strict=True)]
             washes += checks
-        for i, (total, (title, _, _)) in enumerate(zip(totals, VARIANTS)):
+        for i, (total, (title, _, _)) in enumerate(zip(totals, VARIANTS, strict=True)):
             print("\nHidden test set, all three cities" + (f", {title}" if i else ""))
             print(report(total))
     else:

@@ -16,19 +16,20 @@ import hashlib
 import hmac
 import json
 import pathlib
+from typing import Any
 
 HERE = pathlib.Path(__file__).parent
 _homes = None
 
 
-def homes():
+def homes() -> dict[str, dict[str, Any]]:
     global _homes
     if _homes is None:
         _homes = json.loads((HERE.parent / "data" / "neighbourhood.json").read_text())
     return _homes
 
 
-def api_key(plant_id):
+def api_key(plant_id: str) -> str:
     # ponytail: keys are derived, so there is nothing to store or revoke. Fine for simulated data;
     # a real brand issues and revokes keys.
     return "inv_" + hashlib.sha256(f"dhool-demo-inverter:{plant_id}".encode()).hexdigest()[:24]
@@ -63,7 +64,7 @@ def _app_page(query):
     return {"statusCode": 200, "headers": {"content-type": "text/html; charset=utf-8"}, "body": page}
 
 
-def handler(event, context):
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     route, query = event["routeKey"], event.get("queryStringParameters") or {}
     if route == "GET /mock/app":
         return _app_page(query)

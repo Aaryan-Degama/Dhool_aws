@@ -9,6 +9,8 @@ import hashlib
 import json
 import os
 import time
+from collections.abc import Callable
+from typing import Any
 
 from botocore.exceptions import ClientError
 
@@ -20,7 +22,7 @@ STALE_S = 24 * 3600    # when Open-Meteo fails, one up to this old is used and t
 MAX_BYTES = 380_000    # an item holds 400 KB; a longer answer (several years, zipped) is simply not kept
 
 
-def cached(fetch):
+def cached(fetch: Callable[[str], Any]) -> Callable[[str], Any]:
     """fetch(url) -> the JSON it answers with. Returns the same, with the cache around it. The cache failing
     (a throttled table) never fails the fetch."""
     def get(url):
@@ -30,7 +32,10 @@ def cached(fetch):
             item = client("dynamodb").get_item(TableName=os.environ["TABLE"], Key=key).get("Item")
         except ClientError as e:
             log(weather="cache_unread", error=e.response["Error"]["Code"])
-        kept = lambda: json.loads(gzip.decompress(item["body"]["B"]))
+
+        def kept():  # called only where item has just been checked
+            return json.loads(gzip.decompress(item["body"]["B"]))  # type: ignore[index]  # see the line above
+
         if item and int(item["fresh_until"]["N"]) > now:
             return kept()
         try:

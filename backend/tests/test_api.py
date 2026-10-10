@@ -246,7 +246,10 @@ def test_reading_a_screenshot_runs_in_the_background_and_trusts_nothing(house, t
 
     assert call(FATHER, "POST /houses/{houseId}/screenshots/read", {"key": key}, house) == (202, {"shot_id": shot, "status": "reading"})
     assert started == [(house, shot, key)]
-    result = lambda who=FATHER: call(who, "GET /houses/{houseId}/screenshots/{shotId}", house_id=house, shot_id=shot)
+
+    def result(who=FATHER):
+        return call(who, "GET /houses/{houseId}/screenshots/{shotId}", house_id=house, shot_id=shot)
+
     assert result() == (200, {"status": "reading"})
     assert result(STRANGER)[0] == 403
     assert call(FATHER, "GET /houses/{houseId}/screenshots/{shotId}", house_id=house, shot_id="cd" * 16)[0] == 404
@@ -255,7 +258,7 @@ def test_reading_a_screenshot_runs_in_the_background_and_trusts_nothing(house, t
     said = {"reader": "test", "readings": [
         {"date": "2026-09-29", "kwh": 12.4}, {"date": "2026-09-28", "kwh": 11.9}, {"date": "TODAY", "kwh": 9.5},
         {"date": "2026-09-27", "kwh": 372.1}, {"date": "not a date", "kwh": 3}, "junk", {"date": "2999-01-01", "kwh": 3}]}
-    uploaded = int(datetime.datetime(2026, 10, 1, 12, tzinfo=datetime.timezone.utc).timestamp())
+    uploaded = int(datetime.datetime(2026, 10, 1, 12, tzinfo=datetime.UTC).timestamp())
     table.update_item(Key={"pk": f"HOUSE#{house}", "sk": f"SHOT#{shot}"},
                       UpdateExpression="SET #s = :s, #r = :r, seconds = :t, #a = :a",
                       ExpressionAttributeNames={"#s": "status", "#r": "result", "#a": "at"},

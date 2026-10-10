@@ -90,7 +90,8 @@ def reread(picture, found):
         cut = picture.crop((0, top, picture.width, min(picture.height, max(w.y1 for w in tall) + height // 5)))
         left, right = tall[0].x0, tall[-1].x1
         paper = max(range(256), key=cut.crop((left, 0, right, cut.height)).histogram().__getitem__)  # the commonest shade there
-        ink = cut.point(lambda shade: 255 if abs(shade - paper) > 60 else 0)
+        # B023 below: point() calls the lambda at once, inside this turn of the loop, so it sees this turn's paper
+        ink = cut.point(lambda shade: 255 if abs(shade - paper) > 60 else 0)  # noqa: B023
         # Widen to the whole card the print stands on, out to where another background begins (a column that is
         # all "ink"): nothing on the line is cut through, since half a unit must never be read as a unit.
         solid = [shade >= 250 for shade in ink.resize((cut.width, 1), Image.BOX).getdata()]
@@ -169,7 +170,7 @@ def lines(found):
 def groups(row):
     """A row -> its groups of words that stand together, split where the gap is wide (columns, cards)."""
     out = [[row[0]]]
-    for before, word in zip(row, row[1:]):
+    for before, word in zip(row, row[1:], strict=False):  # each word with the next: one short on purpose
         if word.x0 - before.x1 > 1.5 * min(before.y1 - before.y0, word.y1 - word.y0):
             out.append([])
         out[-1].append(word)
@@ -185,7 +186,7 @@ def dates(row):
     found, used = [], set()
     for pattern, order in DATES:
         for match in pattern.finditer(text):
-            part = dict(zip(order, match.groups()))
+            part = dict(zip(order, match.groups(), strict=False))
             month = MONTHS.index(part["m"]) + 1 if part["m"] in MONTHS else int(part["m"])
             day = int(part["d"])
             if month > 12 and order == "dmy":  # 09/25/2026: the month came first
@@ -266,7 +267,8 @@ def today(rows):
                 """The one figure a group holds, if it holds nothing else."""
                 with_unit, bare = figures(group)
                 rest = [w for w in group if not NUMBER.match(w.text.lower()) and not UNIT.search(w.text.lower())]
-                if rest or len(with_unit + bare) != 1 or (bare and not carries):
+                # B023 below: alone() is called only further down this same turn of the loop, never kept past it
+                if rest or len(with_unit + bare) != 1 or (bare and not carries):  # noqa: B023
                     return None
                 return (with_unit + bare)[0][0]
 
@@ -306,7 +308,8 @@ def layout(found):
 
 
 def read(image):
-    """PNG or JPEG bytes -> {"reader", "kind", "readings": [{"date": "YYYY-MM-DD" or "TODAY", "kwh": float}], "replies"}"""
+    """PNG or JPEG bytes ->
+    {"reader", "kind", "readings": [{"date": "YYYY-MM-DD" or "TODAY", "kwh": float}], "replies"}"""
     found = words(image)
     kind, readings = layout(found)
     text = "\n".join(" ".join(w.text for w in row) for row in lines(found))

@@ -6,6 +6,8 @@ losses (dust, washes, faults, haze, noise) are planted, and each day carries its
 import datetime
 import json
 import sys
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,8 +19,9 @@ from .expected import expected_daily_kwh, fetch_pm25, fetch_weather_with_forecas
 PLANTED = {0: "string_fault", 1: "string_fault", 2: "shading", 3: "inverter_trips"}
 
 
-def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT, lon=config.SIM_LON, dusty=0,
-             weather_noise=0.0):
+def simulate(weather: pd.DataFrame | Callable[[float, float], pd.DataFrame], pm25: pd.Series, n_homes: int = 30,
+             seed: int = 0, hidden: bool = False, lat: float = config.SIM_LAT, lon: float = config.SIM_LON,
+             dusty: int = 0, weather_noise: float = 0.0) -> dict[str, dict[str, Any]]:
     """Returns {home_id: {"meta": {...}, "daily": DataFrame[expected, actual, soiling, cause]}}.
 
     hidden=True is the test neighbourhood the rules are never tuned on: every setting the rules could have
@@ -47,9 +50,9 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
     # Haze dims every roof together: 10% lost per 100 µg/m³ above the threshold, at most 25%.
     haze = (1 - haze_per_100 * (pm25 - config.HAZE_PM25).clip(lower=0) / 100).clip(lower=0.75).to_numpy()
 
-    homes = {}
+    homes: dict[str, dict[str, Any]] = {}
     for i in range(n_homes + dusty):
-        meta = {
+        meta: dict[str, Any] = {
             "id": f"home-{i:02d}",
             # To 2 decimals (about 1 km), as the API stores a home's location: the analysis must fetch weather
             # at the same spot this data was made from.
@@ -128,7 +131,7 @@ def simulate(weather, pm25, n_homes=30, seed=0, hidden=False, lat=config.SIM_LAT
     return homes
 
 
-def main(path="data/neighbourhood.json", seed=0):
+def main(path: str = "data/neighbourhood.json", seed: int = 0) -> None:
     """Fetch 12 months of real weather, through yesterday, and write the neighbourhood to JSON.
     Run it again right before a demo: the demo inverter's last day is the day before this ran."""
     end = datetime.date.today() - datetime.timedelta(days=1)
@@ -149,4 +152,4 @@ def main(path="data/neighbourhood.json", seed=0):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:2])
+    main(*sys.argv[1:2])  # type: ignore[arg-type]  # one argument at most, the path: mypy cannot see the slice's length

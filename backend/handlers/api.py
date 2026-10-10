@@ -14,6 +14,7 @@ import time
 import traceback
 import uuid
 from decimal import Decimal
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from boto3.dynamodb.conditions import Key
@@ -51,7 +52,7 @@ PUSH_ENDPOINT = re.compile(r"https://(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)+(?
 MAX_ENDPOINT_CHARS, MAX_PUSH_KEY_CHARS = 2000, 200
 
 class HttpError(Exception):
-    def __init__(self, status, message):
+    def __init__(self, status: int, message: str) -> None:
         self.status, self.message = status, message
 
 
@@ -61,11 +62,11 @@ def _body(event):
         try:
             raw = base64.b64decode(raw, validate=True)
         except ValueError:
-            raise HttpError(400, "Body is not valid base64")
+            raise HttpError(400, "Body is not valid base64") from None
     try:
         data = json.loads(raw, parse_float=Decimal)
     except ValueError:
-        raise HttpError(400, "Body must be JSON")
+        raise HttpError(400, "Body must be JSON") from None
     if not isinstance(data, dict):
         raise HttpError(400, "Body must be a JSON object")
     return data
@@ -90,7 +91,7 @@ def _decide(sub, house_id, action, role):
     return role
 
 
-def authorize(sub, house_id, action):
+def authorize(sub: str, house_id: str, action: str) -> str:
     """Every access to house data goes through here. One JSON log line per decision."""
     item = table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.member_sk(sub)}).get("Item")
     return _decide(sub, house_id, action, item["role"] if item else None)
@@ -116,7 +117,7 @@ def _count(pk, prefix):
     return table().query(KeyConditionExpression=Key("pk").eq(pk) & Key("sk").begins_with(prefix), Select="COUNT")["Count"]
 
 
-def me(sub, event):
+def me(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     items = table().query(KeyConditionExpression=Key("pk").eq(keys.user_pk(sub)))["Items"]
     return 200, {"houses": [{"house_id": keys.tail(i["sk"]), "name": i["name"], "role": i["role"]}
                             for i in items]}
@@ -126,7 +127,7 @@ def _new_house_id():
     return uuid.uuid4().hex[:12]
 
 
-def create_house(sub, event):
+def create_house(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     data = _body(event)
     name = data.get("name")
     if not isinstance(name, str) or not 1 <= len(name.strip()) <= 60:
@@ -161,7 +162,7 @@ def create_house(sub, event):
     return 201, {"house_id": house_id}
 
 
-def get_house(sub, event):
+def get_house(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     house_id = event["pathParameters"]["houseId"]
     # The member list is wanted anyway and holds the caller's own role: one read answers both. Nothing of
     # it leaves this function unless the decision below allows.
@@ -180,7 +181,7 @@ def get_house(sub, event):
     }
 
 
-def create_invite(sub, event):
+def create_invite(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "create_invite")
     # ponytail: no collision retry; 31^6 codes. Add a conditional put if houses reach the tens of thousands.
@@ -192,7 +193,7 @@ def create_invite(sub, event):
     return 201, {"code": code, "expires_at": expires_at}
 
 
-def join(sub, event):
+def join(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     code = _body(event).get("code")
     if not isinstance(code, str):
         raise HttpError(400, "code is required")
@@ -233,7 +234,7 @@ def join(sub, event):
     return 200, {"house_id": house_id}
 
 
-def delete_house(sub, event):
+def delete_house(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """The owner deletes the home: its readings, verdicts, screenshots, members and their alerts, for everyone."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "delete_house")
@@ -252,7 +253,7 @@ def delete_house(sub, event):
     return 200, {"deleted": house_id}
 
 
-def remove_member(sub, event):
+def remove_member(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """The owner removes someone, or a member leaves. Who is asking is the token's sub; the path names who goes."""
     house_id, member = event["pathParameters"]["houseId"], event["pathParameters"]["sub"]
     role = authorize(sub, house_id, "leave" if member == sub else "remove_member")
@@ -280,12 +281,12 @@ def _push_key(house_id, endpoint):
     return {"pk": keys.house_pk(house_id), "sk": keys.push_sk(hashlib.sha256(endpoint.encode()).hexdigest())}
 
 
-def subscribe_push(sub, event):
+def subscribe_push(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """This phone wants the home's alerts: {"subscription": the browser's PushSubscription.toJSON(), "lang"}."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
     data = _body(event)
-    subscription = data.get("subscription") if isinstance(data.get("subscription"), dict) else {}
+    subscription: Any = data.get("subscription") if isinstance(data.get("subscription"), dict) else {}
     key = _push_key(house_id, subscription.get("endpoint"))
     push_keys = subscription.get("keys") if isinstance(subscription.get("keys"), dict) else {}
     lang = data.get("lang", "en")
@@ -297,7 +298,7 @@ def subscribe_push(sub, event):
     return 201, {"subscribed": True}
 
 
-def unsubscribe_push(sub, event):
+def unsubscribe_push(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
     table().delete_item(Key=_push_key(house_id, _body(event).get("endpoint")))
@@ -309,7 +310,7 @@ def _date(data):
     try:
         date = datetime.date.fromisoformat(data.get("date", ""))
     except (TypeError, ValueError):
-        raise HttpError(400, "date must be YYYY-MM-DD")
+        raise HttpError(400, "date must be YYYY-MM-DD") from None
     if date > datetime.datetime.now(ZoneInfo(config.TZ)).date():
         raise HttpError(400, "date cannot be in the future")
     return date
@@ -322,8 +323,9 @@ def _reading(item, limit):
     return _date(item), _number(item, "kwh", 0, limit)
 
 
-def add_reading(sub, event):
-    """One typed reading {"date", "kwh"}, or several confirmed from a screenshot {"readings": [...], "source": "screenshot"}."""
+def add_reading(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    """One typed reading {"date", "kwh"}, or several confirmed from a screenshot
+    {"readings": [...], "source": "screenshot"}."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
     data = _body(event)
@@ -343,7 +345,7 @@ def add_reading(sub, event):
     return 201, {"saved": len(rows)}
 
 
-def record_action(sub, event):
+def record_action(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """The homeowner washed the panels or the vendor came: {"type": "wash" | "visit", "date"}. Dhool then checks
     whether output came back. {"date", "remove": true} takes back one recorded by mistake."""
     house_id = event["pathParameters"]["houseId"]
@@ -361,7 +363,7 @@ def record_action(sub, event):
     return 201, {"date": str(date)}
 
 
-def record_feedback(sub, event):
+def record_feedback(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """Whether the advice of one day was any use to the household: {"date", "helpful": true | false}. One answer
     for a home and a day, so a second one replaces the first. It is kept for people to read against the verdicts;
     no rule reads it, and no new verdict follows from it."""
@@ -385,7 +387,7 @@ def _read_reply(text):
     return json.loads(out["Payload"].read()).get("label")
 
 
-def read_vendor_reply(sub, event):
+def read_vendor_reply(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """What a vendor's pasted reply says: {"text"} -> {"label"}. A model reads it, so the homeowner sees the
     label and can change it; nothing is saved here and the text is not kept."""
     house_id = event["pathParameters"]["houseId"]
@@ -397,14 +399,14 @@ def read_vendor_reply(sub, event):
         label = _read_reply(text.strip())
     except Exception as e:  # a reader that is still starting up, or broken: the homeowner picks the label by hand
         log(reply_reader="unavailable", house=house_id, error=type(e).__name__)
-        raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
+        raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.") from e
     if label not in REPLY_LABELS:  # the model's output is not trusted to be one of ours
         log(reply_reader="bad_label", house=house_id)
         raise HttpError(503, "Dhool could not read the reply just now. Pick what it says below.")
     return 200, {"label": label}
 
 
-def start_upload(sub, event):
+def start_upload(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """A short-lived, size-limited upload slot for one screenshot, inside this house's folder."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
@@ -427,7 +429,7 @@ def _start_reading(house_id, shot_id, key):
                             Payload=json.dumps({"house_id": house_id, "shot_id": shot_id, "key": key}))
 
 
-def read_screenshot(sub, event):
+def read_screenshot(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """Start reading an uploaded screenshot. Reading takes about a minute, so the app asks for the result after."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "write")
@@ -442,7 +444,7 @@ def read_screenshot(sub, event):
     return 202, {"shot_id": shot_id, "status": "reading"}
 
 
-def screenshot_result(sub, event):
+def screenshot_result(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """What the reader found in a screenshot, for the homeowner to confirm or correct. Nothing is saved here."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
@@ -474,7 +476,7 @@ def _start_analysis(house_id):
                             Payload=json.dumps({"house_id": house_id}))
 
 
-def connect_inverter(sub, event):
+def connect_inverter(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "connect_inverter")
     api_key = _body(event).get("api_key")
@@ -489,7 +491,8 @@ def connect_inverter(sub, event):
     # clients. Move it to Secrets Manager before connecting a real brand.
     table().update_item(
         Key={"pk": keys.house_pk(house_id), "sk": keys.META},
-        UpdateExpression="SET plant_id = :p, inverter_url = :url, inverter_key = :key, kw = :kw, lat = :lat, lon = :lon, tilt = :tilt, azimuth = :az",
+        UpdateExpression="SET plant_id = :p, inverter_url = :url, inverter_key = :key, kw = :kw, lat = :lat, "
+                         "lon = :lon, tilt = :tilt, azimuth = :az",
         ExpressionAttributeValues={":p": plant_id, ":url": inverter_url, ":key": api_key, ":kw": Decimal(str(plant["kw"])),
                                    ":lat": round(Decimal(str(plant["lat"])), 2), ":lon": round(Decimal(str(plant["lon"])), 2),
                                    ":tilt": Decimal(str(plant["tilt"])), ":az": Decimal(str(plant["azimuth"]))})
@@ -497,7 +500,7 @@ def connect_inverter(sub, event):
     return 200, {"house_id": house_id, "plant_id": plant_id}
 
 
-def save_settings(sub, event):
+def save_settings(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """What one wash costs this household and what it pays per unit, in ₹: the figures the wash-or-wait sums are
     done against. Either or both."""
     house_id = event["pathParameters"]["houseId"]
@@ -513,13 +516,15 @@ def save_settings(sub, event):
     return 200, saved
 
 
-def history(sub, event):
+def history(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """What Dhool advised and what the household did, newest first. A piece of advice is listed on the day it
     first appeared, not on every day it was repeated."""
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     def items(prefix, **more):
         return table().query(KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more)["Items"]
+    log: list[dict[str, Any]]
+    last: tuple[str, str, str | None] | None
     log, last = [], None
     for item in reversed(items(keys.VERDICT, ScanIndexForward=False, Limit=HISTORY_DAYS)):  # oldest of them first
         v = json.loads(item["json"])
@@ -537,7 +542,7 @@ def history(sub, event):
     return 200, {"log": sorted(log, key=lambda e: (e["date"], e["kind"] == "did"), reverse=True)}
 
 
-def get_verdict(sub, event):
+def get_verdict(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     items = table().query(
@@ -548,7 +553,7 @@ def get_verdict(sub, event):
     return 200, {**json.loads(items[0]["json"]), "computed_at": items[0]["at"]}
 
 
-def list_readings(sub, event):
+def list_readings(sub: str, event: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     house_id = event["pathParameters"]["houseId"]
     authorize(sub, house_id, "read")
     items = query_all(
@@ -582,10 +587,10 @@ ROUTES = {
 }
 
 
-def handler(event, context):
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     common.request_id = getattr(context, "aws_request_id", None)
     try:
-        route = ROUTES.get(event.get("routeKey"))
+        route = ROUTES.get(event.get("routeKey"))  # type: ignore[arg-type]  # no routeKey looks up None: the 404 below
         if route is None:
             raise HttpError(404, "No such route")
         sub = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]

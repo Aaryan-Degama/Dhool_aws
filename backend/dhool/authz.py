@@ -3,7 +3,7 @@
 OWNER_ONLY = {"create_invite", "remove_member", "connect_inverter", "disconnect_inverter", "delete_house"}
 
 
-def decide(role, action):
+def decide(role: str | None, action: str) -> bool:
     """role is "owner", "member" or None (not in the house)."""
     if role not in ("owner", "member"):
         return False

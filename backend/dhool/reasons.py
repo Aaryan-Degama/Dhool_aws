@@ -4,6 +4,7 @@ Fixed text written by hand; the figures are filled in by `say()` from what the r
 ones in both languages. No model writes or rewords any of it. "Dhool" stays in Latin letters in Hindi:
 धूल is also the word for dust, and the sentences are about both.
 """
+from typing import Any
 
 MONTHS_HI = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"]
 WEEKDAYS_HI = ["सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार", "रविवार"]
@@ -126,7 +127,7 @@ class _HindiDate:
         return self.date.strftime(spec.replace("%b", MONTHS_HI[self.date.month - 1]).replace("%A", WEEKDAYS_HI[self.date.weekday()]))
 
 
-def say(key, **figures):
+def say(key: str, **figures: Any) -> dict[str, str]:
     """{"en": ..., "hi": ...} for one reason. A figure may itself be the result of `say()` (a part of the
     sentence that varies, such as "before the rain on Monday") and is then filled in language by language."""
     def fill(lang):

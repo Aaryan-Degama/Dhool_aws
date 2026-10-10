@@ -18,6 +18,7 @@ and the numbers behind it. The rules, in order:
 in the data), and moved forward along the recent trend: a week's median describes the roof about
 three days ago, which hides the newest dust and, right after rain, still shows the old dirt.
 """
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,14 +93,15 @@ def _steps(ratio, how="median"):
     return after / before
 
 
-def normal(ratio):
+def normal(ratio: pd.Series) -> float:
     """A roof's own normal: its best weeks. Weekly medians, not single days, so a noisy roof's lucky days
     do not set a normal it can never reach."""
     return float(ratio.rolling(7, min_periods=4).median().quantile(0.9))
 
 
-def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=config.CLEAN_RAIN_MM, cost=None,
-              tariff=None):
+def wash_plan(loss: float, rate: float, normal_kwh: float, rain_forecast: Iterable[float],
+              dust_storms: Iterable[bool] = (), clean_mm: float = config.CLEAN_RAIN_MM, cost: float | None = None,
+              tariff: float | None = None) -> dict[str, Any]:
     """Is washing worth it today? A wash wins back today's dust loss every day until something undoes it:
     rain (which would have cleaned the panels for free) or a dust storm (which dirties them again).
 
@@ -120,7 +122,7 @@ def wash_plan(loss, rate, normal_kwh, rain_forecast, dust_storms=(), clean_mm=co
     end = min((d for d in (rain, storm) if d), default=None)
     # Dust builds at the same rate washed or not, so the gap a wash opens stays what it removed today.
     saving = per_day * ((end - 1) if end else config.DRY_SPELL_DAYS)
-    plan = {"wash": bool(saving >= cost), "saving_rs": round(saving), "wait_for": None, "in_days": end}
+    plan: dict[str, Any] = {"wash": bool(saving >= cost), "saving_rs": round(saving), "wait_for": None, "in_days": end}
     if not plan["wash"]:
         plan["wait_for"] = "rain" if end and end == rain else "dust_storm" if end else "not_worth_it"
         if not end and rate > 0:  # how long until the dust is costing enough to repay a wash
@@ -147,7 +149,7 @@ def _trend(window, baseline):
     return rate
 
 
-def check_action(ratio, baseline, action):
+def check_action(ratio: pd.Series, baseline: float, action: dict[str, str]) -> dict[str, Any] | None:
     """Did a wash or a vendor visit work? Compares the week before it with the clear days after it.
     predicted: what a full return to this roof's normal would add. observed: what came back."""
     day = pd.Timestamp(action["date"], tz=ratio.index.tz)
@@ -348,8 +350,10 @@ def _dust(f):
     return _result(f, "WAIT", "dust", "medium", reason, loss=loss, **evidence)
 
 
-def verdict(daily, rain, rain_forecast, pm25=None, neighbours=None, actions=(), dust_storms=(), wash_cost=None,
-            tariff=None):
+def verdict(daily: pd.DataFrame, rain: pd.Series, rain_forecast: Iterable[float], pm25: pd.Series | None = None,
+            neighbours: pd.DataFrame | None = None, actions: Sequence[dict[str, str]] = (),
+            dust_storms: Iterable[bool] = (), wash_cost: float | None = None,
+            tariff: float | None = None) -> dict[str, Any]:
     """daily: DataFrame[expected, actual] indexed by day, oldest first.
     rain: daily mm, same index. rain_forecast: mm for the coming days, tomorrow first.
     pm25: daily mean µg/m³ (optional). neighbours: DataFrame of actual/expected ratios, one column per

@@ -6,6 +6,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -34,7 +36,7 @@ TIMEOUT_S = 25    # each try; three of them and the waits between fit inside one
 BACKOFF_S = 1.0   # the wait before a new try is a random time up to this, then up to twice this
 
 
-def http_get(url):
+def http_get(url: str) -> Any:
     """One GET, JSON back."""
     for tries_left in reversed(range(TRIES)):
         try:
@@ -51,7 +53,7 @@ def http_get(url):
 
 # What every fetch below asks through. The analysis Lambda puts its cache here (handlers/weather_cache.py);
 # this module itself makes no AWS call.
-get_json = http_get
+get_json: Callable[[str], Any] = http_get
 
 
 def _fetch_hourly(url, lat, lon, variables, **params):
@@ -63,13 +65,13 @@ def _fetch_hourly(url, lat, lon, variables, **params):
     return pd.DataFrame(hourly, index=index).astype(float)
 
 
-def fetch_weather(lat, lon, start, end):
+def fetch_weather(lat: float, lon: float, start: str, end: str) -> pd.DataFrame:
     """Hourly ghi, dni, dhi (W/m²), temp_air (°C), wind_speed (m/s), rain (mm). Dates are YYYY-MM-DD."""
     df = _fetch_hourly(ARCHIVE_URL, lat, lon, _COLUMNS, start_date=start, end_date=end, wind_speed_unit="ms")
     return df.rename(columns=_COLUMNS)
 
 
-def fetch_weather_with_forecast(lat, lon, start):
+def fetch_weather_with_forecast(lat: float, lon: float, start: datetime.date) -> pd.DataFrame:
     """Same columns, from `start` (a date) through the next 7 days of forecast. The days the forecast API
     serves also carry gust_kmh and visibility_m, which fetch_dust_storms reads: one call, not two."""
     names = {**_COLUMNS, **_STORM_COLUMNS}
@@ -85,13 +87,13 @@ def fetch_weather_with_forecast(lat, lon, start):
     return pd.concat([older, recent])
 
 
-def fetch_pm25(lat, lon, start, end):
+def fetch_pm25(lat: float, lon: float, start: str, end: str) -> pd.Series:
     """Daily mean PM2.5 in µg/m³."""
     df = _fetch_hourly(AIR_QUALITY_URL, lat, lon, ["pm2_5"], start_date=start, end_date=end)
     return df["pm2_5"].resample("D").mean()
 
 
-def fetch_dust_storms(lat, lon, weather):
+def fetch_dust_storms(lat: float, lon: float, weather: pd.DataFrame) -> pd.Series:
     """For today and the next six days: True where a dust storm is forecast (see config.STORM_*).
     weather: what fetch_weather_with_forecast returned for the same place, for its gusts and visibility."""
     air = _fetch_hourly(AIR_QUALITY_URL, lat, lon, ["dust"], forecast_days=7)
@@ -101,7 +103,8 @@ def fetch_dust_storms(lat, lon, weather):
     return storm.resample("D").max().astype(bool)
 
 
-def expected_daily_kwh(weather, lat, lon, kw, tilt=config.DEFAULT_TILT, azimuth=config.DEFAULT_AZIMUTH):
+def expected_daily_kwh(weather: pd.DataFrame, lat: float, lon: float, kw: float, tilt: float = config.DEFAULT_TILT,
+                       azimuth: float = config.DEFAULT_AZIMUTH) -> pd.Series:
     """Daily kWh a clean, healthy system of `kw` should produce in this weather."""
     # Open-Meteo radiation is the mean over the hour ending at the timestamp,
     # so the sun's position is taken at the middle of that hour.

@@ -7,7 +7,8 @@ LABELS = {"visit_scheduled", "asking_details", "refused", "unclear"}
 
 
 def test_vendor_replies_are_labelled_and_splits_do_not_overlap():
-    rows = [json.loads(l) for l in DATA.read_text(encoding="utf-8").splitlines() if l.strip() and not l.startswith("#")]
+    rows = [json.loads(line) for line in DATA.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")]
     assert all(r["text"].strip() and r["label"] in LABELS and r["lang"] in {"en", "hi", "hing"}
                and r["split"] in {"train", "test", "test2", "test3"} for r in rows)
     texts = [r["text"].strip().lower() for r in rows]

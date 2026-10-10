@@ -1,4 +1,7 @@
 """Readings + weather -> verdict and the series behind the "Why?" chart. No AWS calls here."""
+from collections.abc import Sequence
+from typing import Any
+
 import pandas as pd
 
 from . import config
@@ -16,8 +19,11 @@ def _days(readings):
     return series.sort_index()
 
 
-def analyse(meta, readings, weather, pm25=None, fleet=None, actions=(), dust_storms=None):
-    """meta: the house (kw, lat, lon, tilt, azimuth; wash_cost_rs and tariff_rs if the owner set them). readings: {"YYYY-MM-DD": kwh}.
+def analyse(meta: dict[str, Any], readings: dict[str, float], weather: pd.DataFrame, pm25: pd.Series | None = None,
+            fleet: dict[str, dict[str, Any]] | None = None, actions: Sequence[dict[str, str]] = (),
+            dust_storms: pd.Series | None = None) -> dict[str, Any]:
+    """meta: the house (kw, lat, lon, tilt, azimuth; wash_cost_rs and tariff_rs if the owner set them).
+    readings: {"YYYY-MM-DD": kwh}.
     weather: hourly frame covering the first reading through a week past the last (the forecast).
     fleet: other homes nearby, {id: {"kw": ..., "readings": {...}}}, for the neighbour comparison.
     dust_storms: daily True/False, a dust storm forecast that day (expected.fetch_dust_storms).

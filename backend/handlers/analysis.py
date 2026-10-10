@@ -9,6 +9,7 @@ import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from boto3.dynamodb.conditions import Key
@@ -30,7 +31,7 @@ PUSH_TTL_S = 24 * 3600  # a phone that is off gets the alert within a day or not
 
 expected.get_json = weather_cache.cached(expected.http_get)  # Open-Meteo's answers, kept for three hours
 
-_vapid = False  # the key that signs notifications: False until looked up, None when there is none
+_vapid: str | Literal[False] | None = False  # the key that signs notifications: False until looked up, None when there is none
 
 
 def _vapid_key():
@@ -84,12 +85,16 @@ def _notify(house_id, told, result):
     log(analysis="pushed", house=house_id, sent=sent)
 
 
-def run_house(house_id, nightly=False):
+def run_house(house_id: str, nightly: bool = False) -> str | None:
     began = time.monotonic()
     meta = table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.META}).get("Item")
     if not meta:  # deleted between being asked for and running
         return None
-    fleet = None
+    # Each of these is first the pending call (a Future) and then its answer, under one name: no one type is both.
+    readings: Any
+    pm25: Any
+    storms: Any
+    fleet: Any = None
     with ThreadPoolExecutor(max_workers=3) as pool:
         # Connected inverter: pull from the brand's cloud (here, the demo one). Houses linked before API keys
         # existed have a plant but no key; they count as not linked until the owner connects again in Setup.
@@ -123,11 +128,12 @@ def run_house(house_id, nightly=False):
             log(analysis="dust_forecast_unavailable", house=house_id, error=str(e))
             storms = None
 
-    def items(prefix, **more):
+    # The name items held the typed-in readings in the branch above; from here on it is this function.
+    def items(prefix, **more):  # type: ignore[no-redef]  # see the line above
         return table().query(
             KeyConditionExpression=Key("pk").eq(keys.house_pk(house_id)) & Key("sk").begins_with(prefix), **more)["Items"]
     # What the homeowner told Dhool they did (washed the panels, had the vendor in), for the before-and-after check.
-    actions = [{"date": keys.tail(i["sk"]), "type": i["type"]} for i in items(keys.ACTION)]
+    actions = [{"date": keys.tail(i["sk"]), "type": i["type"]} for i in items(keys.ACTION)]  # type: ignore[operator]
     result = analyse(meta, readings, weather, pm25, fleet, actions, storms)
     try:
         # Only while the home still stands: a run takes many seconds, and a verdict written after its owner
@@ -158,7 +164,7 @@ def run_house(house_id, nightly=False):
     return result["verdict"]
 
 
-def handler(event, context):
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     common.request_id = getattr(context, "aws_request_id", None)
     if event.get("house_id"):
         return {"verdict": run_house(event["house_id"], nightly=event.get("nightly") is True)}

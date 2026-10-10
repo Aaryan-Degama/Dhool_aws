@@ -1,0 +1,28 @@
+# Checks before a commit. One set of tool versions: the hooks run what backend/requirements-dev.txt pinned into
+# .venv (see CLAUDE.md, Setup), and CI runs the same. Switch on once: .venv/bin/pre-commit install
+# The hooks only check; nothing is rewritten. To fix: .venv/bin/ruff check --fix . and .venv/bin/ruff format .
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: .venv/bin/ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: ruff-format
+        name: ruff format --check
+        entry: .venv/bin/ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/mypy  # the whole of backend/dhool and backend/handlers, as pyproject.toml lists them
+        language: system
+        pass_filenames: false
+        files: ^(backend/(dhool|handlers)/.*\.py|pyproject\.toml)$
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

@@ -4,6 +4,8 @@ import json
 import os
 import sys
 import time
+from collections.abc import Iterator
+from typing import Any
 
 import boto3
 from botocore.config import Config
@@ -11,11 +13,11 @@ from botocore.config import Config
 # A throttled call or a passing network fault is tried again up to three times, with backoff, before it fails.
 RETRIES = Config(retries={"mode": "standard", "max_attempts": 3})
 
-_made = {}         # clients and resources, made on first use and not again for every request
-request_id = None  # this invocation's, set by the handler and put on every log line
+_made: dict[str, Any] = {}  # clients and resources, made on first use and not again for every request
+request_id: str | None = None  # this invocation's, set by the handler and put on every log line
 
 
-def client(name, key=None, config=None, **kwargs):
+def client(name: str, key: str | None = None, config: Config | None = None, **kwargs: Any) -> Any:
     """A boto3 client, made once. `key` names a second client of the same service with other settings;
     `config` is laid over RETRIES."""
     key = key or name
@@ -24,13 +26,13 @@ def client(name, key=None, config=None, **kwargs):
     return _made[key]
 
 
-def bucket(name):
+def bucket(name: str) -> Any:
     if "s3 resource" not in _made:
         _made["s3 resource"] = boto3.resource("s3", config=RETRIES)
     return _made["s3 resource"].Bucket(name)
 
 
-def table():
+def table() -> Any:
     if "table" not in _made:
         _made["table"] = boto3.resource("dynamodb").Table(os.environ["TABLE"])
     return _made["table"]
@@ -42,11 +44,11 @@ def _line(fields):
     sys.stdout.write(json.dumps(fields) + "\n")
 
 
-def log(**fields):
+def log(**fields: Any) -> None:
     _line({**fields, "request_id": request_id})
 
 
-def metric(name, value, unit="Count", **dimensions):
+def metric(name: str, value: float, unit: str = "Count", **dimensions: str) -> None:
     """One number for CloudWatch, as a log line in its Embedded Metric Format: the log group turns the line
     into a metric in the Dhool namespace, with no PutMetricData call and no permission to grant.
     Every different set of dimension values is a metric of its own, and is billed as one: keep them few.
@@ -57,7 +59,7 @@ def metric(name, value, unit="Count", **dimensions):
         **dimensions, name: value})
 
 
-def query_all(table, **query):
+def query_all(table: Any, **query: Any) -> Iterator[dict[str, Any]]:
     """Every item a query matches, page after page: one answer from DynamoDB stops at 1 MB (or at Limit)."""
     while True:
         page = table.query(**query)

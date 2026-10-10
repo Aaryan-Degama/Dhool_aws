@@ -41,13 +41,25 @@ READER = "qwen3-vl-2b-instruct-q4"
 # screens among them) must come back empty: "Units possible" is not a reading. A today figure is only kept
 # if a last yes/no question confirms its label says it was generated today.
 ASK_KIND = """This is a screenshot. Which one is it?
-A: an inverter or solar app's list or table of days, one row per day, each row with a date and the energy generated that day
+A: an inverter or solar app's list or table of days, one row per day, each row with a date and the energy generated \
+that day
 B: an inverter or solar app's screen showing the energy the system has generated so far today, as one large number
 C: something else, such as a forecast, an estimate, a settings or sign-in screen, or another kind of app
 Answer with the letter only."""
-ASK_ROWS = """Copy the rows of that list. Write one line per row: the date as YYYY-MM-DD, a comma, then the kWh number exactly as printed. Write nothing else."""
-ASK_TODAY = """What is the energy the solar system has generated today, in kWh, exactly as printed? Only a measured figure counts: not the power right now (kW or W), not a forecast, not a possible or expected value, and not a total over several days. If there is none, answer NONE. Otherwise answer with the number only."""
-ASK_CHECK = """Look at the label printed next to that figure. Is it a label for today's energy, such as energy today, production today, today's yield or generated today (and not power now, possible, expected, forecast, a month or a total)? Answer YES or NO."""
+ASK_ROWS = (
+    "Copy the rows of that list. Write one line per row: the date as YYYY-MM-DD, a comma, "
+    "then the kWh number exactly as printed. Write nothing else."
+)
+ASK_TODAY = (
+    "What is the energy the solar system has generated today, in kWh, exactly as printed? "
+    "Only a measured figure counts: not the power right now (kW or W), not a forecast, not a possible or expected "
+    "value, and not a total over several days. If there is none, answer NONE. Otherwise answer with the number only."
+)
+ASK_CHECK = (
+    "Look at the label printed next to that figure. Is it a label for today's energy, such as energy today, "
+    "production today, today's yield or generated today (and not power now, possible, expected, forecast, a month "
+    "or a total)? Answer YES or NO."
+)
 ASK_DATE = """Which date is printed for today's figure? Answer as YYYY-MM-DD. If no date is printed, answer NONE."""
 
 LINE = re.compile(r"^\s*(\d{4}-\d{2}-\d{2})\s*[,;:]\s*(\d{1,4}(?:\.\d+)?)\s*(?:kWh)?\s*$", re.IGNORECASE)
@@ -174,7 +186,8 @@ def ask(picture, question, max_tokens):
 
 
 def read(image):
-    """PNG or JPEG bytes -> {"reader", "kind", "readings": [{"date": "YYYY-MM-DD" or "TODAY", "kwh": float}], "replies"}"""
+    """PNG or JPEG bytes ->
+    {"reader", "kind", "readings": [{"date": "YYYY-MM-DD" or "TODAY", "kwh": float}], "replies"}"""
     picture = f"data:image/png;base64,{base64.b64encode(fit(image)).decode()}"
     start()
     replies = {"kind": ask(picture, ASK_KIND, 4)}
