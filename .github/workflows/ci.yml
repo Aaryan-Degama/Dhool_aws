@@ -39,3 +39,6 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci && npm test && npm run lint && npm run build
         working-directory: web
+      # One look in a real browser: every verdict state in both languages, and the built app under its headers.
+      - run: npx playwright install --with-deps chromium-headless-shell && npm run e2e
+        working-directory: web

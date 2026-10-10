@@ -4,5 +4,6 @@ __pycache__/
 .aws-sam/
 node_modules/
 dist/
+test-results/
 .env
 .venv-laya/
