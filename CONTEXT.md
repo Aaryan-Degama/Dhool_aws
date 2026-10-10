@@ -161,6 +161,7 @@ The project's current state. **Update this file whenever something changes** (a 
 - Statistics in `DHOOL.md` 2.1 and prior art in 2.12 still need citable sources before the write-up
 
 ## Log
+- **2026-10-11:** **The new look is on `main` and live** (https://main.d18fp2anb76xgh.amplifyapp.com; the entries below that say "not pushed" were written before this). `hardening` was fast-forwarded into `main` at `3245e20` and pushed; CI and CodeQL green; Amplify served the new build about a minute later. Checked on the live site signed out (sign-in page, the drawn wordmark, no console errors); the signed-in screens were checked only locally against a stubbed API. No backend change, no `sam deploy`.
 - **2026-10-11:** **The towers' glass runs their whole height** (it stopped at the horizon line, leaving the lower half plain), and after dark some windows are lit yellow among the cool white ones (the owner's request; on `hardening`, not pushed).
 - **2026-10-11:** **The buildings are glass towers** (the owner's request; same heights; on `hardening`, not pushed): each front is a gradient that mirrors the sky, with thin floor and mullion lines and one slanting streak of light; a few floors are lit cool white after dark, in place of the yellow windows.
 - **2026-10-11:** **The city's buildings are boxes, not flat rectangles** (the owner's request; on `hardening`, not pushed): each block shows a shaded right wall and a lighter roof, with room between blocks for the wall to show (`PanelModel` in `visuals.jsx`, the `.side` and `.roof` tones in `styles.css`).
