@@ -64,7 +64,7 @@ const SKYLINE = (() => {
     for (let x = -100; x < VIEW_W + 100;) {
       const w = wMin + next() * (wMax - wMin);
       out.push({ x, w, h: hMin + next() * (hMax - hMin), tank: next() < 0.35, crown: next() < 0.3, mast: next() < 0.14 });
-      x += w + next() * 4;
+      x += w + 2 + next() * 9;  // room between blocks for a side wall to show
     }
     return out;
   };
@@ -232,8 +232,13 @@ export function PanelModel({ verdict }) {
           <g key={depth} className={depth}>
             {SKYLINE[depth].map((b, i) => {
               const top = FIT.horizon - b.h;
+              // Seen a little from the left and from above: each block shows its shaded right wall and its roof.
+              const d = depth === "near" ? 6 : depth === "far" ? 3.5 : 0, r = b.x + b.w, up = top - d * 0.45;
+              const n = (v) => v.toFixed(1);
               return (
                 <g key={i}>
+                  {d > 0 && <polygon className="side" points={`${n(r)},${n(top)} ${n(r + d)},${n(up)} ${n(r + d)},${n(top + b.h + 120)} ${n(r)},${n(top + b.h + 120)}`} />}
+                  {d > 0 && <polygon className="roof" points={`${n(b.x)},${n(top)} ${n(b.x + d)},${n(up)} ${n(r + d)},${n(up)} ${n(r)},${n(top)}`} />}
                   <rect x={b.x.toFixed(1)} y={top.toFixed(1)} width={b.w.toFixed(1)} height={b.h + 120} />
                   {b.crown && <rect x={(b.x + b.w * 0.2).toFixed(1)} y={(top - 4).toFixed(1)} width={(b.w * 0.6).toFixed(1)} height="4" />}
                   {depth === "near" && b.tank && !b.crown && <rect x={(b.x + b.w * 0.22).toFixed(1)} y={(top - 4.5).toFixed(1)} width="6.5" height="4.5" rx="1.6" />}

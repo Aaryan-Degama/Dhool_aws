@@ -347,6 +347,11 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .pm-city .back { fill: color-mix(in srgb, var(--city-far, #20242b) 55%, var(--haze, #14171c)); }
 .pm-city .far { fill: var(--city-far, #20242b); }
 .pm-city .near { fill: var(--city-near, #171a20); }
+/* Each block's right wall is in shade and its roof catches the sky: three tones make a box of a rectangle. */
+.pm-city .far .side { fill: color-mix(in srgb, var(--city-far, #20242b) 74%, #000); }
+.pm-city .near .side { fill: color-mix(in srgb, var(--city-near, #171a20) 70%, #000); }
+.pm-city .far .roof { fill: color-mix(in srgb, var(--city-far, #20242b) 84%, #fff); }
+.pm-city .near .roof { fill: color-mix(in srgb, var(--city-near, #171a20) 80%, #fff); }
 .pm-panes { fill: #0a1020; opacity: 0.16; }  /* every window, dark by day */
 .pm-windows { fill: #ffd98a; opacity: calc(var(--windows, 0) * 0.55); }  /* lit windows, kept faint: the array is the subject */
 .pm-shadow { fill: #000; opacity: 0.42; }
