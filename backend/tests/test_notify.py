@@ -135,3 +135,15 @@ def test_without_a_key_nothing_is_sent_and_the_verdict_is_still_saved(home, monk
 
 def test_a_house_deleted_before_its_run_is_skipped(home):
     assert analysis.handler({"house_id": "gone", "nightly": True}, None) == {"verdict": None}
+
+
+def test_a_house_deleted_while_its_run_was_working_gets_no_verdict_and_no_alert(home, monkeypatch, capsys):
+    def analyse_while_the_owner_deletes(*a):
+        for item in home.scan()["Items"]:  # what DELETE /houses/{id} does, in the seconds the analysis takes
+            home.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
+        return {**FAULT, "as_of": "2026-10-01", "confidence": "high"}
+    monkeypatch.setattr(analysis, "analyse", analyse_while_the_owner_deletes)
+    monkeypatch.setattr(analysis, "_webpush", lambda *a: pytest.fail("there is nobody left to tell"))
+    assert analysis.handler({"house_id": "h1", "nightly": True}, None) == {"verdict": None}
+    assert home.scan()["Items"] == []
+    assert '"house_gone"' in capsys.readouterr().out

@@ -10,6 +10,7 @@ import os
 import time
 
 import boto3
+from botocore.exceptions import ClientError
 
 import reader
 
@@ -26,11 +27,19 @@ def handler(event, context):
     except Exception as e:  # whatever went wrong, the homeowner must not be left waiting on a spinner
         result, status = {"readings": [], "error": f"{type(e).__name__}: {e}"[:300]}, "failed"
     seconds = int(time.time() - started)
-    boto3.resource("dynamodb").Table(os.environ["TABLE"]).update_item(
-        Key={"pk": f"HOUSE#{event['house_id']}", "sk": f"SHOT#{event['shot_id']}"},
-        UpdateExpression="SET #status = :status, #result = :result, seconds = :seconds",
-        ExpressionAttributeNames={"#status": "status", "#result": "result"},
-        ExpressionAttributeValues={":status": status, ":result": json.dumps(result), ":seconds": seconds})
+    try:
+        # Only onto the screenshot's own item: if the home was deleted while this read, writing would bring
+        # back a piece of it that nothing would ever remove.
+        boto3.resource("dynamodb").Table(os.environ["TABLE"]).update_item(
+            Key={"pk": f"HOUSE#{event['house_id']}", "sk": f"SHOT#{event['shot_id']}"},
+            UpdateExpression="SET #status = :status, #result = :result, seconds = :seconds",
+            ConditionExpression="attribute_exists(pk)",
+            ExpressionAttributeNames={"#status": "status", "#result": "result"},
+            ExpressionAttributeValues={":status": status, ":result": json.dumps(result), ":seconds": seconds})
+    except ClientError as e:
+        if e.response["Error"]["Code"] != "ConditionalCheckFailedException":
+            raise
+        status = "gone"
     print(json.dumps({"vision": status, "house": event["house_id"], "shot": event["shot_id"], "seconds": seconds,
                       "reader": result.get("reader"), "readings": len(result["readings"]), "error": result.get("error")}))
     return {"status": status, "seconds": seconds}

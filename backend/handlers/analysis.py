@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
 from dhool import config, connectors, notify
 from dhool.analyse import analyse
@@ -125,9 +126,22 @@ def run_house(house_id, nightly=False):
     actions = [{"date": i["sk"].split("#", 1)[1], "type": i["type"]} for i in items("ACTION#")]
     result = analyse(meta, readings, weather, pm25, fleet, actions, storms)
     previous = items("VERDICT#", ScanIndexForward=False, Limit=1) if nightly else []
-    table().put_item(Item={"pk": f"HOUSE#{house_id}", "sk": f"VERDICT#{result['as_of']}",
-                           "json": json.dumps(result, allow_nan=False), "at": int(time.time()),
-                           "expiresAt": int(time.time()) + VERDICT_TTL_S})
+    try:
+        # Only while the home still stands: a run takes many seconds, and a verdict written after its owner
+        # deleted the home would be a piece of it left behind for 400 days.
+        table().meta.client.transact_write_items(TransactItems=[
+            {"ConditionCheck": {"TableName": table().name, "Key": {"pk": f"HOUSE#{house_id}", "sk": "META"},
+                                "ConditionExpression": "attribute_exists(pk)"}},
+            {"Put": {"TableName": table().name, "Item": {
+                "pk": f"HOUSE#{house_id}", "sk": f"VERDICT#{result['as_of']}",
+                "json": json.dumps(result, allow_nan=False), "at": int(time.time()),
+                "expiresAt": int(time.time()) + VERDICT_TTL_S}}}])
+    except ClientError as e:
+        reasons = [r.get("Code") for r in e.response.get("CancellationReasons", [])]
+        if e.response["Error"]["Code"] != "TransactionCanceledException" or reasons[:1] != ["ConditionalCheckFailed"]:
+            raise
+        _log(analysis="house_gone", house=house_id)
+        return None
     _log(analysis="done", house=house_id, as_of=result["as_of"],
          verdict=result["verdict"], cause=result["cause"], confidence=result["confidence"])
     if nightly:

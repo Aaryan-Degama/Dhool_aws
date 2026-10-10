@@ -127,6 +127,14 @@ def test_a_reader_that_breaks_still_reports_back(aws, monkeypatch):
     assert item["status"] == "failed" and "exit code 137" in json.loads(item["result"])["error"]
 
 
+def test_a_screenshot_whose_home_was_deleted_meanwhile_is_not_written_back(aws, monkeypatch, capsys):
+    monkeypatch.setattr(screenshot_reader, "read", lambda image: {"reader": "test", "readings": [{"date": "2026-09-25", "kwh": 1}]})
+    aws.delete_item(Key={"pk": "HOUSE#h1", "sk": "SHOT#s1"})
+    assert vision_handler.handler(EVENT, None)["status"] == "gone"
+    assert aws.scan()["Items"] == []
+    assert json.loads(capsys.readouterr().out.strip().splitlines()[-1])["vision"] == "gone"
+
+
 def test_the_keep_warm_ping_only_loads_the_model(aws, monkeypatch):
     started = []
     monkeypatch.setattr(screenshot_reader, "prime", lambda: started.append(True))
