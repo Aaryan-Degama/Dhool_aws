@@ -3,8 +3,8 @@
 // network and are never kept here; the last verdict is kept by the app itself (src/store.js).
 // ponytail: files of older builds stay until CACHE is renamed. Fine at this size (about 100 KB a build, and
 // the two font files, 840 KB, once).
-const CACHE = "dhool-shell-2";
-const FONTS = ["/fonts/anek-devanagari-latin.woff2", "/fonts/anek-devanagari-devanagari.woff2"];
+const CACHE = "dhool-shell-3";
+const FONTS = ["/fonts/anek-devanagari-latin.woff2", "/fonts/anek-devanagari-devanagari.woff2", "/fonts/unbounded-latin.woff2"];
 
 // Keep the page and the files it names, so the app opens offline after one visit, not two.
 self.addEventListener("install", (event) => {

@@ -20,6 +20,17 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+/* Unbounded (SIL OFL 1.1, public/fonts), for the bar at the top of a home alone: the app's name, how the roof
+   is running, which home. Latin only; a home named in Hindi falls back to Anek Devanagari. */
+@font-face {
+  font-family: "Unbounded";
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url("/fonts/unbounded-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* Dhool design tokens. Graphite surfaces lit from above; colour comes only from the roof:
    electric current, dust, wash water, a fault. See DESIGN.md. */
 :root {
@@ -137,7 +148,7 @@ p { margin: 0; }
      itself, not only through the veil's backdrop blur, which some browsers do not draw. */
   filter: blur(calc(var(--scrolled, 0) * 30px)); opacity: calc(1 - var(--scrolled, 0) * 0.6);
 }
-.roof > :not(.hero, .veil) { position: relative; z-index: 2; }
+.roof > :not(.hero, .veil, .top) { position: relative; z-index: 2; }  /* not the bar: it is sticky, above them */
 .veil {
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
   opacity: var(--scrolled, 0);
@@ -302,13 +313,27 @@ button:disabled { opacity: 0.55; cursor: progress; }
 .primary:active, .secondary:active, .tile:active { transform: translateY(1px); }
 
 /* Top of the roof screen: whose roof, and how hard it is running */
-.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+/* The bar stays at the top while the page scrolls under it. Clear over the scene at first; as the page moves
+   (--scrolled, 0 to 1) it turns to glass, so the cards passing beneath do not run into its text. It reaches
+   the screen's edges: the negative margins undo the page's own padding. */
+.top {
+  position: sticky; top: 0; z-index: 4;
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  margin: calc(-1 * (var(--space) + env(safe-area-inset-top))) calc(-1 * var(--space)) 0;
+  padding: calc(0.75rem + env(safe-area-inset-top)) var(--space) 0.75rem;
+  font-family: "Unbounded", "Anek Devanagari", system-ui, sans-serif;
+  background: rgba(18, 21, 28, calc(var(--scrolled, 0) * 0.88));
+  backdrop-filter: blur(calc(var(--scrolled, 0) * 24px)) saturate(160%);
+  -webkit-backdrop-filter: blur(calc(var(--scrolled, 0) * 24px)) saturate(160%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, calc(var(--scrolled, 0) * 0.14));
+}
 .brand { font-size: var(--step--1); font-weight: 600; color: var(--muted); }
 /* The top of a home's pages: the name of the app, large, on the left; on the right how the roof is running and,
    under it and smaller, which home this is. */
-.top .brand { font-size: 1.75rem; font-weight: 800; font-stretch: 125%; line-height: 1.1; color: var(--ink); }
+.top .brand { font-size: 1.5rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink); }
 .top-side { display: grid; justify-items: end; gap: 0.125rem; min-width: 0; text-align: right; }
-.home-name { font-size: 1rem; font-weight: 600; font-stretch: 112%; line-height: 1.2; overflow-wrap: anywhere; color: var(--soft); }
+.top .running { font-size: 1rem; }
+.home-name { font-size: 0.8125rem; font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; color: var(--soft); }
 .running { display: flex; align-items: center; gap: 0.25rem; font-size: 1.125rem; font-weight: 700; }
 .running .icon, .vc-top .icon { width: 1.125rem; height: 1.125rem; stroke-width: 1.25; }
 .running .icon { color: var(--current); fill: var(--current); }
