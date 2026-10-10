@@ -18,7 +18,7 @@ from dhool import config, connectors, expected, keys, notify
 from dhool.analyse import analyse
 from dhool.expected import fetch_dust_storms, fetch_pm25, fetch_weather_with_forecast
 from handlers import common, weather_cache
-from handlers.common import client, log, query_all, table
+from handlers.common import client, log, metric, query_all, table
 
 # ponytail: this account may run 10 Lambdas at once, and each run also calls the demo inverter (two more).
 # Starting a house every 1.5 s keeps the night under that, and fits about 70 houses in the 120 s timeout.
@@ -85,6 +85,7 @@ def _notify(house_id, told, result):
 
 
 def run_house(house_id, nightly=False):
+    began = time.monotonic()
     meta = table().get_item(Key={"pk": keys.house_pk(house_id), "sk": keys.META}).get("Item")
     if not meta:  # deleted between being asked for and running
         return None
@@ -144,6 +145,9 @@ def run_house(house_id, nightly=False):
             raise
         log(analysis="house_gone", house=house_id)
         return None
+    # For the dashboard: how long a run that reached a verdict took, up to storing it, and which verdict.
+    metric("HouseRunDuration", round((time.monotonic() - began) * 1000), "Milliseconds")
+    metric("Verdicts", 1, verdict=result["verdict"])
     log(analysis="done", house=house_id, as_of=result["as_of"],
          verdict=result["verdict"], cause=result["cause"], confidence=result["confidence"])
     if nightly:

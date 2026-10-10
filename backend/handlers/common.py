@@ -1,7 +1,9 @@
 """What the API and the analysis handlers share: the table, AWS clients kept for the life of the container,
-one shape of log line, and reading a list to its end."""
+one shape of log line, one of metric line, and reading a list to its end."""
 import json
 import os
+import sys
+import time
 
 import boto3
 from botocore.config import Config
@@ -34,8 +36,25 @@ def table():
     return _made["table"]
 
 
+def _line(fields):
+    """One JSON line in one write. print() writes the text and the line end separately, and a run fetches
+    weather from three threads: two of them speaking at once landed on one line that nothing could parse."""
+    sys.stdout.write(json.dumps(fields) + "\n")
+
+
 def log(**fields):
-    print(json.dumps({**fields, "request_id": request_id}))
+    _line({**fields, "request_id": request_id})
+
+
+def metric(name, value, unit="Count", **dimensions):
+    """One number for CloudWatch, as a log line in its Embedded Metric Format: the log group turns the line
+    into a metric in the Dhool namespace, with no PutMetricData call and no permission to grant.
+    Every different set of dimension values is a metric of its own, and is billed as one: keep them few.
+    ponytail: one namespace for every stack; add the stack as a dimension when staging is deployed."""
+    _line({
+        "_aws": {"Timestamp": int(time.time() * 1000), "CloudWatchMetrics": [
+            {"Namespace": "Dhool", "Dimensions": [list(dimensions)], "Metrics": [{"Name": name, "Unit": unit}]}]},
+        **dimensions, name: value})
 
 
 def query_all(table, **query):

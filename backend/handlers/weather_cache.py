@@ -13,7 +13,7 @@ import time
 from botocore.exceptions import ClientError
 
 from dhool import keys
-from handlers.common import client, log
+from handlers.common import client, log, metric
 
 FRESH_S = 3 * 3600     # an answer this young is used without asking again
 STALE_S = 24 * 3600    # when Open-Meteo fails, one up to this old is used and the log says so; then DynamoDB drops it
@@ -36,6 +36,7 @@ def cached(fetch):
         try:
             answer = fetch(url)
         except Exception as e:
+            metric("WeatherFailures", 1)  # Open-Meteo gave no answer; counted whether or not an old one stands in
             if item and int(item["expiresAt"]["N"]) > now:  # checked here too: DynamoDB removes expired items late
                 log(weather="stale", age_s=now - int(item["at"]["N"]), error=type(e).__name__)
                 return kept()

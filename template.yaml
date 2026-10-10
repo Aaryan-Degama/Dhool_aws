@@ -468,6 +468,208 @@ Resources:
       TreatMissingData: notBreaching
       AlarmActions: [!Ref AlarmTopic]
 
+  # Slow for everyone. Most routes answer in well under a second and a cold start adds a second or two, so
+  # 5 s is far from normal and still a fifth of the API function's 25 s timeout: this rings before calls
+  # start to time out. Three periods in a row, because on a quiet API the p95 of five minutes is its slowest
+  # call, and one vendor reply read by a cold model takes up to 20 s.
+  ApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: The API is slow. One call in twenty took 5 seconds or more, for 15 minutes running.
+      Namespace: AWS/ApiGateway
+      MetricName: Latency
+      Dimensions:
+        - {Name: ApiId, Value: !Ref Api}
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 5000  # milliseconds
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # This account may run 10 Lambdas at once, and that is the real ceiling: a throttled API call is an error
+  # for the caller and a throttled background run is late. With no dimension the metric counts every function
+  # in the region in one alarm, so it also rings for any other stack in the account.
+  LambdaThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda turned a call away, the account being at its limit of 10 running at once (any function in the region, not only Dhool's).
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # A run close to being cut off. 96,000 ms is 80% of AnalysisFunction's Timeout (0.8 x 120 s x 1000):
+  # change the two together. The nightly starter paces itself to about 80 s and then stops or hands the
+  # rest on, which is under this line.
+  AnalysisDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Verdict runs are taking 96 seconds or more of the 120 they are allowed.
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - {Name: FunctionName, Value: !Ref AnalysisFunction}
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 96000  # milliseconds
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # DynamoDB publishes SystemErrors for each operation and never for the table as a whole, and an alarm
+  # cannot search for metrics, so the operations the code calls are added up here (test_metrics.py keeps the
+  # list equal to the code). FILL, because a metric with nothing to count has no data and a sum over it has
+  # none either. One period of the last two, because a filled-in zero can stand in for a count that arrives
+  # late (CloudWatch's own advice for FILL in an alarm).
+  TableSystemErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DynamoDB failed a call on the table with an error of its own (HTTP 500).
+      Metrics:
+        - Id: total
+          Expression: SUM(FILL(METRICS(), 0))
+          Label: System errors, all operations
+        - {Id: getItem, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: SystemErrors,
+            Dimensions: [{Name: TableName, Value: !Ref Table}, {Name: Operation, Value: GetItem}]}}}
+        - {Id: putItem, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: SystemErrors,
+            Dimensions: [{Name: TableName, Value: !Ref Table}, {Name: Operation, Value: PutItem}]}}}
+        - {Id: updateItem, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: SystemErrors,
+            Dimensions: [{Name: TableName, Value: !Ref Table}, {Name: Operation, Value: UpdateItem}]}}}
+        - {Id: deleteItem, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: SystemErrors,
+            Dimensions: [{Name: TableName, Value: !Ref Table}, {Name: Operation, Value: DeleteItem}]}}}
+        - {Id: query, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: SystemErrors,
+            Dimensions: [{Name: TableName, Value: !Ref Table}, {Name: Operation, Value: Query}]}}}
+        - {Id: batchWriteItem, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: SystemErrors,
+            Dimensions: [{Name: TableName, Value: !Ref Table}, {Name: Operation, Value: BatchWriteItem}]}}}
+        - {Id: transactWriteItems, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: SystemErrors,
+            Dimensions: [{Name: TableName, Value: !Ref Table}, {Name: Operation, Value: TransactWriteItems}]}}}
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # Throttling is counted for the table as a whole, reads and writes, so this needs no list of operations
+  # and sees one added later. The table is on-demand and the traffic small: one throttled request is already
+  # something to look at (a flood, or a loop). FILL and one period of two as above.
+  TableThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: DynamoDB throttled a read or a write on the table.
+      Metrics:
+        - Id: total
+          Expression: SUM(FILL(METRICS(), 0))
+          Label: Throttled reads and writes
+        - {Id: reads, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: ReadThrottleEvents,
+            Dimensions: [{Name: TableName, Value: !Ref Table}]}}}
+        - {Id: writes, ReturnData: false, MetricStat: {Period: 300, Stat: Sum, Metric: {Namespace: AWS/DynamoDB, MetricName: WriteThrottleEvents,
+            Dimensions: [{Name: TableName, Value: !Ref Table}]}}}
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # FailureQueueAlarm rings once, when the first event arrives, and is then silent for as long as the queue
+  # is not empty. This is the second ring: a failure nobody has dealt with for a day.
+  FailureQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: A failed run has been waiting in the failure queue for a day.
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - {Name: QueueName, Value: !GetAtt FailureQueue.QueueName}
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 86400  # seconds: one day
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # What someone on call opens first: the API, the functions, the table, the failure queue, and the three
+  # numbers the analysis writes itself (metric() in handlers/common.py, namespace Dhool). The lines drawn
+  # across are the alarms' thresholds: move them with the alarms.
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Ref AWS::StackName
+      DashboardBody: !Sub |
+        {"widgets": [
+          {"type": "metric", "x": 0, "y": 0, "width": 12, "height": 6, "properties": {
+            "title": "API: calls, and how many were errors", "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300, "metrics": [
+              ["AWS/ApiGateway", "Count", "ApiId", "${Api}", {"label": "calls"}],
+              ["AWS/ApiGateway", "4xx", "ApiId", "${Api}", {"label": "4xx"}],
+              ["AWS/ApiGateway", "5xx", "ApiId", "${Api}", {"label": "5xx"}]]}},
+          {"type": "metric", "x": 12, "y": 0, "width": 12, "height": 6, "properties": {
+            "title": "API: how long a call takes, ms", "region": "${AWS::Region}", "view": "timeSeries", "period": 300, "metrics": [
+              ["AWS/ApiGateway", "Latency", "ApiId", "${Api}", {"stat": "p50", "label": "half of calls (p50)"}],
+              ["AWS/ApiGateway", "Latency", "ApiId", "${Api}", {"stat": "p95", "label": "p95"}],
+              ["AWS/ApiGateway", "Latency", "ApiId", "${Api}", {"stat": "Maximum", "label": "slowest"}]],
+            "annotations": {"horizontal": [{"label": "alarm: p95 for 15 minutes", "value": 5000}]}}},
+          {"type": "metric", "x": 0, "y": 6, "width": 8, "height": 6, "properties": {
+            "title": "Functions: errors", "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300, "metrics": [
+              ["AWS/Lambda", "Errors", "FunctionName", "${ApiFunction}", {"label": "API"}],
+              ["AWS/Lambda", "Errors", "FunctionName", "${AnalysisFunction}", {"label": "analysis"}],
+              ["AWS/Lambda", "Errors", "FunctionName", "${VisionFunction}", {"label": "screenshot reader"}],
+              ["AWS/Lambda", "Errors", "FunctionName", "${MessageFunction}", {"label": "vendor-reply reader"}],
+              ["AWS/Lambda", "Errors", "FunctionName", "${MockInverterFunction}", {"label": "demo inverter"}]]}},
+          {"type": "metric", "x": 8, "y": 6, "width": 8, "height": 6, "properties": {
+            "title": "Functions: p95 duration, ms (analysis and screenshot reader on the right)", "region": "${AWS::Region}", "view": "timeSeries", "stat": "p95", "period": 300, "metrics": [
+              ["AWS/Lambda", "Duration", "FunctionName", "${ApiFunction}", {"label": "API"}],
+              ["AWS/Lambda", "Duration", "FunctionName", "${MessageFunction}", {"label": "vendor-reply reader"}],
+              ["AWS/Lambda", "Duration", "FunctionName", "${MockInverterFunction}", {"label": "demo inverter"}],
+              ["AWS/Lambda", "Duration", "FunctionName", "${AnalysisFunction}", {"yAxis": "right", "label": "analysis"}],
+              ["AWS/Lambda", "Duration", "FunctionName", "${VisionFunction}", {"yAxis": "right", "label": "screenshot reader"}]],
+            "annotations": {"horizontal": [{"label": "alarm: analysis at 80% of its timeout", "value": 96000, "yAxis": "right"}]}}},
+          {"type": "metric", "x": 16, "y": 6, "width": 8, "height": 6, "properties": {
+            "title": "Lambda: calls turned away, and how many ran at once (right)", "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300, "metrics": [
+              ["AWS/Lambda", "Throttles", {"label": "turned away, whole account"}],
+              ["AWS/Lambda", "Throttles", "FunctionName", "${ApiFunction}", {"label": "API"}],
+              ["AWS/Lambda", "Throttles", "FunctionName", "${AnalysisFunction}", {"label": "analysis"}],
+              ["AWS/Lambda", "Throttles", "FunctionName", "${VisionFunction}", {"label": "screenshot reader"}],
+              ["AWS/Lambda", "Throttles", "FunctionName", "${MessageFunction}", {"label": "vendor-reply reader"}],
+              ["AWS/Lambda", "Throttles", "FunctionName", "${MockInverterFunction}", {"label": "demo inverter"}],
+              ["AWS/Lambda", "ConcurrentExecutions", {"stat": "Maximum", "yAxis": "right", "label": "running at once, whole account"}]],
+            "annotations": {"horizontal": [{"label": "the account's limit", "value": 10, "yAxis": "right"}]}}},
+          {"type": "metric", "x": 0, "y": 12, "width": 12, "height": 6, "properties": {
+            "title": "Table: capacity used, and throttled requests (right)", "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300, "metrics": [
+              ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${Table}", {"label": "read units"}],
+              ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${Table}", {"label": "write units"}],
+              ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${Table}", {"yAxis": "right", "label": "throttled reads"}],
+              ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", "${Table}", {"yAxis": "right", "label": "throttled writes"}]]}},
+          {"type": "metric", "x": 12, "y": 12, "width": 12, "height": 6, "properties": {
+            "title": "Failure queue: events waiting, and the age of the oldest in seconds (right)", "region": "${AWS::Region}", "view": "timeSeries", "stat": "Maximum", "period": 300, "metrics": [
+              ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${FailureQueue.QueueName}", {"label": "waiting"}],
+              ["AWS/SQS", "ApproximateAgeOfOldestMessage", "QueueName", "${FailureQueue.QueueName}", {"yAxis": "right", "label": "age of the oldest"}]],
+            "annotations": {"horizontal": [{"label": "alarm: a day", "value": 86400, "yAxis": "right"}]}}},
+          {"type": "metric", "x": 0, "y": 18, "width": 8, "height": 6, "properties": {
+            "title": "Dhool: one house's run, ms", "region": "${AWS::Region}", "view": "timeSeries", "period": 300, "metrics": [
+              ["Dhool", "HouseRunDuration", {"stat": "p50", "label": "half of runs (p50)"}],
+              ["Dhool", "HouseRunDuration", {"stat": "p95", "label": "p95"}],
+              ["Dhool", "HouseRunDuration", {"stat": "Maximum", "label": "slowest"}]]}},
+          {"type": "metric", "x": 8, "y": 18, "width": 8, "height": 6, "properties": {
+            "title": "Dhool: verdicts given, by the hour", "region": "${AWS::Region}", "view": "timeSeries", "stacked": true, "stat": "Sum", "period": 3600, "metrics": [
+              ["Dhool", "Verdicts", "verdict", "OK", {"label": "all good (OK)"}],
+              ["Dhool", "Verdicts", "verdict", "WAIT", {"label": "wait (WAIT)"}],
+              ["Dhool", "Verdicts", "verdict", "CLEAN", {"label": "wash (CLEAN)"}],
+              ["Dhool", "Verdicts", "verdict", "INSPECT", {"label": "call the vendor (INSPECT)"}]]}},
+          {"type": "metric", "x": 16, "y": 18, "width": 8, "height": 6, "properties": {
+            "title": "Dhool: weather calls Open-Meteo did not answer", "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300, "metrics": [
+              ["Dhool", "WeatherFailures", {"label": "failed calls"}]]}}
+        ]}
+
 Outputs:
   ApiUrl:
     Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com
@@ -479,3 +681,5 @@ Outputs:
     Value: !Ref FailureQueue
   AlarmTopicArn:
     Value: !Ref AlarmTopic
+  DashboardUrl:
+    Value: !Sub 'https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=${Dashboard}'
