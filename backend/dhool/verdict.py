@@ -136,11 +136,12 @@ def check_action(ratio, baseline, action):
     return out
 
 
-def _result(f, verdict, cause, confidence, reason, loss=0.0, level=None, **evidence):
-    # The figures the homeowner sees, a day on average over the last 7 days with a reading: what this
+def _result(f, verdict, cause, confidence, reason, loss=0.0, level=None, over=None, **evidence):
+    # The figures the homeowner sees, a day on average over the last 7 days with a reading (for an outage,
+    # over the days it has been off, or six good days would hide it): what this
     # roof normally makes in that weather (its own normal, `level` times the physics, not the physics
     # alone), what it made, and the difference. The three are shown together, so they must add up.
-    week = f.daily.tail(7).dropna()
+    week = f.daily.dropna().tail(over) if over else f.daily.tail(7).dropna()
     share = level or f.baseline
     normal = round(share * float(week["expected"].mean()), 2)
     made = round(float(week["actual"].mean()), 2)
@@ -178,7 +179,7 @@ def _outage(f):
     return _result(
         f, "INSPECT", "outage", "high",
         say("outage", when=say("outage_on" if days == 1 else "outage_since", day=off.index[0])),
-        loss=1 - float(off.mean()) / f.baseline, outage_days=days, since=str(off.index[0].date()))
+        loss=1 - float(off.mean()) / f.baseline, over=days, outage_days=days, since=str(off.index[0].date()))
 
 
 def _fault(f):

@@ -126,6 +126,7 @@ def test_a_sunny_day_at_zero_is_an_outage_not_all_good(neighbours):
     v = verdict(home(off_for(1)), NO_RAIN, DRY_WEEK, neighbours=neighbours)
     assert (v["verdict"], v["cause"], v["confidence"]) == ("INSPECT", "outage", "high")
     assert v["evidence"] == {"outage_days": 1, "since": str(DAYS[-1].date())}
+    assert v["actual_kwh"] == 0 and v["loss_kwh_per_day"] == v["expected_kwh"] > 0  # the units agree with the 100%
     assert v["loss_pct"] == 100 and v["loss_rs_per_week"] > 0
     assert "made almost nothing on 30 Apr" in v["reason"] and "30 अप्रैल को" in v["reason_hi"]
 
