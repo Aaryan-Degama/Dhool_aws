@@ -9,7 +9,7 @@ import { lang, setLang, t } from "./i18n.js";
 import { Costs, Log } from "./plan.jsx";
 import { AddData } from "./readings.jsx";
 import { setSky, skyOver } from "./sky.js";
-import { daysSince, keep, kept, STALE_DAYS } from "./store.js";
+import { daysSince, keep, kept, POLL_MS, STALE_DAYS } from "./store.js";
 import { headline } from "./words.js";
 import { day, Forecast, Icon, PanelModel, skyOf, weekday, weekTotals, when, WhyChart } from "./visuals.jsx";
 
@@ -291,6 +291,7 @@ function Home({ house: listed, homes, onSignOut }) {
   const [storedAt, setStoredAt] = useState(0);       // when the verdict on screen was kept, if it is not fresh from the network
   const [details, setDetails] = useState(null);      // what GET /houses/{id} adds to the list's entry: location, costs, linked, members
   const [waiting, setWaiting] = useState(false);
+  const [late, setLate] = useState(null);            // the wait gave up: the verdict that was on screen then ("" if none)
   const [error, setError] = useState("");
   const round = useRef(0);
   const hash = useHash();
@@ -327,17 +328,21 @@ function Home({ house: listed, homes, onSignOut }) {
     const before = verdict?.computed_at, mine = ++round.current;
     go("roof");
     setWaiting(true);
+    setLate(null);
     loadDetails();  // what was sent may have changed them (an inverter linked, a new tariff)
-    let next = null;
-    for (let tries = 0; tries <= 20; tries++) {
-      await new Promise((done) => setTimeout(done, 4000));
+    let next = null, fresh = false;
+    for (const wait of POLL_MS) {
+      await new Promise((done) => setTimeout(done, wait));
       if (mine !== round.current) return;
       next = await api(`/houses/${id}/verdict`).catch(() => null);
-      if (next?.verdict && next.computed_at !== before) break;
+      fresh = Boolean(next?.verdict && next.computed_at !== before);
+      if (fresh) break;
     }
     if (mine !== round.current) return;
     setWaiting(false);
     if (next) show(next);
+    // Gave up with nothing new: say so, or the old verdict would pass for the answer to what was just sent.
+    if (!fresh) setLate(before ?? "");
   };
 
   const has = verdict?.verdict;
@@ -361,6 +366,12 @@ function Home({ house: listed, homes, onSignOut }) {
         <section className="card stack" role="status">
           <p className="note">{t("No connection. This is the last result Dhool has, from {when}.", { when: when(storedAt) })}</p>
           <button className="link" onClick={load}>{t("Try again")}</button>
+        </section>
+      )}
+      {late !== null && !waiting && (verdict?.computed_at ?? "") === late && (
+        <section className="card stack" role="status">
+          <p className="note">{t("This is taking longer than usual. What you see here does not include your change yet.")}</p>
+          <button className="link" onClick={load}>{t("Check again")}</button>
         </section>
       )}
       {waiting ? (

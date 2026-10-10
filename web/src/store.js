@@ -30,5 +30,9 @@ export const localDay = (at = new Date()) => at.toLocaleDateString("en-CA");  //
 export const daysSince = (date, today = localDay()) => Math.round((Date.parse(today) - Date.parse(date)) / 86400000);
 export const STALE_DAYS = 3;  // from here on, the roof screen says the readings have stopped
 
+// How long to wait before each look for a fresh verdict after new data is sent: every 4 seconds for the first
+// 20 (a run usually takes that long), then less and less often, giving up after about three minutes.
+export const POLL_MS = [4000, 4000, 4000, 4000, 4000, 8000, 16000, 30000, 30000, 30000, 30000];
+
 /** A typed figure as a number. Many keyboards put a comma where the decimal point goes: "5,5" is 5.5. */
 export const toNumber = (typed) => Number(String(typed).trim().replace(",", "."));

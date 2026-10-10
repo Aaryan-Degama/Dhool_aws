@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { daysSince, kept, localDay, toNumber } from "./store.js";
+import { daysSince, kept, localDay, POLL_MS, toNumber } from "./store.js";
 
 test("days since the last reading", () => {
   assert.equal(daysSince("2026-10-07", "2026-10-07"), 0);
@@ -18,6 +18,14 @@ test("today is the phone's date, not UTC's", () => {
 
 test("a read gives null where there is no storage", () => {
   assert.equal(kept("me"), null);
+});
+
+test("the wait for a fresh verdict looks every 4 seconds for 20, then backs off, and gives up in about three minutes", () => {
+  assert.deepEqual(POLL_MS.slice(0, 5), [4000, 4000, 4000, 4000, 4000]);
+  const later = POLL_MS.slice(5);
+  assert.ok(later.every((wait, i) => wait > 4000 && wait <= 30000 && wait >= (later[i - 1] ?? 0)), "longer each time, 30 s at most");
+  const total = POLL_MS.reduce((sum, wait) => sum + wait, 0);
+  assert.ok(total >= 120_000 && total <= 240_000, `${total} ms`);  // an analysis run may take 120 s
 });
 
 test("a figure typed with a decimal comma is the same number", () => {

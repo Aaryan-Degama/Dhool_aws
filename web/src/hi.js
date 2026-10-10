@@ -226,6 +226,9 @@ export const HI = {
   "Setup": "सेटअप",
   "Sections": "हिस्से",
   "Working it out": "हिसाब लगाया जा रहा है",
+  "This is taking longer than usual. What you see here does not include your change yet.":
+    "इसमें आम दिनों से ज़्यादा समय लग रहा है। यहाँ जो दिख रहा है उसमें आपका बदलाव अभी शामिल नहीं है।",
+  "Check again": "फिर देखिए",
   "Checking the sun, clouds and rain over your roof for each day. This takes about 20 seconds.":
     "हर दिन के लिए आपकी छत पर धूप, बादल और बारिश देखी जा रही है। इसमें लगभग 20 सेकंड लगते हैं।",
   "Loading your home…": "आपका घर लोड हो रहा है…",

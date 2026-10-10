@@ -3,6 +3,7 @@
 //   The built app as Amplify will serve it: nothing its Content-Security-Policy blocks, nothing from another site.
 import { expect, test } from "@playwright/test";
 import { API_URL, REGION } from "../src/config.js";
+import { FIXTURES } from "../src/fixtures.js";
 import { HI } from "../src/hi.js";
 
 const DEV = "http://localhost:5173", BUILT = "http://localhost:4173";
@@ -69,5 +70,37 @@ test.describe("what the page may talk to", () => {
     await page.goto(`${BUILT}/?lang=hi`);
     await expect(page.getByRole("heading", { name: HI["Something went wrong"] })).toBeVisible();
     await expect(page.getByRole("button", { name: HI["Open again"] })).toBeVisible();
+  });
+
+  test("a typed reading whose verdict never arrives ends in 'taking longer than usual', not in silence", async ({ page }) => {
+    const sent = [];
+    const house = { house_id: "h1", name: "Sharma house", role: "owner" };
+    const answers = {
+      "GET /me": { houses: [house] },
+      "GET /houses/h1": { ...house, kw: 3, lat: 28.61, lon: 77.21, tilt: 20, azimuth: 180, wash_cost_rs: 50, tariff_rs: 7, linked: false, members: [] },
+      "GET /houses/h1/verdict": { ...FIXTURES.find((v) => v.verdict === "OK"), computed_at: 111 },  // every time: the new run never lands
+      "GET /houses/h1/history": { log: [] },
+      "POST /houses/h1/readings": { saved: 1 },
+    };
+    await page.addInitScript(() => localStorage.setItem("dhool.tokens", JSON.stringify({ access: "a.e30.c", refresh: "r" })));
+    await page.route(/^https:\/\//, (route) => {
+      const request = route.request();
+      if (request.method() === "POST") sent.push(request.postDataJSON());
+      return route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" },
+        body: JSON.stringify(answers[`${request.method()} ${new URL(request.url()).pathname}`] ?? {}) });
+    });
+    await page.clock.install();
+    await page.goto(`${BUILT}/?lang=en#/setup`);
+    await page.getByLabel("Units made (kWh)").fill("5,5");
+    await page.getByRole("button", { name: "Save reading" }).click();
+    await expect(page.getByRole("heading", { name: "Working it out" })).toBeVisible();
+    expect(sent[0].kwh).toBe(5.5);  // the comma was taken as the decimal point
+    for (let look = 0; look < 12; look++) {  // three minutes of looking, in a second: each jump lets one look happen
+      await page.clock.fastForward(31_000);
+      await page.waitForTimeout(40);
+    }
+    await expect(page.getByText("This is taking longer than usual.", { exact: false })).toBeVisible();
+    await expect(page.getByText("Your solar is working", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Check again" })).toBeVisible();
   });
 });
