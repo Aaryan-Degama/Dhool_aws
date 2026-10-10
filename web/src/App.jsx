@@ -126,7 +126,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
     window.addEventListener("resize", pin);
     return () => window.removeEventListener("resize", pin);
   }, []);
-  // Once the page moves, the background below the top 30% of the screen blurs in (see .veil).
+  // Once the page moves, the scene behind it dissolves into a wash of colour (see .veil).
   useEffect(() => {
     let frame = 0;
     const root = document.documentElement.style;

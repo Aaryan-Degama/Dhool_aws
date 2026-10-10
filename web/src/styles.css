@@ -128,15 +128,21 @@ p { margin: 0; }
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);
 }
 
-/* The scene stays put while the rest slides over it (see RoofTab); the veil blurs whatever is behind the
-   page below the top 30% of the screen, fading in as the page moves. */
-.roof .hero { position: sticky; z-index: 0; }
+/* The scene stays put while the rest slides over it (see RoofTab). As the page moves, the veil dissolves the
+   whole scene into a soft wash of the sky's own colours, as phone weather apps do: the panels and the city are
+   gone, and only the very top of the sky keeps its stars or clouds. */
+.roof .hero {
+  position: sticky; z-index: 0;
+  /* Blurred and thinned in step with the scroll (--scrolled runs 0 to 1 over the first 160px). On the scene
+     itself, not only through the veil's backdrop blur, which some browsers do not draw. */
+  filter: blur(calc(var(--scrolled, 0) * 30px)); opacity: calc(1 - var(--scrolled, 0) * 0.6);
+}
 .roof > :not(.hero, .veil) { position: relative; z-index: 2; }
 .veil {
-  position: fixed; inset: 30vh 0 0; z-index: 1; pointer-events: none;
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
   opacity: var(--scrolled, 0);
-  backdrop-filter: blur(36px) saturate(1.15); -webkit-backdrop-filter: blur(36px) saturate(1.15);
-  -webkit-mask-image: linear-gradient(transparent, #000 9vh); mask-image: linear-gradient(transparent, #000 9vh);
+  backdrop-filter: blur(72px) saturate(1.2); -webkit-backdrop-filter: blur(72px) saturate(1.2);
+  -webkit-mask-image: linear-gradient(transparent 2vh, #000 16vh); mask-image: linear-gradient(transparent 2vh, #000 16vh);
 }
 
 [data-sky="day"] {
