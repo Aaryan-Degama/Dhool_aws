@@ -102,7 +102,7 @@ On our own demo inverter's screens the model read 93 of 93 printed values. Then 
 | Plain OCR (Tesseract) and layout rules | 5 | 0 | about 1 s |
 | OCR first, the model when OCR finds nothing | 8 | 0 | up to 2 s, or 32 to 70 s when the model is needed |
 
-The honest caveat: We combined the two after seeing each one's result on those same eleven values, so 8 of 11 is not a first-look number. One value is still read wrong (3.41 for 9.76), which is exactly what the confirm screen is for. No homeowner's own screenshot has been tried yet.
+The honest caveat: we combined the two after seeing each one's result on those same eleven values, so 8 of 11 is not a first-look number. One value is still read wrong (3.41 for 9.76), which is exactly what the confirm screen is for. No homeowner's own screenshot has been tried yet.
 
 OCR had its own lesson. Tesseract read the demo screen's big "5.5" as "3.9", because the print was too large for it. The reader now cuts oversized print out, shrinks it and reads it again.
 
