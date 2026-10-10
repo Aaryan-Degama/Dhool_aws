@@ -26,30 +26,34 @@ Built for [Environmental Hacks](https://www.wemakedevs.org/aws/env) (WeMakeDevs 
 1. **Takes the readings three ways:** a link to the inverter's cloud by API key, a screenshot of the inverter app, or a typed number.
 2. **Works out what the roof should have made** each day from its size, tilt and direction and that day's real weather (pvlib physics on Open-Meteo data), then learns that roof's own normal.
 3. **Gives one verdict with the reason and the money:**
-   - **Call your vendor:** a sudden drop that stayed down and the neighbours did not share, or repeated one-day shutdowns. A WhatsApp message to the vendor is written with the figures.
+   - **Call your vendor:** a sunny day on which the roof made almost nothing, a sudden drop that stayed down and the neighbours did not share, or repeated one-day shutdowns. A WhatsApp message to the vendor is written with the figures.
    - **Wash the panels:** a slow slide since the last rain, and only when the wash pays: what the dust will cost before the next forecast rain or dust storm must be more than one wash costs that household. Both totals are shown.
    - **Wait:** rain is coming and will wash them for free; a dust storm is coming, so wash after it; the dust is not costing enough yet; or it is haze and washing will not help.
    - **Your solar is working.**
 4. **Checks afterwards.** Tell Dhool you washed the panels or the vendor came, and it compares the week before with the clear days after: "needed +13%, came back +12%". A wash that changes nothing turns the advice into "call your vendor".
 5. **Reads the vendor's reply.** Paste the WhatsApp reply (Hinglish, Hindi or English) and Dhool sorts it into coming, wants something first, refusing, or no clear answer, with the next step.
-6. **One home, the whole family.** Each person has their own login; a six-letter code joins them to the home.
+6. **One home, the whole family.** Each person has their own login; a six-letter code joins them to the home. The owner can remove a member or delete the home with all its data; anyone can leave, or delete their account.
+7. **Tells you, without being opened.** With alerts switched on, the phone gets a notification when the nightly check turns to "call your vendor" or "wash", or when readings have stopped for three days. In the app, a card says so whenever the last reading is three or more days old.
+8. **Your own rates.** What a wash costs you and what a unit of electricity is worth to you are both settable per home; every rupee figure uses them.
 
 No model makes the verdict or produces a number. It is physics and plain rules, and every verdict carries its reason.
 
 ## Built on AWS
 
-Everything is defined in one SAM template (`template.yaml`) and deployed with the **SAM CLI** to `ap-south-1`. It is serverless and scales to zero.
+Everything is defined in one SAM template (`template.yaml`) and deployed with the **SAM CLI** to `ap-south-1`. It is all serverless. It is not all scale-to-zero: the two model functions are pinged every five minutes to stay loaded, because a fresh container takes two to five minutes to load its model. Everything else costs nothing when idle.
 
 | Service | What it does here |
 |---|---|
 | **Lambda** (5 functions) | The API (zip); the analysis with pvlib (container image); the screenshot reader, Qwen3-VL-2B on CPU through llama.cpp (container image); the vendor-reply reader, Laya on ONNX Runtime (container image); the demo inverter cloud (zip). |
-| **API Gateway** (HTTP API) | Every route, with a JWT authorizer. The caller's identity comes only from the token. |
+| **API Gateway** (HTTP API) | Every route, with a JWT authorizer and request throttling. The caller's identity comes only from the token. |
 | **Cognito** | Sign-up and sign-in by email. |
 | **DynamoDB** | One on-demand table: houses, members, readings, daily verdicts, reported washes and visits, invite codes with a TTL. `Query` only, never `Scan`. |
 | **S3** | Uploaded screenshots, reached only through signed URLs issued after an access check, deleted after 30 days. |
-| **EventBridge** | The nightly analysis of every home, and a five-minute ping that keeps the two model containers loaded. |
+| **EventBridge** | The nightly analysis (it hands each home to its own run), and a five-minute ping that keeps the two model containers loaded. |
+| **SQS, SNS** | A queue that catches any background analysis or screenshot run that failed, and a topic the alarms report to. |
 | **ECR** | Holds the three container images. |
-| **CloudWatch** | Logs: every access decision is one JSON line. |
+| **CloudWatch, X-Ray** | Logs kept 30 days, every access decision one JSON line with its request ID; alarms on function errors and on the failure queue; tracing. |
+| **Systems Manager** (Parameter Store) | Holds the private key that signs phone notifications (Web Push). |
 | **Amplify Hosting** | Builds and serves the web app from `main` (`amplify.yml`). _Not connected yet._ |
 
 **Bedrock and Textract are not used.** Both were unavailable on this AWS account (Textract is blocked on the free plan; AWS Support declined the Bedrock request). That is why the two models are small open ones that we host ourselves on Lambda, and why explanations are fixed text in two languages instead of generated.
@@ -63,7 +67,7 @@ phone (React PWA)
    │                                             │  ├─► vendor-reply reader Lambda (Laya)
    │                                             │  └─► analysis Lambda (pvlib + rules) ──► Open-Meteo weather
    └─ demo inverter app ────► demo inverter Lambda (33 simulated homes)
-EventBridge: nightly analysis of every home; keep-warm pings
+EventBridge: nightly analysis, one run per home, then Web Push to the family's phones; keep-warm pings
 ```
 
 ## What is real and what is simulated
@@ -76,14 +80,28 @@ EventBridge: nightly analysis of every home; keep-warm pings
 
 | What | Result |
 |---|---|
-| Verdict rules, development neighbourhoods (3 seeds, Delhi) | 93–95% of checks correct (7 Oct; the year of weather it runs on moves with the date, it was 94–96% on 3 Oct) |
-| Verdict rules, hidden test set (Jaipur, Lucknow, Ahmedabad; every simulator setting redrawn and wider; never tuned on) | **84%** over 3,870 checks |
+| Verdict rules, hidden test set, **alone and with weather error**: no neighbours to compare with, and the weather data wrong about each roof's sun by about 15% a day | **56%** of 3,870 checks. Faults caught: 6 of 433. This is the hardest case and the closest to a household typing its own numbers. |
+| The same, with weather error and 29 neighbours | 48%. The "repeated shutdowns" rule mistakes the noise for trips. The simulated error is drawn separately for every roof, which is harsher than real weather, where neighbours share most of it. |
+| The same, alone, no weather error | 83%. Faults caught: 66%. |
+| The same, best case: 29 neighbours and weather data that matches the simulator's exactly | **84%**. Faults caught: 86%. |
+| Development neighbourhoods (3 seeds, Delhi), same four cases | 56–57%, 45–49%, 87–89%, 94–95% (7 Oct; the year of weather they run on moves with the date) |
 | Real rooftops (nine NREL PVDAQ homes, about ten years each, no labels) | No accuracy figure. On a single real roof with no neighbours, "wash" and "unclear" are still raised too often. |
 | Screenshot reader, demo inverter screens | 93 of 93 printed values, none invented (saved screens; a screenshot of the whole demo page is refused) |
 | Screenshot reader, store screenshots of three real inverter apps | 6 of 11 values, 1 invented. The homeowner confirms or corrects every number before it is saved. |
+| Plain OCR tried in its place (Tesseract and layout rules, `vision/ocr_reader.py`, not deployed) | 93 of 93 on demo screens; 5 of 11 on the real-app screenshots, none invented, about a second an image. One value short of the model on the real set, so the model stayed. |
 | Vendor-reply reader (Laya v3.2) | 52 of 60 on the one test set written before training. No real vendor reply has been tried. |
 
-The misses on the hidden set are mostly on the cautious side ("unclear, wait" for a dusty roof). `CONTEXT.md` has the full record, including what went wrong on the way.
+The hidden test set is three other cities with every simulator setting redrawn and wider; the rules were never tuned on it. All of these are scores **in simulation**, where the homes' output is built from the same physics the rules use; the weather-error cases are our attempt to take that advantage away. The misses in the best case are mostly on the cautious side ("unclear, wait" for a dusty roof). `CONTEXT.md` has the full record, including what went wrong on the way.
+
+## Known limits and what is next
+
+- **Alone and with imperfect weather, the rules rarely catch a fault** (the first row above). Pooling readings from nearby Dhool homes, with consent, would give every household the neighbour comparison.
+- **No real inverter brand is connected.** One real connector (SolarMAN or ShineMonitor, which most Indian home inverters report to) is the next thing to build.
+- **The screenshot reader is slow** (about a minute) and weak on real apps. OCR is fast and invented nothing in our trial; it needs real homeowner screenshots to settle.
+- **Sign-in sends the password over TLS** (not SRP), there is no two-step sign-in, and the demo inverter's key sits on the house record; a real brand's key belongs in Secrets Manager.
+- **Weather comes from Open-Meteo's free service**, which is for non-commercial use and limited to 10,000 calls a day. A launch needs their paid plan or a weather cache.
+- **One stack, deployed from a laptop.** A staging environment is configured (`sam deploy --config-env staging`) but not deployed, and CI validates and builds without deploying.
+- Also to come: Gujarati and Marathi, a loss report the family can send the vendor, a weekly summary, alerts by WhatsApp or SMS.
 
 ## Run it
 

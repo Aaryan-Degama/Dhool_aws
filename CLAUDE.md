@@ -29,13 +29,16 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 
 **Complete and live**
 - Sign-in and family sharing: one house, several logins, joined by a 6-letter code.
-- Verdicts (wash, call the vendor, wait, all good) with a reason, money lost, a chart and a 7-day forecast; re-run nightly and when data arrives.
-- Verdict rules reworked: 93–95% on development data (7 Oct; it runs on the last year of weather, so it moves with the date), 84% on the hidden test set (never tune against it).
+- Verdicts (wash, call the vendor, wait, all good) with a reason, money lost, a chart and a 7-day forecast; re-run nightly (one run per home) and when data arrives. A sunny day at almost nothing is "call the vendor" at once (outage).
+- Verdict rules, scored four ways on the hidden test set (never tune against it): with neighbours 84%, alone 83%, with 15% weather error 48%, alone with weather error 56% and almost no faults caught. Development seeds: 94–95% in the best case. Quote the hard case first.
+- Alerts by Web Push from the nightly run (call the vendor, wash, readings stopped). Built and deployed; not yet seen arriving on a real phone, which needs the public URL.
+- Per-home tariff and wash cost; delete a home, remove a member, leave, delete account; home picker; back button; offline shell; a card when readings are 3 or more days old.
+- Operations: API throttling and a join lockout, a failure queue, alarms (no email subscribed yet), tracing, 30-day logs.
 - Wash decision by cost: wash only when the saving beats the wash cost (settable per home), both totals in the reason.
 - Wash and vendor-visit check, and a log of advice and actions. A wash or visit reported for today shows its card at once.
 - Readings in three ways: inverter link by API key, screenshot upload, typed number.
 - Demo inverter cloud: 33 simulated homes on real weather (faults `home-00` to `home-03`, healthy ones, dusty `home-30` to `home-32`).
-- Screenshot reader: Qwen3-VL-2B on Lambda. 93/93 on demo screens; only 6 of 11 on real-app store screenshots.
+- Screenshot reader: Qwen3-VL-2B on Lambda. 93/93 on demo screens; only 6 of 11 on real-app store screenshots. Plain OCR was tried (`vision/ocr_reader.py`, not deployed): 93/93 and 5 of 11 with none invented, in about a second. One short, so the model stayed; reopen when real screenshots arrive.
 - Vendor-reply reader: Laya v3.2 (int8, ONNX Runtime) on Lambda, about 250 ms a reply. Every Laya version is in the GitHub release `laya-models`.
 - The app: roof scene, weather skies, frosted cards, four tabs.
 - English and Hindi across the whole app, the reasons included. Starts in the phone's language; changed in Setup.
@@ -43,16 +46,18 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 
 **Pending, needs the owner**
 1. Public URL: connect the repo to Amplify Hosting in Singapore (ap-southeast-1), monorepo root `web`. Dhool is not on Amplify; the only Amplify app on the account is Slate's (Mumbai). When the link exists: put it in `README.md` and `WRITEUP.md`, check it signed out with the showcase accounts, and tighten the two `AllowOrigins` in `template.yaml` to it.
-2. Read the Hindi through once, on the review page (https://claude.ai/artifact/JByxFCkVnqs5HfEXQST4L1, private to the owner): it was written by Claude, checked twice by Claude, and no native speaker has read it.
+2. Read the Hindi through once, on the review page (https://claude.ai/artifact/JByxFCkVnqs5HfEXQST4L1, private to the owner): it was written by Claude, checked twice by Claude, and no native speaker has read it. About 45 lines added on 7 Oct (alerts, family, deletion, tariff, outage) are in `hi.js`, `reasons.py` and `notify.py` and not on that page.
 3. Real inverter screenshots (a today screen and a daily list) and 20 to 30 real vendor replies: none exist yet. Commands, below, say what to do when they arrive.
 4. 
 5. A license for the repo (there is no `LICENSE` file).
 6. Whether the showcase logins are printed in the public README for judges or only given in the submission form.
+7. An address for alarms: deploy once with `sam deploy --parameter-overrides AlarmEmail=<address> VapidSubject=mailto:<address>` and click the confirmation email.
 
 **Pending, to build or check**
 1. The 3-minute video.
-2. Right before recording: refresh the demo data (Commands, below) and confirm the wash showcase account still says "wash". Rain of 5 mm turns the dusty homes back to "all good".
-3. **Known limit:** a phone screenshot of the demo inverter *page* (demo banner and home picker above the screen) is refused by the reader ("could not read"). The files from its "Save this screen as an image" button read exactly (1 of 1 and 15 of 15 values live on 7 Oct). Use the button in the video; a real inverter app has no such banner, but real-app reading is weak anyway (6 of 11).
+2. Right before recording, and every two days through judging: refresh the demo data (Commands, below) and confirm the wash showcase account still says "wash". Rain of 5 mm turns the dusty homes back to "all good", and data 3 days old shows a "no new reading" card on every demo home.
+3. With the public URL: switch alerts on from a real phone and see one push arrive.
+4. **Known limit:** a phone screenshot of the demo inverter *page* (demo banner and home picker above the screen) is refused by the reader ("could not read"). The files from its "Save this screen as an image" button read exactly (1 of 1 and 15 of 15 values live on 7 Oct). Use the button in the video; a real inverter app has no such banner, but real-app reading is weak anyway (6 of 11).
 
 **Checked on 7 Oct** (scripted Chrome at phone width against the live backend, English and Hindi; and the Android emulator): the three cases (fault, wash, all good), the vendor-reply box, wash and visit report with undo, the wash-cost field, the log, the language choice, screenshot upload in Hindi, and every form with the phone keyboard up (the field stays visible; the nav bar stays under the keyboard). No sideways scrolling or clipped text in either language. Not seen with the keyboard: the family-code box on "Add your home" (it is the same field component).
 
@@ -63,13 +68,13 @@ _Code lives in the `Dhool_aws` repo._
 
 ```
 template.yaml              SAM: user pool, HTTP API + JWT authorizer, table, bucket, functions, nightly schedule
-backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, reasons, analyse, connectors, authz, config; evaluate and realcheck score the rules)
+backend/dhool/             pure logic, no AWS calls (sim, expected, verdict, reasons, analyse, notify, connectors, authz, config; evaluate and realcheck score the rules)
 backend/handlers/          thin I/O wrappers: api, analysis (pvlib container, nightly), mock_inverter (demo inverter cloud)
 vision/                    the screenshot reader: Qwen3-VL-2B on CPU through llama.cpp, a Lambda container (weights in vision/models/, not in git)
 backend/tests/             pytest
 messages/                  the vendor-reply reader: Laya fine-tuned on vendor-replies.jsonl, a Lambda container (weights in messages/models/, not in git)
-web/                       React + Vite PWA, deployed by Amplify Hosting from `main` (App.jsx; words.js headlines; check.jsx wash and visit check; plan.jsx wash cost and log; i18n.js and hi.js the Hindi)
-.github/workflows/ci.yml   pytest, the web test and the web build on every push
+web/                       React + Vite PWA, deployed by Amplify Hosting from `main` (App.jsx tabs and routes; account.jsx sign-in, add home, family, deletion; readings.jsx the three ways in; words.js headlines; check.jsx wash and visit check; plan.jsx costs and log; store.js what the phone keeps; public/sw.js offline shell and push; i18n.js and hi.js the Hindi)
+.github/workflows/ci.yml   template lint, the analysis image build, pytest, and the web test, lint and build on every push
 ```
 
 ## Commands
@@ -79,9 +84,12 @@ _All confirmed unless a line says otherwise._
 - Test: `.venv/bin/pytest`
 - Generate the simulated neighbourhood (real Open-Meteo weather, a year through yesterday): `cd backend && ../.venv/bin/python -m dhool.sim`, then deploy and run the analysis for every house (`aws lambda invoke --function-name <AnalysisFunction> --payload '{}' out.json`). Do it again right before recording a demo, or the demo inverter's last reading falls behind the live weather.
 - Deploy backend (confirmed): `sam validate && ./scripts/build.sh && sam deploy` (the script is `sam build` plus proxy handling for the container build)
-- Score the verdict rules against the simulator: `cd backend && ../.venv/bin/python -m dhool.evaluate <seed>` (seeds 0–2 are development data). The hidden test set is `... -m dhool.evaluate hidden`: never tune against it; after any rule change rerun it and report the number as it comes.
+- Score the verdict rules against the simulator: `cd backend && ../.venv/bin/python -m dhool.evaluate <seed>` (seeds 0–2 are development data). It prints four cases: with neighbours, alone, with weather error, and both. The hidden test set is `... -m dhool.evaluate hidden`: never tune against it; after any rule change rerun it and report the number as it comes.
 - Real-rooftop check (nine NREL PVDAQ homes, downloads to `~/.cache/dhool` on first run): `cd backend && ../.venv/bin/python -m dhool.realcheck`. Run it after any rule change: the simulator is far cleaner than real data.
-- Deploy settings are in `samconfig.toml`: stack `dhool-aws`, region `ap-south-1`.
+- Deploy settings are in `samconfig.toml`: stack `dhool-aws`, region `ap-south-1` (a `staging` environment is defined and not deployed). Template parameters: `WebOrigin` (CORS, `*` until the Amplify URL exists), `AlarmEmail`, `VapidParam`, `VapidSubject`.
+- After regenerating the demo data and deploying, the demo homes need no relinking; a home linked before 7 Oct keeps its old 4-decimal location until its owner links it again.
+- Failed background runs: `aws sqs get-queue-attributes --queue-url <FailureQueueUrl output> --attribute-names ApproximateNumberOfMessages`. Logs are in `/dhool/dhool/{api,analysis,vision,messages,mock-inverter}`.
+- Web Push key: the private half is the SSM SecureString `/dhool/vapid-private-key`, the public half is `VAPID_PUBLIC_KEY` in `web/src/config.js`. They are a pair: replacing one without the other breaks every phone's subscription.
 - Live endpoints, pool IDs, the demo accounts and the three showcase accounts (`SHOWCASE_USERS`, one home each: wash on `home-30`, call the vendor on `home-01`, all good on `home-05`): `.env` (gitignored, never commit)
 - Screenshot reader weights (1.5 GB, pinned and hash-checked): `./scripts/fetch-model.sh` (`./scripts/build.sh` runs it first). Keep the weights out of `backend/`: SAM would pack them into the zip Lambdas.
 - Measure the reader (accuracy, time, memory) in its Lambda image, as the Lambda sees it: `docker run --rm --cpuset-cpus=0,1 --memory=3008m --memory-swap=3008m -v "$PWD/scripts:/scripts:ro" -v "$PWD/vision:/vision:ro" -v <image dir>:/imgs:ro -e MODEL_DIR=/opt/models -e LLAMA_SERVER=/opt/llama-server --entrypoint python3 visionfunction:latest /scripts/eval-vision.py /imgs/<image> ...`. Demo screens carry their answer key; for a real screenshot write `<image>.json` beside it (see the script's header). Run sets one at a time: parallel runs slow each other.
@@ -93,7 +101,7 @@ _All confirmed unless a line says otherwise._
 - Run one function locally: `sam local invoke <FunctionName>`
 - Frontend: `npm run dev` / `npm run build` in `web/`; `/#preview` shows every verdict state without signing in. Amplify Hosting builds `main` using `amplify.yml`.
 - On the owner's phone over the Wi-Fi: `npm run build && npx vite preview --host 0.0.0.0 --port 4173` in `web/`, then open `http://<laptop Wi-Fi address>:4173` (the laptop's is in `ip -4 addr show wlp1s0`). Serves the built files only, never the dev server. A rebuild is picked up without a restart.
-- Web tests (the weather-to-sky rule; every line of the app has its Hindi): `npm test` in `web/`. Add `?sky=day|cloud|rain|storm|snow|sand|night` to the address to force a sky, `&dark=1` for its night version, and `?lang=hi|en` to force a language.
+- Web tests (the weather-to-sky rule; every line of the app has its Hindi; the stale-reading day count): `npm test` in `web/`; `npm run lint` for ESLint. Add `?sky=day|cloud|rain|storm|snow|sand|night` to the address to force a sky, `&dark=1` for its night version, and `?lang=hi|en` to force a language.
 - Design decisions live in `DESIGN.md`; read it before changing the UI.
 - Android emulator (AVD `dhool`, Android 15; it needs its window, `-no-window` crashes on this machine): `~/Android/Sdk/emulator/emulator -avd dhool -http-proxy "$HTTPS_PROXY"`, then `adb reverse tcp:5173 tcp:5173` and open `http://localhost:5173` in the emulator's Chrome while `npm run dev` runs. To script that Chrome: `adb forward tcp:9222 localabstract:chrome_devtools_remote`.
 
@@ -126,5 +134,8 @@ Say in the write-up that Bedrock and Textract were unavailable on this account a
 - What the homeowner reports (a wash, a vendor visit) is an `ACTION#<date>` item, treated by the rules as a known cleaning or repair and checked before against after. The log (`GET /houses/{id}/history`) is built from the stored daily verdicts and these items; nothing else writes to it.
 - Verdict headlines are in `web/src/words.js` only; the card and the log both read them from there.
 - **Two languages, fixed text.** Every line the app shows goes through `t("English")` (`web/src/i18n.js`) and has its Hindi in `web/src/hi.js`; `npm test` fails on a line without one. A verdict's reason is built on the server in both languages from one set of figures (`backend/dhool/reasons.py`, returned as `reason` and `reason_hi`): add the Hindi with the English, never a number in one and not the other. No model translates. "Dhool" stays in Latin letters in Hindi (धूल is also the word for dust).
+- **Owner-only:** creating an invite, linking an inverter, removing a member, deleting the home. A member may leave. The path's `sub` in `DELETE .../members/{sub}` says who is removed; who is asking is still only the token.
+- **Push endpoints are untrusted URLs.** The server posts to them, so `api.py` accepts only the known push hosts. Alert text is fixed, in both languages, in `backend/dhool/notify.py` (the one place outside `words.js` and `reasons.py` that words a verdict).
+- **Scores are quoted hard case first** (alone, with weather error), and always as "in simulation".
 - A wash or visit dated after the last reading (today, when readings end yesterday) still gets its check card (`waiting`) and, for a wash, the "just cleaned" OK: do not filter such reports out of `verdict()`.
 - **Two sessions, one stack.** When another session is working in this checkout, work in your own `git worktree` on a branch, push the branch, and let the session that owns the checkout merge and deploy: a deploy from a second copy overwrites what the first has live.
