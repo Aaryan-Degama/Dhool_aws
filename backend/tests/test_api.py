@@ -2,6 +2,7 @@
 import datetime
 import json
 import pathlib
+import re
 import time
 
 import boto3
@@ -152,6 +153,15 @@ def test_a_body_that_is_not_base64_when_it_says_so_is_rejected():
     event = {"routeKey": "POST /houses", "body": "not base64!", "isBase64Encoded": True,
              "requestContext": {"authorizer": {"jwt": {"claims": {"sub": FATHER}}}}}
     assert api.handler(event, None)["statusCode"] == 400
+
+
+def test_the_template_sends_the_api_function_exactly_the_routes_it_answers():
+    """A route in api.py and not in template.yaml is never reached; one in the template alone is a 404."""
+    template = (pathlib.Path(__file__).parents[2] / "template.yaml").read_text()
+    function = re.search(r"\n  ApiFunction:\n(.*?)\n  \S", template, re.S).group(1)
+    found = re.findall(r"Method: (\w+), Path: (?:'([^']+)'|([^\s,}]+))", function)  # a path with {braces} is quoted
+    events = [f"{method} {quoted or bare}" for method, quoted, bare in found]
+    assert sorted(events) == sorted(api.ROUTES) and len(events) >= 20
 
 
 def test_a_route_the_api_does_not_have_is_not_found():

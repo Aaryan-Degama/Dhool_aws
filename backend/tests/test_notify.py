@@ -74,6 +74,37 @@ def test_the_nightly_run_starts_one_background_run_per_house_across_pages(monkey
     assert asked == [{"pk": "HOUSES", "sk": "h2"}]
 
 
+def test_a_nightly_run_short_of_time_from_the_start_still_does_a_page_and_the_chain_ends(monkeypatch):
+    """Three pages of one house. Every run has too little time for a second page: each must still start its
+    own page before handing the rest on, or the chain would hand the same cursor on for ever."""
+    houses = ["h1", "h2", "h3"]
+    handed_on, started = [], []
+
+    class Table:
+        def query(self, **kwargs):
+            at = houses.index(kwargs["ExclusiveStartKey"]["sk"]) + 1 if "ExclusiveStartKey" in kwargs else 0
+            page = {"Items": [{"sk": houses[at]}]}
+            return page if at == len(houses) - 1 else {**page, "LastEvaluatedKey": {"pk": "HOUSES", "sk": houses[at]}}
+
+    class Lambda:
+        def invoke(self, **kwargs):
+            payload = json.loads(kwargs["Payload"])
+            (handed_on if "cursor" in payload else started).append(payload)
+
+    monkeypatch.setenv("AWS_LAMBDA_FUNCTION_NAME", "dhool-AnalysisFunction-abc")
+    monkeypatch.setattr(analysis, "table", Table)
+    monkeypatch.setattr(analysis, "client", lambda name: Lambda())
+    monkeypatch.setattr(analysis, "NIGHTLY_PACE_S", 0)
+    hurried = type("Context", (), {"aws_request_id": "r", "get_remaining_time_in_millis": lambda self: 1_000})()
+    event, answers = {}, []
+    while event is not None:  # each hand-over is run as the Lambda would run it
+        answers.append(analysis.handler(event, hurried))
+        event = handed_on.pop() if handed_on else None
+        assert len(answers) <= len(houses), "the chain must end"
+    assert answers == [{"houses": 1, "continues": True}, {"houses": 1, "continues": True}, {"houses": 1}]
+    assert [run["house_id"] for run in started] == houses  # each house once, none skipped at a hand-over
+
+
 @pytest.fixture
 def home(monkeypatch):
     """A house with typed readings, a stored "all good" and two subscribed phones; the run's inputs are stubbed."""
