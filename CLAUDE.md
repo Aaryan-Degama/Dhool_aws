@@ -25,9 +25,7 @@ Hackathon project for Environmental Hacks (WeMakeDevs × AWS, Oct 8 – 11, 2026
 
 ## Status (7 Oct 2026; keep this current, details and numbers are in `CONTEXT.md`)
 
-All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1).
-
-**On branch `hardening` (10 Oct 2026): not merged, not pushed, not deployed.** A hardening pass; the Log entry of 2026-10-10 in `CONTEXT.md` lists it. Until it is merged and deployed, what is live is the list below.
+**10 Oct 2026:** the hardening pass (branch `hardening`) is merged into local `main` and deployed to stack `dhool-aws`, ap-south-1. `main` is not pushed. **The stack's table and user pool are empty**: the full stack of 7 Oct, named `dhool`, was deleted on 8 Oct with its data, and the list below was written about it. The code below is deployed again; the demo houses and the showcase accounts are not there until they are made again (`CONTEXT.md`, Next 6). Logs are now in `/dhool/dhool-aws/*`.
 
 **Complete and live**
 - Sign-in and family sharing: one house, several logins, joined by a 6-letter code.
@@ -51,7 +49,7 @@ All branches are merged into `main` and deployed (stack `dhool-aws`, ap-south-1)
 2. Read the Hindi through once, on the review page (https://claude.ai/artifact/JByxFCkVnqs5HfEXQST4L1, private to the owner): it was written by Claude, checked twice by Claude, and no native speaker has read it. About 45 lines added on 7 Oct (alerts, family, deletion, tariff, outage) are in `hi.js`, `reasons.py` and `notify.py` and not on that page.
 3. Real inverter screenshots (a today screen and a daily list) and 20 to 30 real vendor replies: none exist yet. Commands, below, say what to do when they arrive.
 4. 
-5. Merge and deploy branch `hardening`. (It carries the license, Apache-2.0.)
+5. Push `main` (it carries the hardening pass and the license, Apache-2.0).
 6. Whether the showcase logins are printed in the public README for judges or only given in the submission form.
 7. An address for alarms: deploy once with `sam deploy --parameter-overrides AlarmEmail=<address> VapidSubject=mailto:<address>` and click the confirmation email.
 
@@ -87,7 +85,7 @@ _All confirmed unless a line says otherwise._
 - Lint, format, types: `.venv/bin/ruff check .`, `.venv/bin/ruff format .`, `.venv/bin/mypy` (config in `pyproject.toml`; no blanket ignores: a `noqa` or `type: ignore` names its rule and gives its reason on the line). Hooks: `.venv/bin/pre-commit install` once.
 - Browser test: `npm run e2e` in `web/` (Playwright, Chromium; `npx playwright install chromium-headless-shell` once). It runs `/#preview` on the dev server and the built app under the headers in `customHttp.yml`.
 - Generate the simulated neighbourhood (real Open-Meteo weather, a year through yesterday): `cd backend && ../.venv/bin/python -m dhool.sim`, then deploy and run the analysis for every house (`aws lambda invoke --function-name <AnalysisFunction> --payload '{}' out.json`). Do it again right before recording a demo, or the demo inverter's last reading falls behind the live weather.
-- Deploy backend (confirmed): `sam validate && ./scripts/build.sh && sam deploy` (the script is `sam build` plus proxy handling for the container build)
+- Deploy backend: `sam validate && ./scripts/build.sh && sam deploy` (the script is `sam build` plus proxy handling for the container build). Behind a slow line, point pip at a mirror: the analysis and reply-reader images take a `PIP_INDEX_URL` build argument, and their lock files carry hashes, so a mirror cannot serve anything else. If an image is built by hand with `docker build`, add `--provenance=false`: Lambda refuses the default manifest. A requirement changed: regenerate the lock (the command is in each Dockerfile).
 - Score the verdict rules against the simulator: `cd backend && ../.venv/bin/python -m dhool.evaluate <seed>` (seeds 0–2 are development data). It prints four cases: with neighbours, alone, with weather error, and both. The hidden test set is `... -m dhool.evaluate hidden`: never tune against it; after any rule change rerun it and report the number as it comes.
 - Real-rooftop check (nine NREL PVDAQ homes, downloads to `~/.cache/dhool` on first run): `cd backend && ../.venv/bin/python -m dhool.realcheck`. Run it after any rule change: the simulator is far cleaner than real data.
 - Deploy settings are in `samconfig.toml`: stack `dhool-aws`, region `ap-south-1` (a `staging` environment is defined and not deployed). Template parameters: `WebOrigin` (CORS, `*` until the Amplify URL exists), `AlarmEmail`, `VapidParam`, `VapidSubject`.
