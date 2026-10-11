@@ -11,6 +11,7 @@ const HEADLINE = {
   "WAIT:dust:dust_storm": t("Wash after the dust storm"),
   "WAIT:dust:not_worth_it": t("Not worth washing yet"),
   "WAIT:haze": t("Don't wash. It's haze."),
+  "WAIT:repair": t("Checking the repair"),
   "WAIT:unclear": t("Wait and watch"),
   "WAIT:no_data": t("Still learning your roof"),
   "OK:ok": t("Your solar is working"),

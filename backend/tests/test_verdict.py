@@ -270,17 +270,70 @@ def test_a_wash_reported_today_after_the_last_reading_is_taken_in_and_awaited():
     assert "Your wash on" in v["reason"]
 
 
-def test_a_vendor_visit_reported_today_keeps_the_fault_and_waits_for_proof():
+def test_a_vendor_visit_with_nothing_read_since_is_a_wait_not_a_call_to_the_vendor():
+    """They have just had the vendor in: "call your vendor" is the wrong thing to say until a reading says so."""
     factor = np.ones(120)
     factor[60:] = 0.67
-    today = [{"date": str((DAYS[-1] + pd.Timedelta(days=1)).date()), "type": "visit"}]
-    v = verdict(home(factor), NO_RAIN, DRY_WEEK, actions=today)
-    assert (v["verdict"], v["cause"], v["check"]["type"], v["check"]["status"]) == (
-        "INSPECT",
-        "fault",
-        "visit",
-        "waiting",
+    for when in (DAYS[-1] + pd.Timedelta(days=1), DAYS[-1]):  # reported for today, and for the last day read
+        v = verdict(home(factor), NO_RAIN, DRY_WEEK, actions=[{"date": str(when.date()), "type": "visit"}])
+        assert (v["verdict"], v["cause"], v["check"]["type"], v["check"]["status"]) == (
+            "WAIT",
+            "repair",
+            "visit",
+            "waiting",
+        )
+        assert "is recorded" in v["reason"] and "दर्ज है" in v["reason_hi"]
+
+
+def test_an_outage_with_the_vendor_just_in_is_a_wait_and_an_outage_again_if_it_goes_on():
+    factor = np.ones(120)
+    factor[117:] = 0.0
+    visit = [{"date": str(DAYS[118].date()), "type": "visit"}]
+    assert verdict(home(factor[:119], days=DAYS[:119]), NO_RAIN[:119], DRY_WEEK)["cause"] == "outage"
+    assert verdict(home(factor[:119], days=DAYS[:119]), NO_RAIN[:119], DRY_WEEK, actions=visit)["cause"] == "repair"
+    assert verdict(home(factor), NO_RAIN, DRY_WEEK, actions=visit)["cause"] == "outage"  # still nothing the day after
+
+
+def test_a_wash_does_not_put_off_a_fault():
+    factor = np.ones(120)
+    factor[60:] = 0.67
+    wash = [{"date": str(DAYS[-1].date()), "type": "wash"}]
+    assert verdict(home(factor), NO_RAIN, DRY_WEEK, actions=wash)["cause"] == "fault"
+
+
+def test_output_back_after_a_vendor_visit_stops_the_call_to_the_vendor():
+    """Down for five days, a visit, and the readings since are back: not "call your vendor" any more."""
+    factor = np.ones(120)
+    factor[112:117] = 0.25  # the visit is on day 116
+    visit = [{"date": str(DAYS[116].date()), "type": "visit"}]
+    assert verdict(home(factor), NO_RAIN, DRY_WEEK)["verdict"] == "INSPECT"  # unreported: five of eight days down
+    for last in (118, 119, 120):  # one, two and three days read since the visit
+        v = verdict(home(factor[:last], days=DAYS[:last]), NO_RAIN[:last], DRY_WEEK, actions=visit)
+        assert (v["verdict"], v["cause"]) == ("OK", "ok"), last
+    assert (
+        "The vendor's visit"
+        in verdict(home(factor[:118], days=DAYS[:118]), NO_RAIN[:118], DRY_WEEK, actions=visit)["reason"]
     )
+    assert v["check"]["status"] == "verified"
+
+
+def test_a_normal_day_on_the_day_of_the_visit_is_enough_to_stop_the_call_to_the_vendor():
+    """Three bad days, then the vendor comes and that day's total is back: the owner's own case (11 Oct 2026)."""
+    factor = np.ones(120)
+    factor[116:119] = [0.15, 0.15, 0.28]
+    assert verdict(home(factor), NO_RAIN, DRY_WEEK)["verdict"] == "INSPECT"  # unreported, it still reads as a fault
+    v = verdict(home(factor), NO_RAIN, DRY_WEEK, actions=[{"date": str(DAYS[119].date()), "type": "visit"}])
+    assert (v["verdict"], v["cause"], v["loss_pct"]) == ("OK", "ok", 0.0) and "The vendor's visit" in v["reason"]
+
+
+def test_output_still_down_after_a_vendor_visit_keeps_the_call_to_the_vendor():
+    factor = np.ones(120)
+    factor[108:] = 0.25
+    visit = [{"date": str(DAYS[116].date()), "type": "visit"}]
+    for last in (118, 120):  # one day read since the visit, and three
+        v = verdict(home(factor[:last], days=DAYS[:last]), NO_RAIN[:last], DRY_WEEK, actions=visit)
+        assert v["verdict"] == "INSPECT", last
+    assert v["check"]["status"] == "not_recovered"
 
 
 def test_no_reported_action_means_no_check():

@@ -48,6 +48,12 @@ REASONS = {
         "over the next few clear days.",
         "hi": "{day:%-d %b} {by} पैनल ठीक हो जाने चाहिए। अगले कुछ साफ़ दिनों में Dhool इसकी पुष्टि करेगा।",
     },
+    "repair_wait": {
+        "en": "The vendor's visit on {day:%-d %b} is recorded. Dhool needs a reading from after it to see whether "
+        "output is back: add one, or wait for the next reading.",
+        "hi": "{day:%-d %b} को वेंडर का आना दर्ज है। बिजली उत्पादन लौटा या नहीं, यह देखने के लिए Dhool को उसके बाद की "
+        "एक रीडिंग चाहिए: एक रीडिंग जोड़िए, या अगली रीडिंग का इंतज़ार कीजिए।",
+    },
     "by_rain": {"en": "Rain", "hi": "की बारिश से"},
     "by_wash": {"en": "Your wash", "hi": "को आपकी धुलाई से"},
     "by_visit": {"en": "The vendor's visit", "hi": "को वेंडर के आने से"},

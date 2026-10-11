@@ -77,6 +77,9 @@ class Facts:
     told: pd.Series | None = None  # days the homeowner reported a wash or visit
     actions: Any = ()  # those reports that fall within the readings
     ahead: dict | None = None  # a report dated after the last reading
+    worked: Any = None  # the day of the latest wash or visit reported
+    visited: bool = False  # ...and whether that was a vendor visit
+    after: Any = None  # what has been read since it
     last_clean: pd.Timestamp | None = None
     since: pd.Series | None = None  # ratio since the last cleaning
     rate: float | None = None  # share of output lost per day
@@ -231,6 +234,8 @@ def _outage(f):
         area = f.neighbours.median(axis=1).reindex(out.index)
         out &= ~(area < AREA_OUT * area.tail(30).median())
     days = int(out[::-1].cummin().sum())  # how many of the latest days in a row
+    if days and f.visited and f.worked >= out.index[-days]:
+        days = min(days, len(f.after))  # the vendor has been since it stopped: only the days after that count
     if not days:
         return None
     off = f.valid.tail(days)
@@ -274,6 +279,15 @@ def _fault(f):
         level_before = normal(pre)
         if post.rolling(7, min_periods=4).median().max() / level_before > stays_down:
             continue  # it came back, so not a lasting fault
+        # A wash or vendor visit reported since the drop: the days before it say nothing about the days after.
+        # Back at the old level since: the fault is gone (the check card confirms it once three clear days are
+        # in). Nothing read since a visit: not known yet, and "call your vendor" would be the wrong thing to say
+        # to someone who just did. Still down since: it stands.
+        if f.worked is not None and f.worked >= day:
+            if len(f.after) and float(f.after.median()) / level_before > stays_down:
+                continue
+            if f.visited and not len(f.after):
+                continue
         drop = 1 - float(post.tail(7).median()) / level_before
         confidence = "high" if len(post) >= 14 and f.neighbours is not None else "medium" if len(post) >= 7 else "low"
         return _result(
@@ -313,6 +327,8 @@ def _trips(f):
 def _just_cleaned(f):
     """3. Just cleaned: rain or a reported wash in the last day or two. The week's median still shows the dirt
     from before, so say what is known and measure again once clear days come in."""
+    if f.visited and not len(f.after):
+        return _result(f, "WAIT", "repair", "low", say("repair_wait", day=f.worked), loss=f.loss)
     if f.ahead:
         return _result(
             f,
@@ -510,6 +526,18 @@ def verdict(
     )
     for action in actions:
         told[pd.Timestamp(action["date"], tz=ratio.index.tz)] = True
+    # The latest wash or visit reported, and what has been read since it: days before a repair say nothing
+    # about the days after, so the fault rules ask only these.
+    latest = ahead or (actions[-1] if actions else None)
+    if latest is not None:
+        f.worked = pd.Timestamp(latest["date"], tz=ratio.index.tz)
+        f.visited = latest["type"] == "visit"
+        f.after = ratio[f.worked + pd.Timedelta(days=1) :].dropna()
+        # Nothing read since, but that day's own total is back at the roof's normal: a day cannot make its
+        # normal with the fault still there, so it counts. A low total that day may be from before the work.
+        that_day = ratio[f.worked : f.worked].dropna()
+        if not len(f.after) and len(that_day) and float(that_day.iloc[0]) / baseline > STAYS_DOWN:
+            f.after = that_day
     cleaned = rained | washed | told
     f.last_clean = last_clean = cleaned[cleaned].index[-1] if cleaned.any() else None
     f.since = since = (ratio[last_clean:] if last_clean is not None else ratio).dropna()
