@@ -4,7 +4,7 @@ import hooks from "eslint-plugin-react-hooks";
 
 const names = (list) => Object.fromEntries(list.split(" ").map((name) => [name, "readonly"]));
 const BROWSER = names("window document navigator location history localStorage fetch URL URLSearchParams FormData Notification " +
-  "setTimeout clearTimeout setInterval clearInterval requestAnimationFrame cancelAnimationFrame performance matchMedia atob confirm getComputedStyle");
+  "setTimeout clearTimeout setInterval clearInterval requestAnimationFrame cancelAnimationFrame performance matchMedia atob btoa Blob Event createImageBitmap confirm getComputedStyle");
 
 export default [
   { ignores: ["dist/"] },

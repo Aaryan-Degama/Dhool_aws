@@ -157,8 +157,9 @@ The sign-in and add-home pages keep their single centred column. `RoofTab` wraps
 "Add readings" comes first: it is what the page is for. Everything else is a setting, in four named groups
 (This home, Family, This phone, Account). A group is one sheet made of joined parts: only its outer corners
 are round and a 2px gap of sky divides the parts (`.group` in `styles.css`). The small group names are there
-because they say what a block of settings applies to; they are not decoration. Wide screens set two columns
-(readings, phone and account; home and family) with compact forms.
+because they say what a block of settings applies to; they are not decoration. Wide screens show it as a settings page: one sheet,
+the sections (with Profile, for the picture) listed down its left side, one section shown at a time, parts
+divided by hairlines. Phones show every section in one column.
 
 ## Reading a screenshot
 Reading takes a minute or two (a small model on two CPU cores), so the upload screen says so and shows a

@@ -1,6 +1,6 @@
 // Signing in, adding or joining a home, and what belongs to the person rather than to a reading: the homes
 // they are in, the family, alerts on this phone, and deleting the home or the account.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, confirmSignUp, deleteAccount, mySub, signIn, signUp } from "./api.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 import { ErrorLine, Field, kwOf, useAction } from "./form.jsx";
@@ -151,6 +151,63 @@ export function Homes({ house, homes }) {
         </label>
       )}
       <button className="row-link" onClick={homes.add}><span>{t("Add another home")}</span></button>
+    </section>
+  );
+}
+
+// The profile picture is kept on this phone alone, as a small JPEG in base64 (about 5 KB). It is drawn on a canvas,
+// not shown in an <img>: the page's security policy lets images come only from the app's own files.
+// ponytail: not sent to the server, so it does not follow the person to another phone. Store it with the account
+// (an API route and a place in the bucket) if that is ever wanted.
+const SIDE = 96, CHANGED = "dhool-avatar";
+const blobOf = (b64) => new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: "image/jpeg" });
+
+/** The person's picture in a circle, or the first letter of `name` when they have not chosen one. */
+export function Avatar({ name }) {
+  const canvas = useRef(null);
+  const [picture, setPicture] = useState(() => kept("avatar"));
+  useEffect(() => {
+    const changed = () => setPicture(kept("avatar"));
+    window.addEventListener(CHANGED, changed);
+    return () => window.removeEventListener(CHANGED, changed);
+  }, []);
+  useEffect(() => {
+    if (!picture) return undefined;
+    let gone = false;
+    createImageBitmap(blobOf(picture)).then((bitmap) => gone || canvas.current?.getContext("2d").drawImage(bitmap, 0, 0, SIDE, SIDE)).catch(() => {});
+    return () => { gone = true; };
+  }, [picture]);
+  return picture ? <canvas className="avatar" width={SIDE} height={SIDE} ref={canvas} aria-hidden="true" />
+    : <span className="avatar" aria-hidden="true">{(name || "D").trim()[0]}</span>;
+}
+
+/** Choose a profile picture, or take it away. The middle square of the image is kept, shrunk to 96 pixels. */
+export function Profile({ name }) {
+  const [state, run] = useAction();
+  const [has, setHas] = useState(() => Boolean(kept("avatar")));
+  const set = (b64) => { keep("avatar", b64); setHas(Boolean(b64)); window.dispatchEvent(new Event(CHANGED)); };
+  const choose = (file) => run(async () => {
+    const bitmap = await createImageBitmap(file).catch(() => { throw new Error("That file is not a picture Dhool can open. Choose a JPEG or PNG."); });
+    const canvas = Object.assign(document.createElement("canvas"), { width: SIDE, height: SIDE });
+    const side = Math.min(bitmap.width, bitmap.height);
+    canvas.getContext("2d").drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, SIDE, SIDE);
+    const blob = await new Promise((done) => canvas.toBlob(done, "image/jpeg", 0.85));
+    set(btoa(String.fromCharCode(...new Uint8Array(await blob.arrayBuffer()))));
+  });
+  return (
+    <section className="card stack profile">
+      <h2>{t("Profile picture")}</h2>
+      <div className="profile-row">
+        <Avatar name={name} />
+        <label className="secondary file">
+          {has ? t("Change picture") : t("Choose a picture")}
+          <input type="file" accept="image/png,image/jpeg" disabled={state.busy}
+                 onChange={(e) => { const file = e.target.files[0]; e.target.value = ""; if (file) choose(file); }} />
+        </label>
+        {has && <button className="link" onClick={() => set(null)}>{t("Remove picture")}</button>}
+      </div>
+      <p className="note">{t("Shown beside your home's name. It is kept on this phone only.")}</p>
+      <ErrorLine error={state.error} />
     </section>
   );
 }

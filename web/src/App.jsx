@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { Alerts, Auth, DeleteAccount, Family, Homes, Setup, stopPush } from "./account.jsx";
+import { Alerts, Auth, Avatar, DeleteAccount, Family, Homes, Profile, Setup, stopPush } from "./account.jsx";
 import { api, signedIn, signOut } from "./api.js";
 import { CheckCard, ReportAction, VendorReply } from "./check.jsx";
 import { TARIFF_RS } from "./config.js";
@@ -314,6 +314,7 @@ function Invite({ house }) {
   );
 }
 
+const SECTIONS = [["readings", t("Add readings")], ["profile", t("Profile")], ["home", t("This home")], ["family", t("Family")], ["phone", t("This phone")], ["account", t("Account")]];
 const TABS = [["roof", t("Roof")], ["history", t("History")], ["why", t("Why")], ["setup", t("Setup")]];
 
 function Nav({ tab, go, house }) {
@@ -330,7 +331,7 @@ function Nav({ tab, go, house }) {
           </button>
         ))}
       </div>
-      <p className="home-name"><span className="avatar" aria-hidden="true">{house.name.trim()[0]}</span>{house.name}</p>
+      <p className="home-name"><Avatar name={house.name} />{house.name}</p>
     </nav>
   );
 }
@@ -351,6 +352,7 @@ function Home({ house: listed, homes, onSignOut }) {
   const [late, setLate] = useState(null);            // the wait gave up: the verdict that was on screen then ("" if none)
   const [error, setError] = useState("");
   const round = useRef(0);
+  const [pane, setPane] = useState("readings");  // which section of Setup is open, on a wide screen
   const hash = useHash();
   const tab = TABS.find(([name]) => hash === `#/${name}`)?.[0] || "roof";
   const house = { ...listed, ...details };
@@ -404,35 +406,41 @@ function Home({ house: listed, homes, onSignOut }) {
 
   const has = verdict?.verdict;
   const setup = (
-    // Adding readings is what this page is for and has the first place; everything else is a setting, in four
-    // named groups, each group one sheet of joined parts.
+    // Laid out as a settings page: the sections listed down the side, one shown at a time (a wide screen), or all
+    // of them one under another with no list (a phone). Every section stays mounted, so a half-typed form and a
+    // screenshot being read are kept while another section is looked at.
     <div className="setup">
-      {/* Two columns on a wide screen. On a phone the columns make no box and `order` (in the stylesheet) puts
-          the home's settings before the phone's and the account's. */}
-      <div className="setup-col">
-        <AddData house={house} onSent={awaitVerdict} />
-          <section className="group g-phone">
-            <h2 className="group-title">{t("This phone")}</h2>
-            <Alerts house={house} />
-            <section className="card stack"><h2 lang="en">Language{" · "}<span lang="hi">भाषा</span></h2><Language /></section>
-          </section>
-          <section className="group g-account">
-            <h2 className="group-title">{t("Account")}</h2>
-            <section className="card"><button className="row-link" onClick={onSignOut}><span>{t("Sign out")}</span></button></section>
-            <DeleteAccount houses={homes.all} onGone={onSignOut} />
-          </section>
-      </div>
-      <div className="setup-col">
-        <section className="group g-home">
+      <nav className="setup-nav" aria-label={t("Setup")}>
+        {SECTIONS.map(([id, name]) => (
+          <button key={id} type="button" aria-current={pane === id ? "true" : undefined} onClick={() => setPane(id)}>{name}</button>
+        ))}
+      </nav>
+      <div className="setup-body">
+        <div className={`pane ${pane === "readings" ? "on" : ""}`}><AddData house={house} onSent={awaitVerdict} /></div>
+        <section className={`pane group ${pane === "profile" ? "on" : ""}`}>
+          <h2 className="group-title">{t("Profile")}</h2>
+          <Profile name={house.name} />
+        </section>
+        <section className={`pane group ${pane === "home" ? "on" : ""}`}>
           <h2 className="group-title">{t("This home")}</h2>
           <Costs key={details ? "saved" : "default"} house={house} onSent={awaitVerdict} />
           <Size key={details ? "size" : "no-size"} house={house} onSent={awaitVerdict} />
           <Homes house={house} homes={homes} />
         </section>
-        <section className="group g-family">
+        <section className={`pane group ${pane === "family" ? "on" : ""}`}>
           <h2 className="group-title">{t("Family")}</h2>
           <Invite house={house} />
           <Family house={house} onChange={loadDetails} onGone={homes.reload} />
+        </section>
+        <section className={`pane group ${pane === "phone" ? "on" : ""}`}>
+          <h2 className="group-title">{t("This phone")}</h2>
+          <Alerts house={house} />
+          <section className="card stack"><h2 lang="en">Language{" · "}<span lang="hi">भाषा</span></h2><Language /></section>
+        </section>
+        <section className={`pane group ${pane === "account" ? "on" : ""}`}>
+          <h2 className="group-title">{t("Account")}</h2>
+          <section className="card"><button className="row-link" onClick={onSignOut}><span>{t("Sign out")}</span></button></section>
+          <DeleteAccount houses={homes.all} onGone={onSignOut} />
         </section>
       </div>
     </div>
