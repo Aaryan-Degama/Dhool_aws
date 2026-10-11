@@ -6,6 +6,7 @@ Built for [Environmental Hacks](https://www.wemakedevs.org/aws/env) (WeMakeDevs 
 
 ## Try it
 
+- **Demo video (3 minutes):** https://youtu.be/dhPpbfy7boc
 - **Live app:** https://main.d18fp2anb76xgh.amplifyapp.com (Amplify Hosting; open it on a phone or a narrow browser window). Create an account, add a home, and in **Setup** connect the demo inverter.
 - **On your own machine:** `cd web && npm install && npm run dev`, then open `http://localhost:5173`. It talks to the deployed backend. Create an account, add a home, and in **Setup** connect the demo inverter: open the "demo inverter app" link, pick a home, and copy its API key.
 - **Homes worth picking in the demo inverter:** `home-00` (a dead string: "Call your vendor"), `home-05` (healthy: "Your solar is working"), `home-30` (beside a dust source: "Wash the panels", when it has not rained lately).

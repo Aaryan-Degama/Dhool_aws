@@ -16,7 +16,7 @@ At that moment 118 tests were passing and the scoring script said the rules were
 
 That is the reason this post exists. The AWS wiring mostly worked as planned. The interesting part was the five times something real, a rooftop in Arizona, a screenshot of a Growatt app, a support ticket, a row of zeros, told us our model of the world was wrong, and what it cost each time to listen.
 
-The thing is called Dhool (धूल, "dust"). It is [live here](https://main.d18fp2anb76xgh.amplifyapp.com), and the source is [on GitHub](https://github.com/Aaryan-Degama/Dhool_aws). _Video: to be added._
+The thing is called Dhool (धूल, "dust"). It is [live here](https://main.d18fp2anb76xgh.amplifyapp.com), and the source is [on GitHub](https://github.com/Aaryan-Degama/Dhool_aws). There is a [three-minute video](https://youtu.be/dhPpbfy7boc).
 
 > **The short version:** We set out to tell people when to wash their solar panels. We shipped something that mostly tells them when not to, and that is honest about what it cannot see. The gap between those two sentences is 168 commits and five corrections.
 
