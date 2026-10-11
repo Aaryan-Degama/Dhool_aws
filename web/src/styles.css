@@ -617,14 +617,26 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .vc-head > .vc-lost { grid-area: 1 / 1; }
   .vc-head > .vc-figure { grid-area: 1 / 2; }
 
-  .trend { display: grid; gap: 1rem; }
+  /* The last days' output: bars on a scale of three lines, the unit up the side, a few dates along the bottom. */
+  .trend { display: grid; gap: 1.25rem; }
   .trend header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem 1rem; }
-  .trend .switch { flex: none; }
-  .trend .switch button { min-height: 2rem; padding-inline: 0.75rem; white-space: nowrap; }
-  .bars { display: flex; align-items: flex-end; gap: 3px; height: 8.5rem; margin: 0; padding: 0; list-style: none; border-bottom: 1px solid var(--line); }
-  .bars li { flex: 1; min-height: 2px; height: calc(var(--kwh) / var(--top) * 100%); border-radius: 3px 3px 0 0; background: var(--current); }
+  .trend h2 { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+  .trend h2 .icon { color: var(--wash); }
+  .trend .switch { flex: none; padding: 0.1875rem; border-radius: 999px; }
+  .trend .switch button { min-height: 1.875rem; padding-inline: 0.75rem; border-radius: 999px; white-space: nowrap; }
+  .trend .switch button[aria-pressed="true"] { background: color-mix(in srgb, var(--wash) 38%, transparent); }
+  .chart { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0 0.625rem; height: 9.5rem; margin-bottom: 1.75rem; font-size: var(--step--1); color: var(--muted); }
+  .chart-unit { writing-mode: vertical-rl; rotate: 180deg; text-align: center; }
+  .chart-ticks { display: flex; flex-direction: column; justify-content: space-between; margin: -0.6em 0; padding: 0; list-style: none; text-align: right; }
+  .bars {
+    display: flex; align-items: flex-end; gap: calc(45% / var(--n)); margin: 0; padding: 0 calc(22% / var(--n)); list-style: none;
+    background: linear-gradient(var(--line), var(--line)) 0 0 / 100% 1px no-repeat, linear-gradient(var(--line), var(--line)) 0 50% / 100% 1px no-repeat;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.28);
+  }
+  .bars li { position: relative; flex: 1; min-height: 3px; height: calc(var(--kwh) / var(--top) * 100%); border-radius: 4px 4px 0 0; background: linear-gradient(180deg, #6f8df5, #3346a8); }
+  .bars li.low { background: var(--fault); }
   .bars span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }  /* for a screen reader */
-  .trend-ends { display: flex; justify-content: space-between; gap: 1rem; }
+  .bars time { position: absolute; top: calc(100% + 0.5rem); left: 50%; translate: -50%; white-space: nowrap; }
 
   /* Three columns need room: on a small laptop the ways further in go under the other two, side by side. */
   @media (max-width: 75rem) {

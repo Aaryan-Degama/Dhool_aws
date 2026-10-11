@@ -354,26 +354,39 @@ export const skyOf = (d, week) => (d.rain_mm >= 1 ? "rain" : d.possible_kwh < 0.
 /**
  * Units made on each of the last 7, 30 or 90 days with a reading: one bar a day, on the wide-screen dashboard.
  * From the days the verdict carries (`daily_kwh`); nothing is shown for a verdict from before it carried them.
+ * A day under a quarter of what this roof normally makes is drawn in the fault colour: a way to see the days
+ * that went wrong, not a verdict of its own.
  */
 export function Trend({ verdict }) {
   const [span, setSpan] = useState(7);
   const all = Object.entries(verdict.daily_kwh || {}).sort(([a], [b]) => (a < b ? -1 : 1));
   if (!all.length) return null;
-  const days = all.slice(-span), top = Math.max(...days.map(([, kwh]) => kwh), 1);
+  const days = all.slice(-span), most = Math.max(...days.map(([, kwh]) => kwh), 1);
+  // The scale ends on a round number at or above the best day: 1, 2, 2.5 or 5 times a power of ten.
+  const unit = 10 ** Math.floor(Math.log10(most)), top = [1, 2, 2.5, 5, 10].map((k) => k * unit).find((n) => n >= most);
+  const every = Math.max(1, Math.ceil(days.length / 4));  // about four dates along the bottom
   return (
     <section className="card trend wide-only">
       <header>
-        <h2>{t("Units made each day")}</h2>
-        <div className="switch" role="group" aria-label={t("Units made each day")}>
+        <h2><Icon name="why" />{t("Generation trend")}</h2>
+        <div className="switch" role="group" aria-label={t("Generation trend")}>
           {[7, 30, 90].map((n) => (
-            <button type="button" key={n} aria-pressed={span === n} onClick={() => setSpan(n)}>{t("{n} days", { n })}</button>
+            <button type="button" key={n} aria-pressed={span === n} aria-label={t("{n} days", { n })} onClick={() => setSpan(n)}>{t("{n}D", { n })}</button>
           ))}
         </div>
       </header>
-      <ol className="bars" style={{ "--top": top }}>
-        {days.map(([date, kwh]) => <li key={date} style={{ "--kwh": kwh }} title={`${day(date)}: ${kwh}`}><span>{day(date)}: {kwh} {t("units")}</span></li>)}
-      </ol>
-      <p className="note trend-ends"><span>{day(days[0][0])}</span><span>{t("Most in a day: {kwh} units", { kwh: top })}</span><span>{day(days.at(-1)[0])}</span></p>
+      <div className="chart">
+        <p className="chart-unit">kWh</p>
+        <ol className="chart-ticks" aria-hidden="true"><li>{top}</li><li>{top / 2}</li><li>0</li></ol>
+        <ol className="bars" style={{ "--top": top, "--n": days.length }}>
+          {days.map(([date, kwh], i) => (
+            <li key={date} className={kwh < 0.25 * verdict.expected_kwh ? "low" : undefined} style={{ "--kwh": kwh }} title={`${day(date)}: ${kwh}`}>
+              <span>{day(date)}: {kwh} {t("units")}</span>
+              {i % every === 0 && <time aria-hidden="true">{day(date)}</time>}
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
   );
 }
