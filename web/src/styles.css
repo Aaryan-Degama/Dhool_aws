@@ -590,6 +590,31 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
    on its left and the home on its right. Roof opens on a wide band: the reading on the left, the scene large
    on the right, the weather under the reading. Below it the advice takes the wider column and the smaller
    sheets the other. The other tabs set their sheets in two columns. */
+/* Beyond the wall, a picture: the sky of the moment over trees, low houses and towers (the owner's pictures,
+   web/public/scene/, mirrored, with their own terrace cut away). In front of it everything is drawn and turns
+   together when dragged: the parapet, the terrace floor and the array. The drawn city, what falls, and the sun
+   or moon step aside. After dark every sky uses the night one. */
+:root[data-sky="day"] { --photo: url("/scene/day.webp"); }
+:root[data-sky="cloud"] { --photo: url("/scene/cloud.webp"); }
+:root[data-sky="rain"] { --photo: url("/scene/rain.webp"); }
+:root[data-sky="storm"] { --photo: url("/scene/storm.webp"); }
+:root[data-sky="sand"] { --photo: url("/scene/sand.webp"); }
+:root[data-sky="snow"] { --photo: url("/scene/snow.webp"); }
+:root:is([data-sky="night"], [data-dark]) { --photo: url("/scene/night.webp"); }
+/* On a phone the picture is hung behind the scene alone, larger than the screen so the city stands above the
+   drawn wall; its top fades into the sky the reading sits on, its foot into the page. A wide screen (below)
+   hangs the same picture across the whole band. */
+:is(.roof, .auth) .hero {
+  --w: min(100vw, 30rem);
+  background: var(--photo) 72% calc(var(--w) * -0.34) / calc(var(--w) * 2.5) auto no-repeat;
+  -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 86%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 86%, transparent);
+}
+:is(.roof, .auth) .hero :is(.pm-city, .fall) { display: none; }
+:is(.roof, .auth) stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it, not sky */
+:root:has(.roof, .auth) #sky::after { opacity: 0; }
+.top .home-name { display: flex; align-items: center; gap: 0.5rem; }
+.top .avatar { width: 1.75rem; height: 1.75rem; font-size: var(--step--1); }
+
 .nav > .brand, .nav > .home-name { display: none; }  /* the phone has these in the bar at the top of Roof */
 .wide-only { display: none; }  /* pieces of the wide-screen dashboard */
 @media (min-width: 60rem) {
@@ -639,17 +664,6 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   :is(.roof-scene, .auth) > .hero .pm { height: 31rem; }
   :is(.roof-scene, .auth) > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
   .roof-scene > :is(.reading, .strip) { z-index: 2; }
-  /* Beyond the wall, a picture: the sky of the moment over trees, low houses and towers (the owner's pictures,
-     web/public/scene/, mirrored, with their own terrace cut away). In front of it everything is drawn and turns
-     together when dragged: the parapet, the terrace floor and the array. The drawn city, what falls, and the sun
-     or moon step aside. After dark every sky uses the night one. */
-  :root[data-sky="day"] { --photo: url("/scene/day.webp"); }
-  :root[data-sky="cloud"] { --photo: url("/scene/cloud.webp"); }
-  :root[data-sky="rain"] { --photo: url("/scene/rain.webp"); }
-  :root[data-sky="storm"] { --photo: url("/scene/storm.webp"); }
-  :root[data-sky="sand"] { --photo: url("/scene/sand.webp"); }
-  :root[data-sky="snow"] { --photo: url("/scene/snow.webp"); }
-  :root:is([data-sky="night"], [data-dark]) { --photo: url("/scene/night.webp"); }
   :is(.roof-scene, .auth) > .hero {
     /* As wide as the screen, and hung so its horizon sits just above the drawn wall whatever the width. */
     /* Past the terrace's corner the eye looks down on treetops: each picture carries its own below the city, and
@@ -657,15 +671,12 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
     background: var(--photo) center calc(19rem - 25.07vw / var(--z)) / 100% auto no-repeat, linear-gradient(transparent 19.5rem, color-mix(in srgb, #16301f 72%, var(--paper)) 22.5rem);
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
-  :is(.roof-scene, .auth) > .hero :is(.pm-city, .fall) { display: none; }
   /* The scene and its picture are shown at 140%, grown from the array's feet at the right: the array is larger
      and the terrace's left corner is off the screen unless the scene is turned. */
   @media (min-width: 80rem) {  /* a narrower window has no room: the larger array would run under the words */
     :is(.roof-scene, .auth) > .hero { background-position: center calc(14.4rem - 35.1vw / var(--z)), 0 0; background-size: 140% auto, auto; }
     :is(.roof-scene, .auth) > .hero .pm { scale: 1.4; transform-origin: right 82.5%; }
   }
-  :is(.roof-scene, .auth) stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it here, not sky */
-  :root:has(.roof-scene, .auth) #sky::after { opacity: 0; }
 
   /* Under it, two sheets of the same size: what to do, and the last days' output. The header holds the ways to
      the other pages, so the rows to them are not shown here. */

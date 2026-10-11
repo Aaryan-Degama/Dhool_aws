@@ -146,7 +146,7 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
     <article className={`roof ${tone(v)}`}>
       <header className="top">
         <Wordmark />
-        <p className="home-name">{house.name}</p>
+        <p className="home-name"><Avatar name={house.name} />{house.name}</p>
       </header>
 
       {/* The reading, set in the sky over the roof the way a weather app sets the temperature: how the roof is
@@ -472,7 +472,7 @@ function Home({ house: listed, homes, onSignOut }) {
           : <p className="lede" aria-live="polite">{t("Loading your home…")}</p>
       ) : !has ? (
         <>
-          <header className="top"><Wordmark /><p className="home-name">{house.name}</p></header>
+          <header className="top"><Wordmark /><p className="home-name"><Avatar name={house.name} />{house.name}</p></header>
           {setup}
         </>
       ) : tab === "roof" ? <RoofTab house={house} verdict={verdict} go={go} onAction={awaitVerdict} />
