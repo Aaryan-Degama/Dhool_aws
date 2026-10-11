@@ -11,7 +11,7 @@ import { AddData } from "./readings.jsx";
 import { setSky, skyOver } from "./sky.js";
 import { daysSince, keep, kept, POLL_MS, STALE_DAYS } from "./store.js";
 import { headline } from "./words.js";
-import { day, Icon, monthName, Months, PanelModel, skyOf, weekday, when, WhyChart, Wordmark } from "./visuals.jsx";
+import { day, Icon, monthName, Months, PanelModel, skyOf, Trend, weekday, when, WhyChart, Wordmark } from "./visuals.jsx";
 
 const SURE = { high: t("Dhool is sure about this."), medium: t("Dhool is fairly sure about this."), low: t("Dhool is not sure yet.") };
 const SURE_SHORT = { high: t("Dhool is sure"), medium: t("Fairly sure"), low: t("Not sure yet") };
@@ -167,6 +167,8 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
         )}
         <h1 className="reading-verdict">{headline(v)}</h1>
         <p className="reading-sub">{lost}{known && <span>{SURE_SHORT[v.confidence]}</span>}</p>
+        {/* A wide screen has room for the reason here, under the headline; the figure moves to the sheet below. */}
+        <p className="reading-reason wide-only">{reasonOf(v)}</p>
       </section>
 
       <div className="hero" ref={scene}><PanelModel verdict={v} /><div className="fall" /></div>
@@ -196,6 +198,13 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
       <div className="roof-advice">
       <StaleCard house={house} asOf={v.as_of} today={date} go={go} />
       <section className="card verdict-card">
+        {known && (
+          <div className="vc-head wide-only">
+            <p className="vc-figure">{running}<span>%</span><small>{t("of this roof's normal")}</small></p>
+            <p className="vc-lost"><Icon name="bolt" />{lost}<small>{SURE_SHORT[v.confidence]}</small></p>
+            <div className="glow-meter" aria-hidden="true"><i style={{ width: `${Math.min(100, running)}%` }} /></div>
+          </div>
+        )}
         <p className="reason">{reasonOf(v)}</p>
         {v.verdict === "INSPECT" && (
           <a className="primary" href={`https://wa.me/?text=${encodeURIComponent(vendorMessage(house, v))}`}
@@ -217,14 +226,22 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
       </section>
       {v.check && <CheckCard check={v.check} house={house} onSent={onAction} />}
 
+      <Trend verdict={v} />
       <div className="card rows">
         <button className="row-link" onClick={() => go("history")}>
+          <Icon name="history" />
           <span>{t("History")}</span>
           <small>{month ? t("{units} units in {month}", { units: month.kwh, month: monthName(month.month) }) : t("Month by month")}</small>
         </button>
         <button className="row-link" onClick={() => go("why")}>
+          <Icon name="why" />
           <span>{t("Why")}</span>
           <small>{whyLine(v)}</small>
+        </button>
+        <button className="row-link wide-only" onClick={() => go("setup")}>
+          <Icon name="setup" />
+          <span>{t("Setup")}</span>
+          <small>{t("Readings, costs and family")}</small>
         </button>
       </div>
       </div>
@@ -318,7 +335,7 @@ function Nav({ tab, go, house }) {
           </button>
         ))}
       </div>
-      <p className="home-name">{house.name}</p>
+      <p className="home-name"><span className="avatar" aria-hidden="true">{house.name.trim()[0]}</span>{house.name}</p>
     </nav>
   );
 }

@@ -134,8 +134,11 @@ The bottom bar is a capsule of glass floating over the page (blurred, a little b
 The same app and code, laid out as a website: one media query at the end of `styles.css`. The tabs become the
 site's header across the top (the wordmark on the left, the tabs in the middle with the sliding lens, the
 home's name on the right); the phone's top bar is hidden there. Roof opens on a wide band: the reading on the
-left with the weather row under it, the scene large on the right, its sides fading into the sky. Below, the
-advice sheet takes the wider column and the smaller sheets the other. History, Synopsis and Setup set their
+left as a large headline (what to do) with the reason and the weather row under it, the scene on the right,
+its sides fading into the sky. Below, three columns, after a mockup the owner supplied: the advice sheet
+(headed by the money lost, the percentage and the meter), the units made on each of the last 7, 30 or 90 days
+(`Trend`, from the verdict's `daily_kwh`; wide screens only), and History, Why and Setup as small sheets with
+icon badges. Pieces that exist only here carry `.wide-only`. History, Synopsis and Setup set their
 sheets in two columns; on Setup "Add readings" runs across the top. A first version with a rail on the left
 and two narrow columns was dropped the same day: the owner found it still a phone screen, not a website.
 The sign-in and add-home pages keep their single centred column. `RoofTab` wraps its two groups in

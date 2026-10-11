@@ -351,6 +351,33 @@ export const weekday = (iso) => new Date(iso + "T00:00:00").toLocaleDateString(L
 /** sun, cloud or rain for one forecast day, judged against the best day of that week. */
 export const skyOf = (d, week) => (d.rain_mm >= 1 ? "rain" : d.possible_kwh < 0.7 * Math.max(...week.map((w) => w.possible_kwh)) ? "cloud" : "sun");
 
+/**
+ * Units made on each of the last 7, 30 or 90 days with a reading: one bar a day, on the wide-screen dashboard.
+ * From the days the verdict carries (`daily_kwh`); nothing is shown for a verdict from before it carried them.
+ */
+export function Trend({ verdict }) {
+  const [span, setSpan] = useState(7);
+  const all = Object.entries(verdict.daily_kwh || {}).sort(([a], [b]) => (a < b ? -1 : 1));
+  if (!all.length) return null;
+  const days = all.slice(-span), top = Math.max(...days.map(([, kwh]) => kwh), 1);
+  return (
+    <section className="card trend wide-only">
+      <header>
+        <h2>{t("Units made each day")}</h2>
+        <div className="switch" role="group" aria-label={t("Units made each day")}>
+          {[7, 30, 90].map((n) => (
+            <button type="button" key={n} aria-pressed={span === n} onClick={() => setSpan(n)}>{t("{n} days", { n })}</button>
+          ))}
+        </div>
+      </header>
+      <ol className="bars" style={{ "--top": top }}>
+        {days.map(([date, kwh]) => <li key={date} style={{ "--kwh": kwh }} title={`${day(date)}: ${kwh}`}><span>{day(date)}: {kwh} {t("units")}</span></li>)}
+      </ol>
+      <p className="note trend-ends"><span>{day(days[0][0])}</span><span>{t("Most in a day: {kwh} units", { kwh: top })}</span><span>{day(days.at(-1)[0])}</span></p>
+    </section>
+  );
+}
+
 /** Actual against expected output, day by day, with rain marked along the bottom. */
 export function WhyChart({ verdict }) {
   const series = verdict.series || [];
