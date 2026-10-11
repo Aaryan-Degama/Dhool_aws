@@ -44,7 +44,7 @@ Apache-2.0 (`LICENSE`).
 
 | What | Source |
 |---|---|
-| Seven pictures of an empty rooftop terrace over a city (day, night, overcast, rain, thunderstorm, dust storm, snow), in `web/public/scene/`, used for the sky and the city beyond the drawn terrace on the Roof page on wide screens | Made by the team with an AI image generator and supplied on 11 Oct 2026; mirrored, the terrace cut away, smoothed to a painted look (ImageMagick's Kuwahara filter), converted to WebP. They are illustrations: no real roof or place is shown |
+| Seven pictures of an empty rooftop terrace over a city (day, night, overcast, rain, thunderstorm, dust storm, snow), in `web/public/scene/`, used for the sky and the city beyond the drawn terrace on the Roof page on wide screens | Made by the team with an AI image generator and supplied on 11 Oct 2026; mirrored, the terrace cut away, the sky smoothed to a painted look (ImageMagick's Kuwahara filter) with the city left sharp, converted to WebP. They are illustrations: no real roof or place is shown |
 
 ## AI tools
 
