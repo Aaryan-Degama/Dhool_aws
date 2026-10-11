@@ -182,7 +182,7 @@ p { margin: 0; }
   --sky: linear-gradient(180deg, #232d42 0, #3d4b66 46%, #4a5873 62%, #252f45 100%);
   --glass: 10, 16, 30; --paper: #252f45;
   --ground-far: #343e52; --ground: #272f40; --tile: rgba(0, 0, 0, 0.3); --wall: #3d4860; --wall-top: #56617a;
-  --city-far: #40506a; --city-near: #2f3c54; --windows: 0.85; --pane: rgba(255, 255, 255, 0.16);
+  --city-far: #40506a; --city-near: #2f3c54; --windows: 0.85; --pane: rgba(255, 255, 255, 0.16); --pot-light: 0.5;
 }
 [data-sky="snow"] {
   --sky-top: #5a7391; --haze: #b7c6d6; --reflect: #4a6485; --cell: #17335c; --cell-low: #0c1d3a; --cell-line: 0.18;
@@ -203,7 +203,7 @@ p { margin: 0; }
   --sky: linear-gradient(180deg, #10122b 0, #1a1c40 34%, #2a2b57 60%, #171938 100%);
   --glass: 20, 22, 52; --paper: #171938;
   --ground-far: #22254a; --ground: #181a38; --tile: rgba(0, 0, 0, 0.28); --wall: #2a2d58; --wall-top: #41457a;
-  --city-far: #23264f; --city-near: #151735; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16);
+  --city-far: #23264f; --city-near: #151735; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16); --pot-light: 0.5;
 }
 [data-sky="night"] #sky::after {  /* the moon, and its faint glow */
   background:
@@ -233,7 +233,7 @@ p { margin: 0; }
   --sky: linear-gradient(180deg, #14162c 0, #24273f 40%, #32354f 60%, #191b31 100%);
   --glass: 18, 20, 40; --paper: #191b31;
   --ground-far: #25283f; --ground: #1a1c30; --tile: rgba(0, 0, 0, 0.28); --wall: #2d3049; --wall-top: #444866;
-  --city-far: #272a45; --city-near: #171930; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16);
+  --city-far: #272a45; --city-near: #171930; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16); --pot-light: 0.5;
 }
 [data-sky="snow"][data-dark] {
   --cell: #101d30; --cell-low: #080f1a; --cell-line: 0.24; --glint: 0;
@@ -241,7 +241,7 @@ p { margin: 0; }
   --sky: linear-gradient(180deg, #1a2238 0, #333f5c 44%, #46536f 60%, #1f2941 100%);
   --glass: 16, 22, 40; --paper: #1f2941;
   --ground-far: #9aa6bd; --ground: #7c89a3; --tile: rgba(30, 40, 60, 0.18); --wall: #8793ab; --wall-top: #b3bdd0;
-  --city-far: #3b4864; --city-near: #2a3550; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16);
+  --city-far: #3b4864; --city-near: #2a3550; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16); --pot-light: 0.5;
 }
 [data-sky="sand"][data-dark] {
   --cell: #101d30; --cell-low: #080f1a; --cell-line: 0.24; --glint: 0;
@@ -249,7 +249,7 @@ p { margin: 0; }
   --sky: linear-gradient(180deg, #241b10 0, #4a3820 46%, #5c4628 60%, #2a2012 100%);
   --glass: 26, 18, 8; --paper: #2a2012;
   --ground-far: #54412a; --ground: #3d2f1d; --tile: rgba(0, 0, 0, 0.26); --wall: #5a4630; --wall-top: #7a6243;
-  --city-far: #4a3a25; --city-near: #35291a; --windows: 0.7; --pane: rgba(255, 255, 255, 0.16);
+  --city-far: #4a3a25; --city-near: #35291a; --windows: 0.7; --pane: rgba(255, 255, 255, 0.16); --pot-light: 0.5;
 }
 [data-sky="sand"][data-dark] #sky > i { opacity: 0.45; }
 /* Blown sand hangs in the air: it thins out before the terrace floor instead of streaking across it. */
@@ -350,14 +350,22 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .pm-tiles { fill: none; stroke: var(--tile, rgba(255, 255, 255, 0.05)); stroke-width: 0.5; }
 .pm-wall-hi { stop-color: var(--wall, #2f343d); }
 .pm-wall-lo { stop-color: color-mix(in srgb, var(--wall, #2f343d) 70%, #000); }
-.pm-wall-foot { stroke: #000; stroke-opacity: 0.22; stroke-width: 2.5; }
+.pm-wall-foot { fill: none; stroke: #000; stroke-opacity: 0.22; stroke-width: 2.5; }
 .pm-haze { stop-color: var(--haze, #14171c); }
 .pm-reflect { stop-color: var(--reflect, #27405f); }
 /* The cells themselves: deep blue silicon in daylight, near black after dark (--cell is set with each sky). */
 .pm-cell { stop-color: var(--cell, #101d30); }
 .pm-cell-low { stop-color: var(--cell-low, #080f1a); }
 .pm-glint { opacity: var(--glint, 0); mix-blend-mode: screen; }  /* the sky, seen in the far edge of the glass */
-.pm-wall-top { stroke: var(--wall-top, #474d58); stroke-width: 2.2; }
+.pm-wall-top { fill: none; stroke: var(--wall-top, #474d58); stroke-width: 2.2; stroke-linejoin: round; }
+.pm-wall-side { fill: color-mix(in srgb, var(--wall, #2f343d) 80%, #000); }  /* the parapet that turns the corner, in shade */
+/* Potted plants along the parapets: terracotta and green, dimmed after dark with everything else. */
+.pm-pots { filter: brightness(var(--pot-light, 1)); }
+.pm-pots .pot { fill: #b0613a; }
+.pm-pots .pot-rim { fill: #c97a4c; }
+.pm-pots :is(circle, ellipse) { fill: #2f6b3f; }
+.pm-pots .lit { fill: #4a8f55; }
+.pm-pots .pot-shade { fill: #000; opacity: 0.28; }
 .pm-city .back { fill: color-mix(in srgb, var(--city-far, #20242b) 55%, var(--haze, #14171c)); }
 .pm-city .far { fill: var(--city-far, #20242b); }
 .pm-city .near { fill: var(--city-near, #171a20); }
@@ -624,7 +632,8 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   :root:is([data-sky="night"], [data-dark]) { --photo: url("/scene/night.webp"); }
   .roof-scene > .hero {
     /* As wide as the screen, and hung so its horizon sits just above the drawn wall whatever the width. */
-    background: var(--photo) center calc(19rem - 25.07vw) / 100% auto no-repeat;
+    /* Past the terrace's corner the eye looks down on the treetops: a dark green haze from the horizon down. */
+    background: var(--photo) center calc(19rem - 25.07vw) / 100% auto no-repeat, linear-gradient(transparent 19.5rem, color-mix(in srgb, #16301f 72%, var(--paper)) 22.5rem);
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
   .roof-scene > .hero :is(.pm-city, .fall) { display: none; }

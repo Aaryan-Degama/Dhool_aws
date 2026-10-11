@@ -14,6 +14,9 @@ const CELL_COLS = 6, CELL_ROWS = 12;      // half-cut cells on one module
 const TILT = (24 * Math.PI) / 180;        // slope of the array
 const PITCH = (13 * Math.PI) / 180;       // how far down the camera looks: about eye height on the terrace
 const WALL_Z = -4, WALL_H = 0.85;         // the parapet at the far edge of the terrace
+const CORNER_X = -8.2;                    // where the terrace ends on the left: the parapet turns toward the viewer there
+// Potted plants along the parapets, far ones first: [x, z, size, kind].
+const POTS = [[-6.4, -3.45, 1, 0], [-4.5, -3.4, 0.8, 1], [4.6, -3.4, 0.95, 1], [CORNER_X + 0.6, -1.9, 1.05, 1], [CORNER_X + 0.65, 0.7, 0.9, 0]];
 const DIST = 12;                          // camera distance: smaller is more dramatic perspective
 const WIDE = COLS * MW + (COLS - 1) * GAP;
 const LONG = ROWS * ML + (ROWS - 1) * GAP;
@@ -195,10 +198,15 @@ export function PanelModel({ verdict }) {
   };
   const flat = (points) => points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const wallBase = across(0, WALL_Z), wallTop = across(WALL_H, WALL_Z);
-  const floor = flat([...wallBase, [VIEW_W + 160, VIEW_H], [-WING, VIEW_H]]);
+  // The terrace ends at a corner on the left, where a second parapet runs toward the viewer.
+  const corner = at([CORNER_X, 0, WALL_Z]), cornerTop = at([CORNER_X, WALL_H, WALL_Z]);
+  const sideFoot = at([CORNER_X, 0, 10]), sideTop = at([CORNER_X, WALL_H, 10]);
+  const floor = flat([corner, wallBase[1], [VIEW_W + 160, VIEW_H + 300], [sideFoot[0], VIEW_H + 300], sideFoot]);
+  // A pot is a flat cut-out standing at its place on the floor, sized by how far away that place is.
+  const pots = POTS.map(([x, z, size, kind]) => { const [px, py] = at([x, 0, z]); return { px, py, u: (py - at([x, 1, z])[1]) * size, kind }; });
   let tiles = "";
   for (let z = WALL_Z + 1; z < 4; z += 1) { const [a, b] = across(0, z); tiles += `M${flat([a])}L${flat([b])}`; }
-  for (let x = -72; x <= 15; x += 1.5) tiles += `M${xy([x, 0, WALL_Z])}L${xy([x, 0, 3.4])}`;
+  for (let x = CORNER_X + 0.7; x <= 15; x += 1.5) tiles += `M${xy([x, 0, WALL_Z])}L${xy([x, 0, 3.4])}`;
   const drift = (yaw - YAW_REST) * 2.2;  // the far city slides a little as the model turns
   const [topX, topY] = at(surf(0, LONG)), [lowX, lowY] = at(surf(0, 0));
   const sweep = -WIDE / 2 + WIDE * (0.2 + (yaw - YAW_REST) / 70);  // the reflection slides as the model turns
@@ -280,11 +288,28 @@ export function PanelModel({ verdict }) {
         {/* The air thickens toward the horizon, so the feet of the buildings fade into it. */}
         <rect x={-WING - 10} y={FIT.horizon - 46} width={VIEW_W + WING + 180} height="170" fill={`url(#${id}haze)`} />
       </g>
-      <polygon points={flat([...wallTop, wallBase[1], wallBase[0]])} fill={`url(#${id}wall)`} />
-      <path className="pm-wall-top" d={`M${flat([wallTop[0]])}L${flat([wallTop[1]])}`} />
+      <polygon points={flat([cornerTop, wallTop[1], wallBase[1], corner])} fill={`url(#${id}wall)`} />
       <polygon points={floor} fill={`url(#${id}ground)`} />
-      <path className="pm-wall-foot" d={`M${flat([wallBase[0]])}L${flat([wallBase[1]])}`} />
+      <path className="pm-wall-foot" d={`M${flat([sideFoot])}L${flat([corner])}L${flat([wallBase[1]])}`} />
       <path className="pm-tiles" d={tiles} clipPath={`url(#${id}floor)`} />
+      <polygon className="pm-wall-side" points={flat([corner, cornerTop, sideTop, sideFoot])} />
+      <path className="pm-wall-top" d={`M${flat([sideTop])}L${flat([cornerTop])}L${flat([wallTop[1]])}`} />
+      </g>
+      <g className="pm-pots">
+        {pots.map(({ px, py, u, kind }, i) => {
+          const n = (v) => v.toFixed(1), w = 0.3 * u, h = 0.5 * u, top = py - h;
+          const leaves = kind  // a tall plant with long leaves, or a round bush
+            ? [-50, -24, 0, 24, 50].map((turn, k) => <ellipse key={k} className={k % 2 ? "lit" : undefined} cx={n(px)} cy={n(top - 0.5 * u)} rx={n(0.11 * u)} ry={n(0.52 * u)} transform={`rotate(${turn} ${n(px)} ${n(top)})`} />)
+            : [[-0.22, 0.3, 0.26], [0.2, 0.34, 0.27], [0, 0.6, 0.3], [-0.12, 0.42, 0.2]].map(([dx, dy, r], k) => <circle key={k} className={k > 1 ? "lit" : undefined} cx={n(px + dx * u)} cy={n(top - dy * u)} r={n(r * u)} />);
+          return (
+            <g key={i}>
+              <ellipse className="pot-shade" cx={n(px + 0.12 * u)} cy={n(py)} rx={n(0.5 * u)} ry={n(0.09 * u)} />
+              {leaves}
+              <polygon className="pot" points={`${n(px - w)},${n(top)} ${n(px + w)},${n(top)} ${n(px + w * 0.72)},${n(py)} ${n(px - w * 0.72)},${n(py)}`} />
+              <rect className="pot-rim" x={n(px - w * 1.12)} y={n(top - 0.07 * u)} width={n(w * 2.24)} height={n(0.11 * u)} rx={n(0.03 * u)} />
+            </g>
+          );
+        })}
       </g>
       <polygon className="pm-shadow" filter={`url(#${id}blur)`}
                points={poly([[-WIDE / 2, 0, ZF], [WIDE / 2, 0, ZF], [WIDE / 2, 0, -ZF], [-WIDE / 2, 0, -ZF]])} />
