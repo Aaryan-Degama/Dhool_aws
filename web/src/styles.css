@@ -529,7 +529,20 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
 .meter { height: 0.5rem; border-radius: 1rem; background: var(--well); overflow: hidden; }
 .meter b { display: block; height: 100%; border-radius: 1rem; background: var(--current); }
 
-/* Setup */
+/* Setup: adding readings first, then the settings in named groups. A group is one sheet made of joined parts:
+   only its outer corners are round, and a thin gap of sky divides the parts. */
+.setup { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
+.setup-col { display: contents; }
+.g-home { order: 1; }
+.g-family { order: 2; }
+.g-phone { order: 3; }
+.g-account { order: 4; }
+.group { display: grid; gap: 2px; }
+.group-title { margin: 0 0 0.5rem 0.25rem; font-size: var(--step--1); font-weight: 500; color: var(--soft); text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28); }
+.group > .card { border-radius: 6px; }
+.group > .group-title + .card { border-top-left-radius: var(--r-card); border-top-right-radius: var(--r-card); }
+.group > .card:last-child { border-bottom-left-radius: var(--r-card); border-bottom-right-radius: var(--r-card); }
+.group .card > .row-link { min-height: 2.5rem; padding-block: 0; }
 .stack { display: grid; gap: 1rem; }
 /* A switch between a few views of one sheet: a well with the chosen one raised in it. */
 .switch { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.25rem; padding: 0.25rem; border-radius: var(--r-ctl); background: var(--well); }
@@ -711,8 +724,15 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   article.tab { display: block; columns: 2; column-gap: var(--space); }
   article.tab > *, .add-data > * { break-inside: avoid; margin-bottom: var(--space); }
   article.tab > h1, article.tab > .lede { column-span: all; }
-  /* Setup: adding readings is the page's first job and runs across the top; the settings sit in two columns under it. */
-  article.tab > .add-data { display: block; column-span: all; }
-  .add-data > .card { max-width: 40rem; }
-  article.tab > button { width: 100%; }
+  /* Setup: two columns of the same weight. Adding readings, this phone and the account on the left; the home
+     and the family on the right. Forms are compact here: fields side by side, a small Save at the left. */
+  article.tab:has(> .setup) { columns: auto; }
+  .setup { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; align-items: start; }
+  .setup-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem; align-content: start; }
+  .setup .group { order: 0; }
+  .setup-col + .setup-col { padding-top: 2.05rem; }  /* its first sheet level with the Add readings sheet */
+  .group form.card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem 1.25rem; align-items: start; }
+  .group form.card > :not(.field) { grid-column: 1 / -1; }
+  .group form.card > button { justify-self: start; min-width: 9rem; min-height: 2.75rem; }
+  .setup .add-data > * { margin-bottom: 0; }
 }

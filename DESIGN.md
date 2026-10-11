@@ -153,6 +153,13 @@ and two narrow columns was dropped the same day: the owner found it still a phon
 The sign-in and add-home pages keep their single centred column. `RoofTab` wraps its two groups in
 `.roof-scene` and `.roof-advice`, which make no box on a phone (`display: contents`).
 
+## Setup (11 Oct 2026)
+"Add readings" comes first: it is what the page is for. Everything else is a setting, in four named groups
+(This home, Family, This phone, Account). A group is one sheet made of joined parts: only its outer corners
+are round and a 2px gap of sky divides the parts (`.group` in `styles.css`). The small group names are there
+because they say what a block of settings applies to; they are not decoration. Wide screens set two columns
+(readings, phone and account; home and family) with compact forms.
+
 ## Reading a screenshot
 Reading takes a minute or two (a small model on two CPU cores), so the upload screen says so and shows a
 spinner while it waits. What comes back is shown as a list of days with each number in an editable box:

@@ -531,7 +531,8 @@ export function Months({ verdict }) {
       </p>
       <div className="card stack">
         <ol className="months">
-          {months.map((m) => {
+          {/* Newest first. With a month or two to show, they start open: there is nothing to hunt through. */}
+          {[...months].reverse().map((m) => {
             const line = (
               <span className="line">
                 <span>{monthName(m.month)}</span>
@@ -542,7 +543,7 @@ export function Months({ verdict }) {
             );
             return (
               <li key={m.month}>
-                {daily && m.days ? <details><summary>{line}</summary><Weeks month={m.month} daily={daily} asOf={verdict.as_of} /></details> : line}
+                {daily && m.days ? <details open={months.length <= 2}><summary>{line}</summary><Weeks month={m.month} daily={daily} asOf={verdict.as_of} /></details> : line}
               </li>
             );
           })}

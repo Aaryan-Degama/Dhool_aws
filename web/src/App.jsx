@@ -404,18 +404,38 @@ function Home({ house: listed, homes, onSignOut }) {
 
   const has = verdict?.verdict;
   const setup = (
-    <>
-      <AddData house={house} onSent={awaitVerdict} />
-      <Costs key={details ? "saved" : "default"} house={house} onSent={awaitVerdict} />
-      <Size key={details ? "size" : "no-size"} house={house} onSent={awaitVerdict} />
-      <Alerts house={house} />
-      <Homes house={house} homes={homes} />
-      <Invite house={house} />
-      <Family house={house} onChange={loadDetails} onGone={homes.reload} />
-      <section className="card stack"><h2 lang="en">Language{" · "}<span lang="hi">भाषा</span></h2><Language /></section>
-      <button className="secondary" onClick={onSignOut}>{t("Sign out")}</button>
-      <DeleteAccount houses={homes.all} onGone={onSignOut} />
-    </>
+    // Adding readings is what this page is for and has the first place; everything else is a setting, in four
+    // named groups, each group one sheet of joined parts.
+    <div className="setup">
+      {/* Two columns on a wide screen. On a phone the columns make no box and `order` (in the stylesheet) puts
+          the home's settings before the phone's and the account's. */}
+      <div className="setup-col">
+        <AddData house={house} onSent={awaitVerdict} />
+          <section className="group g-phone">
+            <h2 className="group-title">{t("This phone")}</h2>
+            <Alerts house={house} />
+            <section className="card stack"><h2 lang="en">Language{" · "}<span lang="hi">भाषा</span></h2><Language /></section>
+          </section>
+          <section className="group g-account">
+            <h2 className="group-title">{t("Account")}</h2>
+            <section className="card"><button className="row-link" onClick={onSignOut}><span>{t("Sign out")}</span></button></section>
+            <DeleteAccount houses={homes.all} onGone={onSignOut} />
+          </section>
+      </div>
+      <div className="setup-col">
+        <section className="group g-home">
+          <h2 className="group-title">{t("This home")}</h2>
+          <Costs key={details ? "saved" : "default"} house={house} onSent={awaitVerdict} />
+          <Size key={details ? "size" : "no-size"} house={house} onSent={awaitVerdict} />
+          <Homes house={house} homes={homes} />
+        </section>
+        <section className="group g-family">
+          <h2 className="group-title">{t("Family")}</h2>
+          <Invite house={house} />
+          <Family house={house} onChange={loadDetails} onGone={homes.reload} />
+        </section>
+      </div>
+    </div>
   );
   return (
     <main className={`page ${has && !waiting ? "has-nav" : ""}`}>
