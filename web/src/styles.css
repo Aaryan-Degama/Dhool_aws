@@ -638,6 +638,12 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
   .roof-scene > .hero :is(.pm-city, .fall) { display: none; }
+  /* The scene and its picture are shown at 140%, grown from the array's feet at the right: the array is larger
+     and the terrace's left corner is off the screen unless the scene is turned. */
+  @media (min-width: 80rem) {  /* a narrower window has no room: the larger array would run under the words */
+    .roof-scene > .hero { background-position: center calc(14.4rem - 35.1vw), 0 0; background-size: 140% auto, auto; }
+    .roof-scene > .hero .pm { scale: 1.4; transform-origin: right 82.5%; }
+  }
   .roof-scene stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it here, not sky */
   :root:has(.roof-scene) #sky::after { opacity: 0; }
 
