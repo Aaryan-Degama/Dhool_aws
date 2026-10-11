@@ -103,7 +103,6 @@ export const HI = {
   "The vendor replied": "वेंडर का जवाब आया",
   "Generation trend": "बिजली उत्पादन का रुझान",
   "{n}D": "{n} दिन",
-  "Readings, costs and family": "रीडिंग, ख़र्च और परिवार",
   "Yes": "हाँ",
   "No": "नहीं",
   "Thanks for telling Dhool.": "Dhool को बताने के लिए धन्यवाद।",

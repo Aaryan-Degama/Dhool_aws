@@ -231,19 +231,12 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
       <Trend verdict={v} />
       <div className="card rows">
         <button className="row-link" onClick={() => go("history")}>
-          <Icon name="history" />
           <span>{t("History")}</span>
           <small>{month ? t("{units} units in {month}", { units: month.kwh, month: monthName(month.month) }) : t("Month by month")}</small>
         </button>
         <button className="row-link" onClick={() => go("why")}>
-          <Icon name="why" />
           <span>{t("Why")}</span>
           <small>{whyLine(v)}</small>
-        </button>
-        <button className="row-link wide-only" onClick={() => go("setup")}>
-          <Icon name="setup" />
-          <span>{t("Setup")}</span>
-          <small>{t("Readings, costs and family")}</small>
         </button>
       </div>
       </div>

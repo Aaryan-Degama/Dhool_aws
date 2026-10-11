@@ -579,10 +579,10 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
    on the right, the weather under the reading. Below it the advice takes the wider column and the smaller
    sheets the other. The other tabs set their sheets in two columns. */
 .nav > .brand, .nav > .home-name { display: none; }  /* the phone has these in the bar at the top of Roof */
-.wide-only, .row-link .icon { display: none; }  /* pieces of the wide-screen dashboard */
+.wide-only { display: none; }  /* pieces of the wide-screen dashboard */
 @media (min-width: 60rem) {
   /* --z: the scene's size, smaller on a short window so the first screen holds the whole dashboard unscrolled. */
-  :root { --space: 1.5rem; --gutter: max(2.5rem, calc((100vw - 104rem) / 2)); --z: 1; }
+  :root { --space: 1.5rem; --r-card: 16px; --gutter: max(2.5rem, calc((100vw - 104rem) / 2)); --z: 1; }
   @media (max-height: 58rem) { :root { --z: 0.9; } }
   @media (max-height: 54rem) { :root { --z: 0.82; } }
   @media (max-height: 50rem) { :root { --z: 0.74; } }
@@ -601,7 +601,6 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .nav button { grid-auto-flow: column; justify-content: center; align-items: center; gap: 0.5rem; min-height: 2.75rem; font-size: var(--step--1); }
 
   .wide-only { display: revert; }
-  .row-link.wide-only { display: grid; }
   .nav > .home-name { display: flex; align-items: center; gap: 0.625rem; }
   .avatar { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: rgba(255, 255, 255, 0.16); font-weight: 600; text-transform: uppercase; }
 
@@ -657,12 +656,14 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   :is(.roof-scene, .auth) stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it here, not sky */
   :root:has(.roof-scene, .auth) #sky::after { opacity: 0; }
 
-  /* Under it, three columns: what to do, the last days' output, and the ways further in. */
-  .roof-advice { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.95fr); gap: var(--space); align-items: start; }
+  /* Under it, two sheets of the same size: what to do, and the last days' output. The header holds the ways to
+     the other pages, so the rows to them are not shown here. */
+  .roof-advice { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space); align-items: stretch; }
   .roof-advice > * { margin-top: 0; }
   .roof-advice > :is(.verdict-card, .check) { grid-column: 1; }
-  .roof-advice > .trend { grid-column: 2; grid-row: 1 / span 3; }
-  .roof-advice > .rows { grid-column: 3; grid-row: 1 / span 3; }
+  .roof-advice > .verdict-card { grid-row: 1; align-content: start; }
+  .roof-advice > .trend { grid-column: 2; grid-row: 1; }
+  .roof-advice > .rows { display: none; }
   .vc-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 0.75rem 1rem; }
   .verdict-card > .reason { display: none; }  /* it is under the headline */
   .vc-lost { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 0.5rem; font-size: var(--step-1); font-weight: 600; }
@@ -676,14 +677,14 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .vc-head > .vc-figure { grid-area: 1 / 2; }
 
   /* The last days' output: bars on a scale of three lines, the unit up the side, a few dates along the bottom. */
-  .trend { display: grid; gap: 1.25rem; }
+  .trend { display: grid; grid-template-rows: auto 1fr; gap: 1.25rem; }
   .trend header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem 1rem; }
   .trend h2 { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
   .trend h2 .icon { color: var(--wash); }
   .trend .switch { flex: none; padding: 0.1875rem; border-radius: 999px; }
   .trend .switch button { min-height: 1.875rem; padding-inline: 0.75rem; border-radius: 999px; white-space: nowrap; }
   .trend .switch button[aria-pressed="true"] { background: color-mix(in srgb, var(--wash) 38%, transparent); }
-  .chart { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0 0.625rem; height: 9.5rem; margin-bottom: 1.75rem; font-size: var(--step--1); color: var(--muted); }
+  .chart { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0 0.625rem; min-height: 9.5rem; margin-bottom: 1.75rem; font-size: var(--step--1); color: var(--muted); }
   .chart-unit { writing-mode: vertical-rl; rotate: 180deg; text-align: center; }
   .chart-ticks { display: flex; flex-direction: column; justify-content: space-between; margin: -0.6em 0; padding: 0; list-style: none; text-align: right; }
   .bars {
@@ -695,18 +696,6 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .bars li.low { background: var(--fault); }
   .bars span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }  /* for a screen reader */
   .bars time { position: absolute; top: calc(100% + 0.5rem); left: 50%; translate: -50%; white-space: nowrap; }
-
-  /* Three columns need room: on a small laptop the ways further in go under the other two, side by side. */
-  @media (max-width: 75rem) {
-    .roof-advice { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
-    .roof-advice > .rows { grid-column: 1 / -1; grid-row: auto; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-  }
-
-  /* The ways further in: each row its own small sheet, with its icon in a badge. */
-  .roof-advice > .rows { gap: 0.875rem; padding: 0; background: none; backdrop-filter: none; }
-  .rows .row-link { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 1rem; padding: 1rem 1.25rem; border: 0; border-radius: 20px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)), rgba(var(--glass, 18, 21, 28), 0.6); backdrop-filter: blur(28px) saturate(1.3); }
-  .rows .row-link .icon { display: block; grid-row: 1 / span 2; width: 2.75rem; height: 2.75rem; padding: 0.7rem; border-radius: 14px; background: rgba(255, 255, 255, 0.1); }
-  .rows .row-link::after { grid-area: 1 / 3 / span 2; }
 
   /* Signing in: the same scene and picture across the top of the page, the words and the form down the left. */
   .page.auth { position: relative; max-width: none; padding: 1.25rem var(--gutter) 4rem; grid-template-columns: minmax(0, 25rem); justify-content: start; gap: 1.25rem; }
