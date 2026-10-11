@@ -632,11 +632,13 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   :root:is([data-sky="night"], [data-dark]) { --photo: url("/scene/night.webp"); }
   .roof-scene > .hero {
     /* As wide as the screen, and hung so its horizon sits just above the drawn wall whatever the width. */
-    /* Past the terrace's corner the eye looks down on the treetops: a dark green haze from the horizon down. */
+    /* Past the terrace's corner the eye looks down on treetops: each picture carries its own below the city, and
+       a dark green takes over where the picture ends. */
     background: var(--photo) center calc(19rem - 25.07vw) / 100% auto no-repeat, linear-gradient(transparent 19.5rem, color-mix(in srgb, #16301f 72%, var(--paper)) 22.5rem);
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
   .roof-scene > .hero :is(.pm-city, .fall) { display: none; }
+  .roof-scene stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it here, not sky */
   :root:has(.roof-scene) #sky::after { opacity: 0; }
 
   /* Under it, three columns: what to do, the last days' output, and the ways further in. */
