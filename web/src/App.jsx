@@ -222,9 +222,11 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
         {onAction && (v.verdict === "CLEAN" || v.verdict === "INSPECT") && (
           <ReportAction key={v.verdict} house={house} type={v.verdict === "CLEAN" ? "wash" : "visit"} onSent={onAction} />
         )}
+        {/* While a repair is being checked the headline already says so: no second card, only the way to take it back. */}
+        {v.check && v.cause === "repair" && <CheckCard check={v.check} house={house} onSent={onAction} undoOnly />}
         {known && <Useful key={v.as_of} house={house} date={v.as_of} />}
       </section>
-      {v.check && <CheckCard check={v.check} house={house} onSent={onAction} />}
+      {v.check && v.cause !== "repair" && <CheckCard check={v.check} house={house} onSent={onAction} />}
 
       <Trend verdict={v} />
       <div className="card rows">

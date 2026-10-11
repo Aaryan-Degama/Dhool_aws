@@ -21,13 +21,15 @@ function line(c) {
            { did, date, needed: signed(c.predicted_pct), got: signed(c.observed_pct) });
 }
 
-/** What came of the last wash or visit. `onSent` is given when the homeowner may take the report back. */
-export function CheckCard({ check: c, house, onSent }) {
+/** What came of the last wash or visit. `onSent` is given when the homeowner may take the report back; `undoOnly` leaves just that link. */
+export function CheckCard({ check: c, house, onSent, undoOnly }) {
   const [busy, setBusy] = useState(false);
   const undo = async () => {
     setBusy(true);
     await api(`/houses/${house.house_id}/actions`, { date: c.date, remove: true }).then(onSent).catch(() => setBusy(false));
   };
+  const takeBack = onSent && <button className="link" disabled={busy} onClick={undo}>{t("Recorded by mistake? Remove it")}</button>;
+  if (undoOnly) return takeBack || null;  // the verdict itself says the rest ("Checking the repair")
   return (
     <section className={`card check check-${c.status}`} aria-label={t("Before and after")}>
       <h2>{TITLE[c.type][c.status]}</h2>
@@ -38,7 +40,7 @@ export function CheckCard({ check: c, house, onSent }) {
         </dl>
       )}
       <p className="note">{line(c)}</p>
-      {onSent && <button className="link" disabled={busy} onClick={undo}>{t("Recorded by mistake? Remove it")}</button>}
+      {takeBack}
     </section>
   );
 }

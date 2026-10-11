@@ -581,8 +581,13 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
 .nav > .brand, .nav > .home-name { display: none; }  /* the phone has these in the bar at the top of Roof */
 .wide-only, .row-link .icon { display: none; }  /* pieces of the wide-screen dashboard */
 @media (min-width: 60rem) {
-  :root { --space: 1.5rem; --gutter: max(2.5rem, calc((100vw - 76rem) / 2)); }
-  .page.has-nav, .page.preview { max-width: none; padding: 6.5rem var(--gutter) 4rem; }
+  /* --z: the scene's size, smaller on a short window so the first screen holds the whole dashboard unscrolled. */
+  :root { --space: 1.5rem; --gutter: max(2.5rem, calc((100vw - 104rem) / 2)); --z: 1; }
+  @media (max-height: 58rem) { :root { --z: 0.9; } }
+  @media (max-height: 54rem) { :root { --z: 0.82; } }
+  @media (max-height: 50rem) { :root { --z: 0.74; } }
+  @media (max-height: 46rem) { :root { --z: 0.66; } }
+  .page.has-nav, .page.preview { max-width: none; padding: 6.5rem var(--gutter) 1.25rem; }
   .page.has-nav .top { display: none; }  /* the header below says both things */
 
   .nav {
@@ -603,21 +608,24 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   /* Roof as a dashboard. The opening band: what is wrong as a headline, why under it, the weather in a row;
      the scene on the right. */
   article.roof { display: block; }
-  .roof-scene { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40rem); grid-template-rows: 1fr auto; column-gap: 2rem; align-items: center; }
+  /* The band is as tall as the scene behind it, less its faded foot, which the sheets below come up over. */
+  .roof-scene { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40rem); grid-template-rows: 1fr auto; column-gap: 2rem; align-items: center; min-height: calc(36rem * var(--z) - 10rem); }
   .roof-scene > * { margin-top: 0; }
   .roof-scene > .reading { grid-area: 1 / 1; align-self: end; padding-bottom: 2rem; }
   .reading > :is(.reading-figure, .reading-of, .glow-meter, .reading-sub) { display: none; }  /* these are in the sheet below */
-  .reading-verdict { display: block; margin: 0; max-width: 13ch; font-size: clamp(3rem, 4.6vw, 4.25rem); line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; }
+  .reading-verdict { display: block; margin: 0; max-width: 13ch; font-size: calc(clamp(3rem, 4.6vw, 4.25rem) * var(--z)); line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; }
   .reading-verdict::before { display: none; }
   .reading-reason { margin-top: 1.25rem; max-width: 46ch; font-size: 1.125rem; line-height: 1.55; color: var(--soft); }
-  .roof-scene > .strip { grid-area: 2 / 1; align-self: start; display: flex; flex-wrap: wrap; row-gap: 1rem; padding-bottom: 2.5rem; }
+  .roof-scene > .strip { grid-area: 2 / 1; align-self: start; display: flex; flex-wrap: wrap; row-gap: 1rem; padding-bottom: 1.25rem; }
   .strip > div { grid-template-columns: auto auto; column-gap: 0.75rem; align-items: center; padding-inline: 1.25rem; white-space: nowrap; }
   .strip > div:first-child { padding-left: 0; }
   .strip > div + div { border-left: 1px solid rgba(255, 255, 255, 0.18); }
   .strip .icon { grid-row: 1 / span 2; width: 1.75rem; height: 1.75rem; margin: 0; }
   /* The scene is the band's whole backdrop, edge to edge of the screen: the array stands on the right, and the
      terrace and the city run on behind the headline, under a shade that keeps the words readable. */
-  :is(.roof-scene, .auth) > .hero { grid-area: 1 / 1 / span 2 / -1; position: relative; top: auto; z-index: 0; margin: -6.5rem calc(-1 * var(--gutter)) 0; padding-top: 5rem; filter: none; }
+  /* The scene lies behind the band, out of the flow, from the top of the page and edge to edge; `zoom` sizes it
+     (its own lengths are multiplied by --z, so the offsets are divided by it). */
+  :is(.roof-scene, .auth) > .hero { grid-area: auto; position: absolute; inset: calc(-6.5rem / var(--z)) calc(-1 * var(--gutter) / var(--z)) auto; zoom: var(--z); z-index: 0; margin: 0; padding-top: 5rem; filter: none; }
   :is(.roof-scene, .auth) > .hero .pm { height: 31rem; }
   :is(.roof-scene, .auth) > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
   .roof-scene > :is(.reading, .strip) { z-index: 2; }
@@ -636,14 +644,14 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
     /* As wide as the screen, and hung so its horizon sits just above the drawn wall whatever the width. */
     /* Past the terrace's corner the eye looks down on treetops: each picture carries its own below the city, and
        a dark green takes over where the picture ends. */
-    background: var(--photo) center calc(19rem - 25.07vw) / 100% auto no-repeat, linear-gradient(transparent 19.5rem, color-mix(in srgb, #16301f 72%, var(--paper)) 22.5rem);
+    background: var(--photo) center calc(19rem - 25.07vw / var(--z)) / 100% auto no-repeat, linear-gradient(transparent 19.5rem, color-mix(in srgb, #16301f 72%, var(--paper)) 22.5rem);
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
   :is(.roof-scene, .auth) > .hero :is(.pm-city, .fall) { display: none; }
   /* The scene and its picture are shown at 140%, grown from the array's feet at the right: the array is larger
      and the terrace's left corner is off the screen unless the scene is turned. */
   @media (min-width: 80rem) {  /* a narrower window has no room: the larger array would run under the words */
-    :is(.roof-scene, .auth) > .hero { background-position: center calc(14.4rem - 35.1vw), 0 0; background-size: 140% auto, auto; }
+    :is(.roof-scene, .auth) > .hero { background-position: center calc(14.4rem - 35.1vw / var(--z)), 0 0; background-size: 140% auto, auto; }
     :is(.roof-scene, .auth) > .hero .pm { scale: 1.4; transform-origin: right 82.5%; }
   }
   :is(.roof-scene, .auth) stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it here, not sky */
@@ -652,7 +660,9 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   /* Under it, three columns: what to do, the last days' output, and the ways further in. */
   .roof-advice { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.95fr); gap: var(--space); align-items: start; }
   .roof-advice > * { margin-top: 0; }
-  .roof-advice > .check { grid-column: 1 / -1; }
+  .roof-advice > :is(.verdict-card, .check) { grid-column: 1; }
+  .roof-advice > .trend { grid-column: 2; grid-row: 1 / span 3; }
+  .roof-advice > .rows { grid-column: 3; grid-row: 1 / span 3; }
   .vc-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 0.75rem 1rem; }
   .verdict-card > .reason { display: none; }  /* it is under the headline */
   .vc-lost { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 0.5rem; font-size: var(--step-1); font-weight: 600; }
@@ -689,7 +699,7 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   /* Three columns need room: on a small laptop the ways further in go under the other two, side by side. */
   @media (max-width: 75rem) {
     .roof-advice { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
-    .roof-advice > .rows { grid-column: 1 / -1; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+    .roof-advice > .rows { grid-column: 1 / -1; grid-row: auto; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   }
 
   /* The ways further in: each row its own small sheet, with its icon in a badge. */
@@ -700,7 +710,8 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
 
   /* Signing in: the same scene and picture across the top of the page, the words and the form down the left. */
   .page.auth { position: relative; max-width: none; padding: 1.25rem var(--gutter) 4rem; grid-template-columns: minmax(0, 25rem); justify-content: start; gap: 1.25rem; }
-  .auth > .hero { grid-area: auto; position: absolute; inset: 0 0 auto; margin: 0; }
+  .page.auth { --z: 1; }
+  .auth > .hero { inset: 0 0 auto; }
   /* No header covers the top here, so the picture's top edge fades into the sky as its foot does. */
   .auth > .hero { -webkit-mask-image: linear-gradient(transparent 2rem, #000 8rem, #000 86%, transparent); mask-image: linear-gradient(transparent 2rem, #000 8rem, #000 86%, transparent); }
   .auth > :not(.hero) { position: relative; z-index: 2; }
