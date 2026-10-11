@@ -143,7 +143,7 @@ dragged: the parapet, the terrace floor and the array, which shows a dead string
 the drawn city (`.pm-city`) is hidden. Two earlier tries were dropped the same day: pictures with the panels
 in them (they could not turn or show a fault), and the drawn array on a pictured terrace (it floated, and the
 terrace stood still while the array turned). The pictures are mirrored and their own terrace is cut away, so
-the drawn wall always covers their lower edge. Phones keep the fully drawn scene. On both, the terrace ends at a corner on the left where the parapet turns
+the drawn wall always covers their lower edge. Phones use the same pictures behind the drawn terrace and array (since 11 Oct), hung larger than the screen and faded at the top. On both, the terrace ends at a corner on the left where the parapet turns
 toward the viewer, and potted plants stand along the walls. Below, two sheets of equal size: the advice sheet
 (headed by the money lost, the percentage and the meter) and the units made on each of the last 7, 30 or 90
 days (`Trend`, from the verdict's `daily_kwh`; wide screens only). The rows to History and Why are not shown
