@@ -64,7 +64,8 @@ const SKYLINE = (() => {
     const out = [];
     for (let x = -WING; x < VIEW_W + 160;) {
       const w = wMin + next() * (wMax - wMin);
-      out.push({ x, w, h: hMin + next() * (hMax - hMin), tank: next() < 0.35, crown: next() < 0.3, mast: next() < 0.14 });
+      out.push({ x, w, h: hMin + next() ** 2.4 * (hMax - hMin),  // mostly low blocks, a few tall: a skyline, not a wall
+         tank: next() < 0.35, crown: next() < 0.3, mast: next() < 0.14 });
       x += w + 2 + next() * 9;  // room between blocks for a side wall to show
     }
     return out;
@@ -218,8 +219,8 @@ export function PanelModel({ verdict }) {
           <stop offset="0" className="pm-tower-hi" /><stop offset="1" className="pm-tower-lo" />
         </linearGradient>
         <linearGradient id={`${id}shine`} x1="0" y1="0" x2="1" y2="0.7">
-          <stop offset="0.15" stopColor="#fff" stopOpacity="0" /><stop offset="0.3" stopColor="#fff" stopOpacity="0.22" />
-          <stop offset="0.42" stopColor="#fff" stopOpacity="0.05" /><stop offset="0.6" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0.15" stopColor="#fff" stopOpacity="0" /><stop offset="0.3" stopColor="#fff" stopOpacity="0.1" />
+          <stop offset="0.42" stopColor="#fff" stopOpacity="0.03" /><stop offset="0.6" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
         <clipPath id={`${id}floor`}><polygon points={floor} /></clipPath>
         <linearGradient id={`${id}haze`} x1="0" y1="0" x2="0" y2="1">
@@ -240,12 +241,14 @@ export function PanelModel({ verdict }) {
         <linearGradient id={`${id}edge`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#4a525e" /><stop offset="0.6" stopColor="#aab3c0" /><stop offset="1" stopColor="#6d7682" />
         </linearGradient>
-        <filter id={`${id}blur`} x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="7" /></filter>
+        <filter id={`${id}blur`} x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="9" /></filter>
+        <filter id={`${id}far`} x="0" y="-10%" width="100%" height="120%"><feGaussianBlur stdDeviation="0.55" /></filter>
         <filter id={`${id}soft`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.5" /></filter>
         <clipPath id={`${id}live`}>{live.map((m) => <polygon key={m.i} points={quad(m, RIM)} />)}</clipPath>
       </defs>
 
-      <g className="pm-city" transform={`translate(${drift.toFixed(1)} 0)`}>
+      {/* The city is far away: a little out of focus, as a camera focused on the array would leave it. */}
+      <g className="pm-city" filter={`url(#${id}far)`} transform={`translate(${drift.toFixed(1)} 0)`}>
         {["back", "far", "near"].map((depth) => (
           <g key={depth} className={depth}>
             {SKYLINE[depth].map((b, i) => {
