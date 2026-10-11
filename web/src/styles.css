@@ -611,9 +611,10 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .roof-scene > .hero .pm { height: 31rem; }
   .roof-scene > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
   .roof-scene > :is(.reading, .strip) { z-index: 2; }
-  /* A picture of an empty terrace under this sky is the backdrop (the owner's pictures, web/public/scene/), and
-     the drawn array stands on it: it still turns when dragged and still shows a dead string or dust. The drawn
-     city, wall and floor, what falls, and the sun or moon step aside. After dark every sky uses the night one. */
+  /* Beyond the wall, a picture: the sky of the moment over trees, low houses and towers (the owner's pictures,
+     web/public/scene/, mirrored, with their own terrace cut away). In front of it everything is drawn and turns
+     together when dragged: the parapet, the terrace floor and the array. The drawn city, what falls, and the sun
+     or moon step aside. After dark every sky uses the night one. */
   :root[data-sky="day"] { --photo: url("/scene/day.webp"); }
   :root[data-sky="cloud"] { --photo: url("/scene/cloud.webp"); }
   :root[data-sky="rain"] { --photo: url("/scene/rain.webp"); }
@@ -622,11 +623,11 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   :root[data-sky="snow"] { --photo: url("/scene/snow.webp"); }
   :root:is([data-sky="night"], [data-dark]) { --photo: url("/scene/night.webp"); }
   .roof-scene > .hero {
-    background: var(--photo) right 100% / cover no-repeat;  /* a very wide window crops sky, not the floor */
+    /* As wide as the screen, and hung so its horizon sits just above the drawn wall whatever the width. */
+    background: var(--photo) center calc(19rem - 25.07vw) / 100% auto no-repeat;
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
-  .roof-scene > .hero :is(.pm-set, .fall) { display: none; }
-  .roof-scene > .hero .pm { translate: -6.5rem 1.25rem; }  /* onto the open floor, clear of the stair block at the right */
+  .roof-scene > .hero :is(.pm-city, .fall) { display: none; }
   :root:has(.roof-scene) #sky::after { opacity: 0; }
 
   /* Under it, three columns: what to do, the last days' output, and the ways further in. */
