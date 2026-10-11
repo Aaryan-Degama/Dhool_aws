@@ -40,6 +40,12 @@ Apache-2.0 (`LICENSE`).
 |---|---|
 | [Anek Devanagari](https://fonts.google.com/specimen/Anek+Devanagari) (Ek Type; copyright 2021 The Anek Project Authors). The Devanagari and Latin subsets as Google Fonts serves them (v17), unchanged, kept in `web/public/fonts/` with the licence text beside them (`OFL.txt`) and served by the app itself | SIL Open Font License 1.1 |
 
+## Pictures
+
+| What | Source |
+|---|---|
+| Four pictures of a rooftop array over a city (day, night, overcast, rain), in `web/public/scene/`, shown behind the Roof page on wide screens | Made by the team with an AI image generator and supplied on 11 Oct 2026; converted to WebP, otherwise unchanged. They are illustrations: no real roof or place is shown |
+
 ## AI tools
 
 The hackathon rules ask for every AI coding tool to be listed.
