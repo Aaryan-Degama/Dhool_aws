@@ -49,5 +49,8 @@ Brief: `ref/brief.md` (in the main checkout, `/home/naukarji/Github/Dhool_aws/re
   working 99%. `CAPTURE_SET` now points there; the blur applies only to the real-account set. Sub-lines in
   scenes 3-7 rewritten to say what each screen advises.
 
+- Owner, 11 Oct (asked twice): use the reference promo's audio as music. Done as a separate, switchable file
+  (`public/audio/music.wav`, `AUDIO.music`). It is NOT licensed: README says so. To be replaced before publishing.
+
 ## Next
 Place the narration when it arrives, mix, re-render, QC, write the final README sections.

@@ -26,7 +26,7 @@ export const CAPTURE_SET: string = "captures-sample";
 export const HIDE_ACCOUNT = CAPTURE_SET === "captures";  // a real account's home name is blurred; the sample's is not
 // Sound: the generated sound design is always on. The other two are separate files in public/audio/, switched on
 // here once they exist (voiceover.wav, music.wav), so either can be replaced or left out without a re-edit.
-export const AUDIO = { voiceover: false, music: false };
+export const AUDIO = { voiceover: false, music: true };
 
 type Key = { at: number; x: number; y: number; h: number; turn: number; show: number };
 /** A value eased between keyframes; held before the first and after the last. */

@@ -38,7 +38,11 @@ If Remotion cannot download its own browser (a blocked network), add
   with FFmpeg; nothing sampled, nothing to license). Run it before rendering; the file is not in git.
 - Narration and music are separate files, off until they exist: put `voiceover.wav` and `music.wav` (70 s,
   starting at the film's first frame) in `public/audio/` and switch each on in `AUDIO` in `src/timeline.ts`.
-  Music source and licence: none yet (no music in the film).
+- **Music: NOT CLEARED.** `public/audio/music.wav` (not in git) is the soundtrack of the reference promo for the
+  Mac app "Snatch" (`ref/3hgZYLAE.mp4`), put in at the owner's request on 11 Oct 2026: its first 54.7 s, then
+  its last 17.3 s cross-faded on to reach 70 s, levelled to -18 LUFS. It is someone else's audio; nobody on
+  this project holds a licence for it. Replace it before the film is published or submitted: put a licensed
+  track at the same path, or set `AUDIO.music` to false in `src/timeline.ts`, and record its source here.
 
 ## Needs
 Node 22, FFmpeg, a login to the live site for captures. No API keys.
