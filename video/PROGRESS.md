@@ -42,5 +42,12 @@ Brief: `ref/brief.md` (in the main checkout, `/home/naukarji/Github/Dhool_aws/re
   blurred in the film (`Hide` in `Film.tsx`); `CAPTURE_SET` and `AUDIO` switches added to `timeline.ts`.
   Audio is sound design only, -25.8 LUFS integrated.
 
+- Owner, 11 Oct: every scene read 85% "Checking the repair"; show different situations, from localhost. Done:
+  `capture/sample.mjs` captures the local app on its built-in samples into `public/captures-sample/` (clock held
+  at 26 Sept 2026, the day after the samples' last reading). Day: working 99%. Cloud: wash the panels 85%. Rain:
+  wait for the rain 91%. Dust: wash after the dust storm 91%. Snow: call your vendor 67%, dead panels. Night:
+  working 99%. `CAPTURE_SET` now points there; the blur applies only to the real-account set. Sub-lines in
+  scenes 3-7 rewritten to say what each screen advises.
+
 ## Next
 Place the narration when it arrives, mix, re-render, QC, write the final README sections.

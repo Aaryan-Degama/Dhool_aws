@@ -22,6 +22,12 @@ If Remotion cannot download its own browser (a blocked network), add
 
   The scrolling screen in scene 3 is 90 more stills: `LIVE_EMAIL=<email> LIVE_PASSWORD=<password> node video/capture/scroll.mjs`
 
+- **The film is cut from `public/captures-sample/`**: the real app run locally, showing its own built-in sample
+  homes (`web/src/fixtures.js`), a different advice under each sky. The interface is real; the figures are the
+  app's samples, not a real roof's. Make them again with the dev server running
+  (`cd web && npm run dev -- --port 5173 --strictPort`), then `node video/capture/sample.mjs`. No login.
+  `public/captures/` (the owner's real account, one state throughout) is the other set; `CAPTURE_SET` in
+  `src/timeline.ts` chooses.
 - **Another account's captures** (say one whose roof reads "Your solar is working"): run both capture scripts
   with `CAPTURE_SET=captures-working` added, then set `CAPTURE_SET` in `src/timeline.ts` to that name and render.
 - The film blurs the account's home name and picture (top right of every page) and labels the browser window

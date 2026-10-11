@@ -20,7 +20,10 @@ export const TOTAL = s(70), DRAFT = SCENES.clouds.from;
 
 // Which set of captures the film is cut from: a folder in public/. To recut from another account (say one whose
 // roof reads "Your solar is working"), capture into a new folder and name it here; no scene changes.
-export const CAPTURE_SET = "captures";
+//   "captures"         the owner's real account on the live site (capture.mjs, scroll.mjs): one state throughout
+//   "captures-sample"  the app's built-in sample homes, run locally (sample.mjs): a different advice under each sky
+export const CAPTURE_SET: string = "captures-sample";
+export const HIDE_ACCOUNT = CAPTURE_SET === "captures";  // a real account's home name is blurred; the sample's is not
 // Sound: the generated sound design is always on. The other two are separate files in public/audio/, switched on
 // here once they exist (voiceover.wav, music.wav), so either can be replaced or left out without a re-edit.
 export const AUDIO = { voiceover: false, music: false };

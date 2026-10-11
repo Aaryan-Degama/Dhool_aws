@@ -6,7 +6,7 @@ export const Sunny = () => (
   <AbsoluteFill>
     <Rise until={236} style={{ position: "absolute", left: 150, top: 400 }}>
       <Typed text="A clear day." from={30} size={124} />
-      <Rise from={78} style={{ marginTop: 26 }}><SubLine size={36}>what the roof made,<br />against what it should have</SubLine></Rise>
+      <Rise from={78} style={{ marginTop: 26 }}><SubLine size={36}>99% of its normal.<br />nothing to fix</SubLine></Rise>
     </Rise>
   </AbsoluteFill>
 );

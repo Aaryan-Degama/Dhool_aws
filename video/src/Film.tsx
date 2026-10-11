@@ -11,7 +11,7 @@ import { Hook } from "./scenes/Hook";
 import { Meet } from "./scenes/Meet";
 import { Clouds, DustStorm, Night, SnowFall } from "./scenes/Skies";
 import { Sunny } from "./scenes/Sunny";
-import { AUDIO, CAPTURE_SET, PAGES, SCENES, SCREENS, deskAt, phoneAt, scrollAt } from "./timeline";
+import { AUDIO, CAPTURE_SET, HIDE_ACCOUNT, PAGES, SCENES, SCREENS, deskAt, phoneAt, scrollAt } from "./timeline";
 
 const FILL = { position: "absolute", inset: 0, width: "100%", height: "100%" } as const;
 const capture = (file: string) => staticFile(`${CAPTURE_SET}/${file}`);
@@ -41,7 +41,7 @@ function Screen() {
     <>
       <Latest items={SCREENS} src={(s) => capture(`phone-roof-${s.sky}.png`)} />
       {scroll != null && <Img src={capture(`scroll/${String(scroll).padStart(3, "0")}.jpg`)} style={FILL} />}
-      <Hide left={68} top={0.7} width={31} height={4.4} />
+      {HIDE_ACCOUNT && <Hide left={68} top={0.7} width={31} height={4.4} />}
     </>
   );
 }
@@ -62,7 +62,7 @@ export function Film() {
         <div style={{ opacity: desk.show }}>
           <DesktopBrowser x={desk.x} y={desk.y} w={desk.w} address="Dhool">
             <Latest items={PAGES} src={(p) => capture(`desktop-${p.page}-day.png`)} />
-            <Hide left={89.5} top={1.4} width={9.8} height={5.6} />
+            {HIDE_ACCOUNT && <Hide left={89.5} top={1.4} width={9.8} height={5.6} />}
           </DesktopBrowser>
         </div>
       )}

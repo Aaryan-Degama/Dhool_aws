@@ -18,13 +18,13 @@ function Sky({ word, line, from, until, left = 150, color = CHARCOAL, soft }: { 
 /** 21–31 s: cloud, then rain. */
 export const Clouds = () => (
   <>
-    <Sky word="Under cloud." line="less sun, so Dhool expects less" from={80} until={158} />
-    <Sky word="In rain." line="rain washes the panels for nothing" from={176} until={296} />
+    <Sky word="Under cloud." line="dust has built up: wash the panels" from={80} until={158} />
+    <Sky word="In rain." line="rain is coming: let it wash them" from={176} until={296} />
   </>
 );
 /** 31–38 s. Dhool is the Hindi word for dust. */
-export const DustStorm = () => <Sky word="In dust." line="धूल is the Hindi word for it" from={36} until={204} />;
+export const DustStorm = () => <Sky word="In dust." line="wait out the storm, then wash" from={36} until={204} />;
 /** 38–44 s. The phone has crossed to the left, so the words sit on the right. */
-export const SnowFall = () => <Sky word="In snow." line="whatever falls on the glass" from={66} until={174} left={1010} />;
+export const SnowFall = () => <Sky word="In snow." line="a fault, not dust: call the vendor" from={66} until={174} left={1010} />;
 /** 44–51 s. Light type on the dark. */
-export const Night = () => <Sky word="After dark." line="the roof rests, the reading stays" from={70} until={204} left={120} color="#f3f5f8" soft="#aab2c5" />;
+export const Night = () => <Sky word="After dark." line="washed, checked, back to normal" from={70} until={204} left={120} color="#f3f5f8" soft="#aab2c5" />;
