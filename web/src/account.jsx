@@ -187,7 +187,7 @@ export function Profile({ name }) {
   const [has, setHas] = useState(() => Boolean(kept("avatar")));
   const set = (b64) => { keep("avatar", b64); setHas(Boolean(b64)); window.dispatchEvent(new Event(CHANGED)); };
   const choose = (file) => run(async () => {
-    const bitmap = await createImageBitmap(file).catch(() => { throw new Error("That file is not a picture Dhool can open. Choose a JPEG or PNG."); });
+    const bitmap = await createImageBitmap(file).catch(() => { throw new Error(t("That file is not a picture Dhool can open. Choose a JPEG or PNG.")); });
     const canvas = Object.assign(document.createElement("canvas"), { width: SIDE, height: SIDE });
     const side = Math.min(bitmap.width, bitmap.height);
     canvas.getContext("2d").drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, SIDE, SIDE);
