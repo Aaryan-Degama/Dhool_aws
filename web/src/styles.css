@@ -608,7 +608,7 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
      the scene on the right. */
   article.roof { display: block; }
   /* The band is as tall as the scene behind it, less its faded foot, which the sheets below come up over. */
-  .roof-scene { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40rem); grid-template-rows: 1fr auto; column-gap: 2rem; align-items: center; min-height: calc(36rem * var(--z) - 8.25rem); }
+  .roof-scene { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40rem); grid-template-rows: 1fr auto; column-gap: 2rem; align-items: center; min-height: calc(36rem * var(--z) - 6.75rem); }
   .roof-scene > * { margin-top: 0; }
   .roof-scene > .reading { grid-area: 1 / 1; align-self: end; padding-bottom: 2rem; }
   .reading > :is(.reading-figure, .reading-of, .glow-meter, .reading-sub) { display: none; }  /* these are in the sheet below */
