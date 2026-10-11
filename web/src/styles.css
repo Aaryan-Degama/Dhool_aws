@@ -294,6 +294,8 @@ input, select, textarea {
   font: inherit; color: inherit; width: 100%; min-height: 3rem; padding: 0.5rem 0.875rem;
   background: var(--well); border: 1px solid transparent; border-radius: var(--r-ctl);
 }
+/* A field the browser filled in keeps the app's colours, not the browser's yellow. */
+input:-webkit-autofill { -webkit-text-fill-color: var(--ink); transition: background-color 99999s; }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--wash); outline-offset: 0; }
 .code-input, .code { text-transform: uppercase; letter-spacing: 0.3em; font-weight: 600; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
@@ -615,9 +617,9 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .strip .icon { grid-row: 1 / span 2; width: 1.75rem; height: 1.75rem; margin: 0; }
   /* The scene is the band's whole backdrop, edge to edge of the screen: the array stands on the right, and the
      terrace and the city run on behind the headline, under a shade that keeps the words readable. */
-  .roof-scene > .hero { grid-area: 1 / 1 / span 2 / -1; position: relative; top: auto; z-index: 0; margin: -6.5rem calc(-1 * var(--gutter)) 0; padding-top: 5rem; filter: none; }
-  .roof-scene > .hero .pm { height: 31rem; }
-  .roof-scene > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
+  :is(.roof-scene, .auth) > .hero { grid-area: 1 / 1 / span 2 / -1; position: relative; top: auto; z-index: 0; margin: -6.5rem calc(-1 * var(--gutter)) 0; padding-top: 5rem; filter: none; }
+  :is(.roof-scene, .auth) > .hero .pm { height: 31rem; }
+  :is(.roof-scene, .auth) > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
   .roof-scene > :is(.reading, .strip) { z-index: 2; }
   /* Beyond the wall, a picture: the sky of the moment over trees, low houses and towers (the owner's pictures,
      web/public/scene/, mirrored, with their own terrace cut away). In front of it everything is drawn and turns
@@ -630,22 +632,22 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   :root[data-sky="sand"] { --photo: url("/scene/sand.webp"); }
   :root[data-sky="snow"] { --photo: url("/scene/snow.webp"); }
   :root:is([data-sky="night"], [data-dark]) { --photo: url("/scene/night.webp"); }
-  .roof-scene > .hero {
+  :is(.roof-scene, .auth) > .hero {
     /* As wide as the screen, and hung so its horizon sits just above the drawn wall whatever the width. */
     /* Past the terrace's corner the eye looks down on treetops: each picture carries its own below the city, and
        a dark green takes over where the picture ends. */
     background: var(--photo) center calc(19rem - 25.07vw) / 100% auto no-repeat, linear-gradient(transparent 19.5rem, color-mix(in srgb, #16301f 72%, var(--paper)) 22.5rem);
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
-  .roof-scene > .hero :is(.pm-city, .fall) { display: none; }
+  :is(.roof-scene, .auth) > .hero :is(.pm-city, .fall) { display: none; }
   /* The scene and its picture are shown at 140%, grown from the array's feet at the right: the array is larger
      and the terrace's left corner is off the screen unless the scene is turned. */
   @media (min-width: 80rem) {  /* a narrower window has no room: the larger array would run under the words */
-    .roof-scene > .hero { background-position: center calc(14.4rem - 35.1vw), 0 0; background-size: 140% auto, auto; }
-    .roof-scene > .hero .pm { scale: 1.4; transform-origin: right 82.5%; }
+    :is(.roof-scene, .auth) > .hero { background-position: center calc(14.4rem - 35.1vw), 0 0; background-size: 140% auto, auto; }
+    :is(.roof-scene, .auth) > .hero .pm { scale: 1.4; transform-origin: right 82.5%; }
   }
-  .roof-scene stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it here, not sky */
-  :root:has(.roof-scene) #sky::after { opacity: 0; }
+  :is(.roof-scene, .auth) stop.pm-ground-near { stop-opacity: 1; }  /* the floor stays solid to its foot: the picture is behind it here, not sky */
+  :root:has(.roof-scene, .auth) #sky::after { opacity: 0; }
 
   /* Under it, three columns: what to do, the last days' output, and the ways further in. */
   .roof-advice { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.95fr); gap: var(--space); align-items: start; }
@@ -695,6 +697,15 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .rows .row-link { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 1rem; padding: 1rem 1.25rem; border: 0; border-radius: 20px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)), rgba(var(--glass, 18, 21, 28), 0.6); backdrop-filter: blur(28px) saturate(1.3); }
   .rows .row-link .icon { display: block; grid-row: 1 / span 2; width: 2.75rem; height: 2.75rem; padding: 0.7rem; border-radius: 14px; background: rgba(255, 255, 255, 0.1); }
   .rows .row-link::after { grid-area: 1 / 3 / span 2; }
+
+  /* Signing in: the same scene and picture across the top of the page, the words and the form down the left. */
+  .page.auth { position: relative; max-width: none; padding: 1.25rem var(--gutter) 4rem; grid-template-columns: minmax(0, 25rem); justify-content: start; gap: 1.25rem; }
+  .auth > .hero { grid-area: auto; position: absolute; inset: 0 0 auto; margin: 0; }
+  /* No header covers the top here, so the picture's top edge fades into the sky as its foot does. */
+  .auth > .hero { -webkit-mask-image: linear-gradient(transparent 2rem, #000 8rem, #000 86%, transparent); mask-image: linear-gradient(transparent 2rem, #000 8rem, #000 86%, transparent); }
+  .auth > :not(.hero) { position: relative; z-index: 2; }
+  .auth > .brand { margin-bottom: 4.5rem; }
+  .auth > h1 { font-size: clamp(2.5rem, 3.6vw, 3.25rem); line-height: 1.08; letter-spacing: -0.02em; }
 
   /* Two columns of sheets, each sheet kept whole; a page's heading runs across both. */
   article.tab { display: block; columns: 2; column-gap: var(--space); }
