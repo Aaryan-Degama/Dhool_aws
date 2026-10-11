@@ -1,0 +1,6 @@
+node_modules/
+output/
+ref-frames/
+capture/.auth.json
+public/captures*/
+public/audio/*.wav
