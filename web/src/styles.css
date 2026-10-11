@@ -611,6 +611,14 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .roof-scene > .hero .pm { height: 31rem; }
   .roof-scene > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
   .roof-scene > :is(.reading, .strip) { z-index: 2; }
+  /* A picture of the roof as the backdrop (the owner's choice, 11 Oct; waiting for the picture files). For each
+     sky that has one, put <sky>.webp in web/public/scene/ and add the three rules below with that sky's name;
+     tried with a test picture and it works. The drawn scene, what falls and the sun step aside. The picture's
+     panels are always whole, so the roof's state is then told by the words and the sheets alone. A sky without
+     a picture keeps the drawn scene. Not switched on with no file: a missing file is a console error.
+       :root[data-sky="day"]:not([data-dark]) .roof-scene > .hero { background: url("/scene/day.webp") right center / cover no-repeat; -webkit-mask-image: linear-gradient(#000 78%, transparent); mask-image: linear-gradient(#000 78%, transparent); }
+       :root[data-sky="day"]:not([data-dark]) .roof-scene > .hero :is(.pm, .fall) { visibility: hidden; }
+       :root[data-sky="day"]:not([data-dark]):has(.roof-scene) #sky::after { opacity: 0; }  */
 
   /* Under it, three columns: what to do, the last days' output, and the ways further in. */
   .roof-advice { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.95fr); gap: var(--space); align-items: start; }
