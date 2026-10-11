@@ -247,6 +247,9 @@ export function PanelModel({ verdict }) {
         <clipPath id={`${id}live`}>{live.map((m) => <polygon key={m.i} points={quad(m, RIM)} />)}</clipPath>
       </defs>
 
+      {/* The set the array stands in: the city, the parapet and the terrace floor. A wide screen puts a picture
+          there in its place (see the end of styles.css) and keeps only the array. */}
+      <g className="pm-set">
       {/* The city is far away: a little out of focus, as a camera focused on the array would leave it. */}
       <g className="pm-city" filter={`url(#${id}far)`} transform={`translate(${drift.toFixed(1)} 0)`}>
         {["back", "far", "near"].map((depth) => (
@@ -282,6 +285,7 @@ export function PanelModel({ verdict }) {
       <polygon points={floor} fill={`url(#${id}ground)`} />
       <path className="pm-wall-foot" d={`M${flat([wallBase[0]])}L${flat([wallBase[1]])}`} />
       <path className="pm-tiles" d={tiles} clipPath={`url(#${id}floor)`} />
+      </g>
       <polygon className="pm-shadow" filter={`url(#${id}blur)`}
                points={poly([[-WIDE / 2, 0, ZF], [WIDE / 2, 0, ZF], [WIDE / 2, 0, -ZF], [-WIDE / 2, 0, -ZF]])} />
 

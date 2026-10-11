@@ -132,20 +132,6 @@ export function RoofTab({ house, verdict: v, go, onAction, today: date }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); root.removeProperty("--scrolled"); root.removeProperty("--floor"); };
   }, []);
-  // On a wide screen the picture behind the band leans a little toward the pointer, as a model on a turntable
-  // would: --lean-x and --lean-y run from -1 to 1 across the band (the stylesheet turns them into a few degrees).
-  useEffect(() => {
-    const el = scene.current, band = el.parentElement;
-    const lean = (e) => {
-      const box = band.getBoundingClientRect();
-      el.style.setProperty("--lean-x", ((e.clientX - box.left) / box.width * 2 - 1).toFixed(3));
-      el.style.setProperty("--lean-y", ((e.clientY - box.top) / box.height * 2 - 1).toFixed(3));
-    };
-    const rest = () => { el.style.removeProperty("--lean-x"); el.style.removeProperty("--lean-y"); };
-    band.addEventListener("pointermove", lean);
-    band.addEventListener("pointerleave", rest);
-    return () => { band.removeEventListener("pointermove", lean); band.removeEventListener("pointerleave", rest); };
-  }, []);
   const known = v.cause !== "no_data";
   const running = Math.max(0, Math.round(100 - v.loss_pct));
   const week = v.forecast || [];

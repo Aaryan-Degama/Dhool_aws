@@ -611,32 +611,23 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .roof-scene > .hero .pm { height: 31rem; }
   .roof-scene > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
   .roof-scene > :is(.reading, .strip) { z-index: 2; }
-  /* A picture of the roof as the backdrop (the owner's choice and the owner's pictures, 11 Oct): for a sky that
-     has one in web/public/scene/, the picture fills the band and the drawn scene, what falls and the sun or moon
-     step aside. The picture's panels are always whole, so the roof's state is then told by the words and the
-     sheets alone. Dust storms and snow have no picture and keep the drawn scene. To add one: a file, a --photo
-     line, and its sky in the :is() list. */
+  /* A picture of an empty terrace under this sky is the backdrop (the owner's pictures, web/public/scene/), and
+     the drawn array stands on it: it still turns when dragged and still shows a dead string or dust. The drawn
+     city, wall and floor, what falls, and the sun or moon step aside. After dark every sky uses the night one. */
   :root[data-sky="day"] { --photo: url("/scene/day.webp"); }
   :root[data-sky="cloud"] { --photo: url("/scene/cloud.webp"); }
-  :root:is([data-sky="rain"], [data-sky="storm"]) { --photo: url("/scene/rain.webp"); }
-  :root:is([data-sky="night"], [data-sky="cloud"][data-dark]) { --photo: url("/scene/night.webp"); }
-  :root:is([data-sky="day"], [data-sky="cloud"], [data-sky="rain"], [data-sky="storm"], [data-sky="night"]) .roof-scene > .hero {
+  :root[data-sky="rain"] { --photo: url("/scene/rain.webp"); }
+  :root[data-sky="storm"] { --photo: url("/scene/storm.webp"); }
+  :root[data-sky="sand"] { --photo: url("/scene/sand.webp"); }
+  :root[data-sky="snow"] { --photo: url("/scene/snow.webp"); }
+  :root:is([data-sky="night"], [data-dark]) { --photo: url("/scene/night.webp"); }
+  .roof-scene > .hero {
+    background: var(--photo) right 100% / cover no-repeat;  /* a very wide window crops sky, not the floor */
     -webkit-mask-image: linear-gradient(#000 86%, transparent); mask-image: linear-gradient(#000 86%, transparent);
   }
-  /* The picture is on its own layer, a little larger than the band, so it can lean without showing an edge. */
-  :root:is([data-sky="day"], [data-sky="cloud"], [data-sky="rain"], [data-sky="storm"], [data-sky="night"]) .roof-scene > .hero::after {
-    content: ""; position: absolute; inset: -5%; z-index: 0;
-    background: var(--photo) right 85% / cover no-repeat;  /* a very wide window crops sky, not the array's feet */
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    /* It leans a few degrees toward the pointer and slides the other way, which reads as turning a model. */
-    .roof-scene > .hero::after {
-      transform: perspective(70rem) rotateY(calc(var(--lean-x, 0) * 2.5deg)) rotateX(calc(var(--lean-y, 0) * -1.5deg)) translate(calc(var(--lean-x, 0) * -0.8%), calc(var(--lean-y, 0) * -0.7%));
-      transition: transform 260ms ease-out;
-    }
-  }
-  :root:is([data-sky="day"], [data-sky="cloud"], [data-sky="rain"], [data-sky="storm"], [data-sky="night"]) .roof-scene > .hero :is(.pm, .fall) { visibility: hidden; }
-  :root:is([data-sky="day"], [data-sky="cloud"], [data-sky="rain"], [data-sky="storm"], [data-sky="night"]):has(.roof-scene) #sky::after { opacity: 0; }
+  .roof-scene > .hero :is(.pm-set, .fall) { display: none; }
+  .roof-scene > .hero .pm { translate: -6.5rem 1.25rem; }  /* onto the open floor, clear of the stair block at the right */
+  :root:has(.roof-scene) #sky::after { opacity: 0; }
 
   /* Under it, three columns: what to do, the last days' output, and the ways further in. */
   .roof-advice { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.95fr); gap: var(--space); align-items: start; }

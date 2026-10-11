@@ -136,11 +136,12 @@ site's header across the top (the wordmark on the left, the tabs in the middle w
 home's name on the right); the phone's top bar is hidden there. Roof opens on a wide band: the reading on the
 left as a large headline (what to do) with the reason and the weather row under it. The scene is the band's
 backdrop from edge to edge of the screen: the array on the right, the terrace and city running on behind the
-headline (drawn `WING` units to the left for this) under a shade that keeps the words readable. Under a day, overcast, rain, storm or night sky that
-backdrop is a rendered picture (`web/public/scene/<sky>.webp`, the owner's choice on 11 Oct over more drawing),
-and the drawn scene steps aside; dust storms and snow keep the drawn scene. The picture's panels are always
-whole, so on wide screens a fault or dust is told by the words and the sheets, not the picture. Phones keep
-the drawn scene, which still shows the roof's state. Below, three columns, after a mockup the owner supplied: the advice sheet
+headline (drawn `WING` units to the left for this) under a shade that keeps the words readable. That backdrop is a rendered
+picture of an empty terrace under the sky of the moment (`web/public/scene/<sky>.webp`, seven of them; after
+dark every sky uses the night one), and the drawn array stands on it: it turns when dragged and shows a dead
+string or dust, as on a phone. The drawn city, wall and floor (`.pm-set`) are hidden there. A first set of
+pictures with the panels in them was dropped the same day: the panels could not turn or show a fault.
+Phones keep the fully drawn scene. Below, three columns, after a mockup the owner supplied: the advice sheet
 (headed by the money lost, the percentage and the meter), the units made on each of the last 7, 30 or 90 days
 (`Trend`, from the verdict's `daily_kwh`; wide screens only), and History, Why and Setup as small sheets with
 icon badges. Pieces that exist only here carry `.wide-only`. History, Synopsis and Setup set their
