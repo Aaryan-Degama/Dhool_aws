@@ -147,14 +147,16 @@ p { margin: 0; }
 .roof-scene > *, .roof-advice > * { margin-top: var(--space); }
 
 [data-sky="day"] {
-  --sky-top: #1b62c4; --haze: #a9d0f5; --reflect: #4477b3;
+  --sky-top: #1b62c4; --haze: #a9d0f5; --reflect: #5b8fd0; --cell: #17407f; --cell-low: #0c2450; --cell-line: 0.42; --glint: 0.75;
   --sky: linear-gradient(180deg, #1b62c4 0, #3f8fe6 34%, #6fb2f1 58%, #2c6cb4 100%);
   --glass: 9, 34, 78; --paper: #2c6cb4;
   --ground-far: #b3b0a6; --ground: #9a968b; --tile: rgba(60, 56, 48, 0.18); --wall: #c9c5ba; --wall-top: #e6e3da;
   --city-far: #8fb9e8; --city-near: #6f9fd6;
 }
 [data-sky="day"] #sky::after {
-  background: radial-gradient(circle at 78% 7.1rem, #fff 0 1.15rem, rgba(255, 255, 255, 0.6) 1.5rem, rgba(255, 255, 255, 0.2) 4rem, transparent 10rem);
+  /* The sun, with a warm light around it and along the horizon under it. */
+  background: radial-gradient(circle at 78% 7.1rem, #fff 0 1.15rem, rgba(255, 244, 214, 0.7) 1.5rem, rgba(255, 214, 150, 0.3) 4rem, transparent 11rem),
+              radial-gradient(60% 16rem at 82% 22rem, rgba(255, 196, 120, 0.3), transparent 70%);
 }
 [data-sky="day"] #sky > i {
   background:
@@ -164,7 +166,7 @@ p { margin: 0; }
     radial-gradient(40% 3rem at 12% 9.5rem, rgba(255, 255, 255, 0.18), transparent 72%);
 }
 [data-sky="cloud"] {
-  --sky-top: #4a6784; --haze: #9db0c2; --reflect: #3a5370;
+  --sky-top: #4a6784; --haze: #9db0c2; --reflect: #3a5370; --cell: #17335c; --cell-low: #0c1d3a; --cell-line: 0.32;
   --sky: linear-gradient(180deg, #4a6784 0, #7b95ae 45%, #8fa6bb 62%, #4f6d89 100%);
   --glass: 20, 34, 52; --paper: #4f6d89;
   --ground-far: #8d9298; --ground: #777c82; --tile: rgba(20, 24, 30, 0.2); --wall: #9ba1a8; --wall-top: #b9bfc6;
@@ -185,14 +187,14 @@ p { margin: 0; }
   --city-far: #40506a; --city-near: #2f3c54; --windows: 0.85; --pane: rgba(255, 255, 255, 0.16);
 }
 [data-sky="snow"] {
-  --sky-top: #5a7391; --haze: #b7c6d6; --reflect: #4a6485;
+  --sky-top: #5a7391; --haze: #b7c6d6; --reflect: #4a6485; --cell: #17335c; --cell-low: #0c1d3a; --cell-line: 0.32;
   --sky: linear-gradient(180deg, #5a7391 0, #8ea4bc 46%, #a9bccd 62%, #5f7797 100%);
   --glass: 22, 36, 58; --paper: #5f7797;
   --ground-far: #e3e9f0; --ground: #cfd8e2; --tile: rgba(90, 110, 135, 0.14); --wall: #d5dde6; --wall-top: #f3f6f9;
   --city-far: #a3b5c8; --city-near: #8a9fb5;
 }
 [data-sky="sand"] {
-  --sky-top: #7a5a2e; --haze: #c9a066; --reflect: #5a4a35;
+  --sky-top: #7a5a2e; --haze: #c9a066; --reflect: #5a4a35; --cell: #1c2f4c; --cell-low: #101c30; --glint: 0.35;
   --sky: linear-gradient(180deg, #7a5a2e 0, #b0854a 46%, #c39a5c 62%, #6e4f28 100%);
   --glass: 44, 29, 12; --paper: #6e4f28;
   --ground-far: #a98350; --ground: #8e6b3d; --tile: rgba(50, 32, 10, 0.2); --wall: #b28a55; --wall-top: #cda671;
@@ -228,6 +230,7 @@ p { margin: 0; }
 
 /* After dark, overcast, snow and sand each keep their weather and lose the daylight. */
 [data-sky="cloud"][data-dark] {
+  --cell: #101d30; --cell-low: #080f1a; --cell-line: 0.24; --glint: 0;
   --sky-top: #14162c; --haze: #32354f; --reflect: #232a45;
   --sky: linear-gradient(180deg, #14162c 0, #24273f 40%, #32354f 60%, #191b31 100%);
   --glass: 18, 20, 40; --paper: #191b31;
@@ -235,6 +238,7 @@ p { margin: 0; }
   --city-far: #272a45; --city-near: #171930; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16);
 }
 [data-sky="snow"][data-dark] {
+  --cell: #101d30; --cell-low: #080f1a; --cell-line: 0.24; --glint: 0;
   --sky-top: #1a2238; --haze: #46536f; --reflect: #2c3a58;
   --sky: linear-gradient(180deg, #1a2238 0, #333f5c 44%, #46536f 60%, #1f2941 100%);
   --glass: 16, 22, 40; --paper: #1f2941;
@@ -242,6 +246,7 @@ p { margin: 0; }
   --city-far: #3b4864; --city-near: #2a3550; --windows: 0.9; --pane: rgba(255, 255, 255, 0.16);
 }
 [data-sky="sand"][data-dark] {
+  --cell: #101d30; --cell-low: #080f1a; --cell-line: 0.24; --glint: 0;
   --sky-top: #241b10; --haze: #5c4628; --reflect: #3a3024;
   --sky: linear-gradient(180deg, #241b10 0, #4a3820 46%, #5c4628 60%, #2a2012 100%);
   --glass: 26, 18, 8; --paper: #2a2012;
@@ -349,7 +354,11 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .pm-wall-lo { stop-color: color-mix(in srgb, var(--wall, #2f343d) 70%, #000); }
 .pm-wall-foot { stroke: #000; stroke-opacity: 0.22; stroke-width: 2.5; }
 .pm-haze { stop-color: var(--haze, #14171c); }
-.pm-reflect { stop-color: var(--reflect, #27405f); }  /* the sky, seen in the far edge of the glass */
+.pm-reflect { stop-color: var(--reflect, #27405f); }
+/* The cells themselves: deep blue silicon in daylight, near black after dark (--cell is set with each sky). */
+.pm-cell { stop-color: var(--cell, #101d30); }
+.pm-cell-low { stop-color: var(--cell-low, #080f1a); }
+.pm-glint { opacity: var(--glint, 0); mix-blend-mode: screen; }  /* the sky, seen in the far edge of the glass */
 .pm-wall-top { stroke: var(--wall-top, #474d58); stroke-width: 2.2; }
 .pm-city .back { fill: color-mix(in srgb, var(--city-far, #20242b) 55%, var(--haze, #14171c)); }
 .pm-city .far { fill: var(--city-far, #20242b); }
@@ -370,7 +379,7 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .pm-frame path { fill: none; stroke: #6f7986; stroke-width: 2; stroke-linecap: round; }
 .pm-frame .pm-foot { stroke: #353b45; stroke-width: 4; }
 .pm-rim { stroke: #06080b; stroke-width: 0.5; stroke-linejoin: round; }  /* the dark seam between modules */
-.pm-gaps { fill: none; stroke: rgba(214, 226, 244, 0.24); stroke-width: 0.5; }
+.pm-gaps { fill: none; stroke: rgba(214, 226, 244, var(--cell-line, 0.24)); stroke-width: 0.5; }
 .pm-bars { fill: none; stroke: rgba(196, 208, 226, 0.13); stroke-width: 0.3; }
 .pm-module.dead .pm-rim { fill: #2a2f38; stroke: var(--fault); stroke-width: 1.1; stroke-dasharray: 4 3; }
 .pm-module.dead .pm-glass { fill: #0b0e13; }
@@ -598,8 +607,12 @@ figcaption { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin-top: 0.5r
   .strip > div:first-child { padding-left: 0; }
   .strip > div + div { border-left: 1px solid rgba(255, 255, 255, 0.18); }
   .strip .icon { grid-row: 1 / span 2; width: 1.75rem; height: 1.75rem; margin: 0; }
-  /* The scene's sides fade into the sky, so it is not a picture in a box. */
-  .roof-scene > .hero { grid-area: 1 / 2 / span 2; position: relative; top: auto; margin: 0; filter: none; -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 88%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 88%, transparent); }
+  /* The scene is the band's whole backdrop, edge to edge of the screen: the array stands on the right, and the
+     terrace and the city run on behind the headline, under a shade that keeps the words readable. */
+  .roof-scene > .hero { grid-area: 1 / 1 / span 2 / -1; position: relative; top: auto; z-index: 0; margin: -6.5rem calc(-1 * var(--gutter)) 0; padding-top: 5rem; filter: none; }
+  .roof-scene > .hero .pm { height: 31rem; }
+  .roof-scene > .hero::before { z-index: 1; background: linear-gradient(90deg, rgba(var(--glass, 18, 21, 28), 0.78), rgba(var(--glass, 18, 21, 28), 0.45) 38%, transparent 62%); -webkit-mask-image: linear-gradient(#000 82%, transparent); mask-image: linear-gradient(#000 82%, transparent); }
+  .roof-scene > :is(.reading, .strip) { z-index: 2; }
 
   /* Under it, three columns: what to do, the last days' output, and the ways further in. */
   .roof-advice { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 0.95fr); gap: var(--space); align-items: start; }

@@ -19,6 +19,7 @@ const WIDE = COLS * MW + (COLS - 1) * GAP;
 const LONG = ROWS * ML + (ROWS - 1) * GAP;
 const ZF = (LONG * Math.cos(TILT)) / 2;   // the lower edge sits this far toward the viewer
 const VIEW_W = 360;
+const WING = 1000;                        // the terrace and the city are drawn this far to the left of the picture, for a wide screen where the scene runs behind the headline
 const SKYLINE_ROOM = 92;                  // sky kept above the horizon: the city's tallest building, then the sun or moon
 const YAW_REST = -24, YAW_MIN = -44, YAW_MAX = -6;
 
@@ -61,7 +62,7 @@ const SKYLINE = (() => {
   const next = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const row = (wMin, wMax, hMin, hMax) => {
     const out = [];
-    for (let x = -100; x < VIEW_W + 100;) {
+    for (let x = -WING; x < VIEW_W + 160;) {
       const w = wMin + next() * (wMax - wMin);
       out.push({ x, w, h: hMin + next() * (hMax - hMin), tank: next() < 0.35, crown: next() < 0.3, mast: next() < 0.14 });
       x += w + 2 + next() * 9;  // room between blocks for a side wall to show
@@ -189,21 +190,22 @@ export function PanelModel({ verdict }) {
   const across = (y, z) => {
     const [ax, ay] = at([-6, y, z]), [bx, by] = at([6, y, z]);
     const yAt = (x) => ay + ((by - ay) * (x - ax)) / (bx - ax);
-    return [[-80, yAt(-80)], [VIEW_W + 80, yAt(VIEW_W + 80)]];
+    return [[-WING, yAt(-WING)], [VIEW_W + 160, yAt(VIEW_W + 160)]];
   };
   const flat = (points) => points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const wallBase = across(0, WALL_Z), wallTop = across(WALL_H, WALL_Z);
-  const floor = flat([...wallBase, [VIEW_W + 80, VIEW_H], [-80, VIEW_H]]);
+  const floor = flat([...wallBase, [VIEW_W + 160, VIEW_H], [-WING, VIEW_H]]);
   let tiles = "";
   for (let z = WALL_Z + 1; z < 4; z += 1) { const [a, b] = across(0, z); tiles += `M${flat([a])}L${flat([b])}`; }
-  for (let x = -12; x <= 12; x += 1.5) tiles += `M${xy([x, 0, WALL_Z])}L${xy([x, 0, 3.4])}`;
+  for (let x = -72; x <= 15; x += 1.5) tiles += `M${xy([x, 0, WALL_Z])}L${xy([x, 0, 3.4])}`;
   const drift = (yaw - YAW_REST) * 2.2;  // the far city slides a little as the model turns
   const [topX, topY] = at(surf(0, LONG)), [lowX, lowY] = at(surf(0, 0));
   const sweep = -WIDE / 2 + WIDE * (0.2 + (yaw - YAW_REST) / 70);  // the reflection slides as the model turns
+  const [glintX, glintY] = at(surf(WIDE / 2, LONG));
   const band = (a, w) => poly([surf(a, 0), surf(a + w, 0), surf(a + w + 1.5, LONG), surf(a + 1.5, LONG)]);
 
   return (
-    <svg className={`pm pm-${cause}${ghost ? " pm-ghost" : ""}`} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img"
+    <svg className={`pm pm-${cause}${ghost ? " pm-ghost" : ""}`} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="xMaxYMid meet" role="img"
          aria-label={(LABEL[cause] || (() => t("Rooftop solar array, still being measured")))(deadCols)}
          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       <defs>
@@ -225,8 +227,13 @@ export function PanelModel({ verdict }) {
         </linearGradient>
         <linearGradient id={`${id}wall`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" className="pm-wall-hi" /><stop offset="1" className="pm-wall-lo" /></linearGradient>
         <linearGradient id={`${id}glass`} gradientUnits="userSpaceOnUse" x1={topX} y1={topY} x2={lowX} y2={lowY}>
-          <stop offset="0" className="pm-reflect" /><stop offset="0.45" stopColor="#101d30" /><stop offset="1" stopColor="#080f1a" />
+          <stop offset="0" className="pm-reflect" /><stop offset="0.45" className="pm-cell" /><stop offset="1" className="pm-cell-low" />
         </linearGradient>
+        {/* The sun, caught in the far corner of the glass: a warm flare that falls off across the array. */}
+        <radialGradient id={`${id}glint`} gradientUnits="userSpaceOnUse" cx={glintX} cy={glintY} r={VIEW_W * 0.42}>
+          <stop offset="0" stopColor="#fff6e0" stopOpacity="0.95" /><stop offset="0.12" stopColor="#ffd9a0" stopOpacity="0.55" />
+          <stop offset="0.45" stopColor="#ffc27a" stopOpacity="0.12" /><stop offset="1" stopColor="#ffc27a" stopOpacity="0" />
+        </radialGradient>
         <linearGradient id={`${id}sheen`} gradientUnits="userSpaceOnUse" x1={topX} y1={topY} x2={lowX} y2={lowY}>
           <stop offset="0" stopColor="#fff" stopOpacity="0.3" /><stop offset="1" stopColor="#fff" stopOpacity="0.03" />
         </linearGradient>
@@ -265,7 +272,7 @@ export function PanelModel({ verdict }) {
         <path className="pm-windows" d={SKYLINE.lit} />
         <path className="pm-windows warm" d={SKYLINE.warm} />
         {/* The air thickens toward the horizon, so the feet of the buildings fade into it. */}
-        <rect x="-110" y={FIT.horizon - 46} width={VIEW_W + 220} height="170" fill={`url(#${id}haze)`} />
+        <rect x={-WING - 10} y={FIT.horizon - 46} width={VIEW_W + WING + 180} height="170" fill={`url(#${id}haze)`} />
       </g>
       <polygon points={flat([...wallTop, wallBase[1], wallBase[0]])} fill={`url(#${id}wall)`} />
       <path className="pm-wall-top" d={`M${flat([wallTop[0]])}L${flat([wallTop[1]])}`} />
@@ -300,6 +307,7 @@ export function PanelModel({ verdict }) {
               <polygon points={band(sweep, 1.1)} />
               <polygon points={band(sweep + 1.7, 0.3)} />
             </g>
+            <polygon className="pm-glint" fill={`url(#${id}glint)`} points={poly([surf(-WIDE / 2, 0), surf(WIDE / 2, 0), surf(WIDE / 2, LONG), surf(-WIDE / 2, LONG)])} />
             {dust > 0 && (
               <g className="pm-dust" style={{ opacity: dust }}>
                 <polygon className="pm-film" points={poly([surf(-WIDE / 2, 0), surf(WIDE / 2, 0), surf(WIDE / 2, LONG), surf(-WIDE / 2, LONG)])} />
