@@ -6,7 +6,7 @@ _Tags: aws-lambda, serverless, amazon-dynamodb, amazon-cognito, aws-sam_
 
 ![Three screens of Dhool: wash the panels, call your vendor (in Hindi), and don't wash, it's haze](blog/hero.png)
 
-_Sample homes from the app's preview page: wash the panels, call your vendor (in Hindi), and don't wash because it is haze._
+_Sample homes in the app: wash the panels, call your vendor (in Hindi), and don't wash because it is haze. The sky on each screen is the weather over that roof, and the panels show what is wrong: dust on the glass, a dead string gone dark._
 
 ---
 
@@ -16,9 +16,9 @@ At that moment 118 tests were passing and the scoring script said the rules were
 
 That is the reason this post exists. The AWS wiring mostly worked as planned. The interesting part was the five times something real, a rooftop in Arizona, a screenshot of a Growatt app, a support ticket, a row of zeros, told us our model of the world was wrong, and what it cost each time to listen.
 
-The thing is called Dhool (धूल, "dust"). The source is [on GitHub](https://github.com/Aaryan-Degama/Dhool_aws). _Live app: to be added. Video: to be added._
+The thing is called Dhool (धूल, "dust"). It is [live here](https://main.d18fp2anb76xgh.amplifyapp.com), and the source is [on GitHub](https://github.com/Aaryan-Degama/Dhool_aws). _Video: to be added._
 
-> **The short version:** We set out to tell people when to wash their solar panels. We shipped something that mostly tells them when not to, and that is honest about what it cannot see. The gap between those two sentences is 62 commits and five corrections.
+> **The short version:** We set out to tell people when to wash their solar panels. We shipped something that mostly tells them when not to, and that is honest about what it cannot see. The gap between those two sentences is 168 commits and five corrections.
 
 ---
 
@@ -178,16 +178,32 @@ The same review found two more, both by feeding the rules data our simulator had
 - **A roof that only ever read zero crashed the analysis** with a division by zero. The household that most needs "call your vendor" got a spinner.
 - **Readings typed every three or four days returned "all good, high confidence".** No week had enough readings to learn a normal, the result held a `NaN`, and the browser could not parse it. Dhool now asks for a reading every day or two, and the code that stores a verdict refuses a `NaN` outright.
 
+The last one was found by one of us, on his own roof, the day before the deadline. Output fell for three days, the vendor came, the next reading was back to normal, and Dhool still said "Call your vendor: it has stayed down for 4 days". The fault rule asked whether output had recovered over every day since the drop, the days before the repair included, and three bad days outvoted one good one. Now, once a visit is reported, only what has been read since counts: nothing yet is "Checking the repair", back at the roof's normal is "Your solar is working", still down is the fault again. The simulator's scores did not move by a single line, because the simulator never calls a vendor.
+
 One suggestion we did not take. A roof that is already faulty when Dhool first sees it looks normal, because the normal is learned from the roof. A floor at 70% of the textbook figure would catch that. But two of the nine real rooftops run at 67 and 70% for their entire ten years. A floor would have told two healthy families to call the vendor. Such a roof now gets a note to have it checked once, and no verdict.
+
+---
+
+## The roof is the interface
+
+The first version was cards: a headline, a meter, a paragraph. It was correct and nobody looked at it twice.
+
+The app now opens on the roof. One large figure says how the roof is running against its own normal, with what to do under it. Below that is the array itself, drawn in code, and it carries the verdict: a dead string goes dark behind a dashed outline, dust settles on the glass, haze dulls it. The sky behind is the weather over that home, taken from the same forecast the rules use, so rain on the screen means rain on the roof. Drag the array and the terrace turns with it.
+
+On a laptop the same pages spread out into a dashboard: the advice beside a bar chart of the last 7, 30 or 90 days, with the days that went wrong in red. History lists units made month by month, opening to weeks and days, with every wash and vendor visit and whether it worked.
+
+None of this changed a rule or a number. It changed whether a person standing on a terrace reads the one line that matters.
+
+![The same home on a laptop: the advice, and the last week's output with the bad days in red](blog/desktop.png)
 
 ---
 
 ## What it runs on, and what it costs
 
-One SAM template, deployed with the SAM CLI to `ap-south-1`.
+One SAM template, deployed with the SAM CLI to `ap-south-1`. The web app is built and served by Amplify Hosting from the same repository.
 
 ```
-phone (React PWA, English and Hindi)
+phone or laptop (React PWA, English and Hindi) ◄── Amplify Hosting
    │  sign in ──────────────► Cognito
    │  every call (JWT) ─────► API Gateway ──► API Lambda ──► DynamoDB (one table, Query only)
    │                                             │  ├─► S3 (screenshots, signed upload slots, 30 days)
@@ -221,6 +237,6 @@ What we did not build mattered as much. No chat. No generated explanations. No "
 
 ---
 
-_Dhool was built for [Environmental Hacks](https://www.wemakedevs.org/aws/env) by WeMakeDevs and AWS, Waste and Energy track. It is open source at [github.com/Aaryan-Degama/Dhool_aws](https://github.com/Aaryan-Degama/Dhool_aws). The screenshots show sample homes from the app's preview page._
+_Dhool was built for [Environmental Hacks](https://www.wemakedevs.org/aws/env) by WeMakeDevs and AWS, Waste and Energy track. It is live at [main.d18fp2anb76xgh.amplifyapp.com](https://main.d18fp2anb76xgh.amplifyapp.com) and open source at [github.com/Aaryan-Degama/Dhool_aws](https://github.com/Aaryan-Degama/Dhool_aws). The screenshots show the app's own sample homes, not a real household's. The sky and city behind the roof are pictures made with an AI image generator; the terrace, the panels and everything on them are drawn in code._
 
 _Built on [pvlib](https://github.com/pvlib/pvlib-python), [Open-Meteo](https://open-meteo.com/), [Tesseract](https://github.com/tesseract-ocr/tesseract), [Qwen3-VL-2B](https://huggingface.co/Qwen) on [llama.cpp](https://github.com/ggml-org/llama.cpp), and [Laya](https://huggingface.co/convaiinnovations/laya); the full list with licences is in `CREDITS.md`. Claude Code (Anthropic) was the AI coding tool throughout, for code, tests, the Hindi text and this post, directed by us; we are responsible for the claims. The vendor replies used to train the reply reader were written by an AI assistant, not collected from vendors._
