@@ -10,4 +10,4 @@ pillow==12.3.0  # the screenshot reader shrinks pictures with it (vision/); the 
 ruff==0.17.0
 mypy==2.4.0
 pip-audit==2.10.1
-pre-commit==4.6.2
+pre-commit==4.7.0
