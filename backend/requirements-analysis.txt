@@ -1,4 +1,4 @@
 pvlib==0.16.1
 pandas==3.0.6
-numpy==2.5.3
+numpy==2.5.4
 pywebpush==2.5.0
