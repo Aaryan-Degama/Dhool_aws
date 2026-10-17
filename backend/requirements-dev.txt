@@ -4,7 +4,7 @@
 pytest==9.1.1
 pytest-cov==7.1.0
 boto3==1.43.111
-moto[dynamodb,s3]==5.2.3
+moto[dynamodb,s3]==5.2.4
 pillow==12.3.0  # the screenshot reader shrinks pictures with it (vision/); the same version as its container
 # Checks, run by CI and by pre-commit (pyproject.toml, .pre-commit-config.yaml).
 ruff==0.17.0
